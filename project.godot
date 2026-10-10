@@ -1,0 +1,33 @@
+; Open in Godot 4.4 or newer. No plugins or external dependencies.
+config_version=5
+
+[application]
+config/name="Мёртвый перрон"
+config/description="1945. Ночная смена — 2D platform shooter"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1440
+window/size/viewport_height=900
+window/size/window_width_override=1280
+window/size/window_height_override=800
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+environment/defaults/default_clear_color=Color(0.035, 0.055, 0.067, 1)
+
+[physics]
+common/physics_ticks_per_second=60
+2d/default_gravity=1500.0
+
+[layer_names]
+2d_physics/layer_1="Environment"
+2d_physics/layer_2="Soldier"
+2d_physics/layer_3="Undead"
+
+[audio]
+driver/enable_input=false
