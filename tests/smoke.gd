@@ -25,7 +25,7 @@ func run() -> void:
 	check(game.level.spans.size() == 10,"10 connected walking spans")
 	check(game.level.ladders.size() == 8,"8 integrated climbable ladders")
 	check(game.enemies.size() == 18,"initial enemy population")
-	var atlas: Image = game.player.sprite.texture.get_image()
+	var atlas: Image = game.enemies[0].sprite.texture.get_image()
 	check(atlas.get_pixel(0,0).a == 0,"sprite atlas has real transparency")
 	# Traverse the level graph: each gap is shorter than the actual jump envelope.
 	var seen: Array[int] = [0]
@@ -58,8 +58,10 @@ func run() -> void:
 	var initial_x := game.player.position.x
 	Input.action_press("right")
 	await frames(24)
+	var moving_state := game.player.rig.state
 	Input.action_release("right")
 	check(game.player.position.x > initial_x+70,"horizontal movement")
+	check(moving_state == "run","greybox body plays the run cycle while moving")
 	await frames(5)
 	Input.action_press("jump")
 	await frames(2)
@@ -127,6 +129,24 @@ func run() -> void:
 	Input.action_release("right")
 	Input.action_release("aim")
 	check(hip_speed > 280 and laser_speed == Soldier.AIM_SPEED,"laser reduces movement speed")
+	# Roll: real input, lowers the capsule, ignores damage early on, covers ground.
+	game.player.position = Vector2(300,1120)
+	game.player.velocity = Vector2.ZERO
+	await frames(10)
+	var roll_from := game.player.position.x
+	Input.action_press("right")
+	Input.action_press("roll")
+	await frames(2)
+	Input.action_release("roll")
+	Input.action_release("right")
+	check(game.player.rolling > 0 and game.player.capsule.height == Soldier.ROLL_HEIGHT and game.player.rig.state == "roll","Shift starts a roll that lowers the collision capsule")
+	await frames(4)
+	var hp_before := game.player.health
+	game.player.invulnerable = 0
+	game.player.take_damage(17)
+	check(game.player.health == hp_before,"roll invulnerability blocks damage early in the roll")
+	await frames(30)
+	check(game.player.rolling <= 0 and game.player.capsule.height == Soldier.STAND_HEIGHT and game.player.position.x > roll_from+120,"roll covers ground and stands back up")
 	# Stop the controller while checking the exact firing rule.
 	game.player.set_physics_process(false)
 	game.player.aim_direction = Vector2(0.92,-0.31).normalized()

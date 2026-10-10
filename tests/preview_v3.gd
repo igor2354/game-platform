@@ -27,8 +27,6 @@ func capture() -> void:
 		game.player.position = view[1]
 		game.camera.position = view[2]
 		game.player.facing = 1
-		game.player.sprite.flip_h = false
-		game.player.sprite.modulate = Color("cbd1c7")
 		game.player.aim_direction = Vector2.RIGHT
 		game.player.aiming = view[0] == "service"
 		game.player.laser_end = game.player.trace_laser()

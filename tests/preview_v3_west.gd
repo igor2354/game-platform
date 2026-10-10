@@ -11,7 +11,6 @@ func capture() -> void:
 	game.camera.zoom = Vector2.ONE*1.2
 	game.camera.position = Vector2(640,890)
 	game.player.facing = 1
-	game.player.sprite.flip_h = false
 	game.player.aim_direction = Vector2.RIGHT
 	game.player.queue_redraw()
 	var plate := StationScenePlate.new()

@@ -19,8 +19,6 @@ func capture() -> void:
 	game.player.aiming = true
 	game.player.aim_direction = Vector2.RIGHT
 	game.player.facing = 1
-	game.player.sprite.flip_h = false
-	game.player.sprite.modulate = Color("cbd1c7")
 	game.player.laser_end = game.player.trace_laser()
 	# Keep the actual playing HUD, with the world simulation stopped for capture.
 	game.hud.set_process(false)

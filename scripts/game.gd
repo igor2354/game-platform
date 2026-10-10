@@ -74,7 +74,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _setup_input() -> void:
-	var bindings := {"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"up":[KEY_W,KEY_UP],"down":[KEY_S,KEY_DOWN],"jump":[KEY_SPACE],"reload":[KEY_R],"interact":[KEY_E],"pause":[KEY_ESCAPE],"start":[KEY_ENTER],"effects":[KEY_F2],"tuner":[KEY_F3],"mute":[KEY_M]}
+	var bindings := {"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"up":[KEY_W,KEY_UP],"down":[KEY_S,KEY_DOWN],"jump":[KEY_SPACE],"roll":[KEY_SHIFT],"reload":[KEY_R],"interact":[KEY_E],"pause":[KEY_ESCAPE],"start":[KEY_ENTER],"effects":[KEY_F2],"tuner":[KEY_F3],"mute":[KEY_M]}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		for key in bindings[action]:
@@ -272,6 +272,7 @@ func fall_recover() -> void:
 	player.velocity = Vector2.ZERO
 	player.climbing = false
 	player.drop_left = 0
+	player.cancel_roll()
 	player.set_collision_mask_value(1,true)
 	player.take_damage(25)
 	if state == "playing": show_toast("Падение · −25 здоровья · возвращение к укрытию")
@@ -289,6 +290,7 @@ func continue_checkpoint() -> void:
 	player.climbing = false
 	player.drop_left = 0
 	player.reload_left = 0
+	player.cancel_roll()
 	player.set_collision_mask_value(1,true)
 	player.invulnerable = 2
 	injury = 0

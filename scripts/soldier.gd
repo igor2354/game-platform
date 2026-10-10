@@ -7,6 +7,18 @@ const JUMP_SPEED := -760.0
 const GRAVITY := 1600.0
 const MAGAZINE := 24
 const RELOAD_TIME := 1.7
+# The greybox rig is authored 220 tall; this scales it to the 130-unit soldier.
+const BODY_SCALE := 0.6
+const STAND_HEIGHT := 114.0
+const ROLL_HEIGHT := 56.0
+const ROLL_SPEED := 380.0
+# Roll invulnerability window, seconds from the start of the roll.
+const ROLL_IFRAME_START := 0.05
+const ROLL_IFRAME_END := 0.35
+# Hand grips in gun space (the rifle texture spans x -32..66): the pistol grip
+# for the far hand and the support hand under the barrel shroud.
+const GRIP_REAR := Vector2(2,10)
+const GRIP_FRONT := Vector2(30,5)
 var game: Node2D
 var health := 100
 var ammo := MAGAZINE
@@ -22,37 +34,56 @@ var invulnerable := 0.0
 var coyote := 0.0
 var jump_buffer := 0.0
 var drop_left := 0.0
-var walk_time := 0.0
 var recoil := 0.0
 var bloom := 0.0
 var since_shot := 0.0
 var climb := 0.0
 var flash := 0.0
-var sprite: Sprite2D
+var rolling := 0.0
+var roll_dir := 1.0
 var weapon_texture: Texture2D
 var laser_end := Vector2.ZERO
-var feet_offset := 0.0
+var capsule: CapsuleShape2D
+var shape: CollisionShape2D
+var body: Node2D
+var rig: HumanoidRig
+var weapon_view: WeaponView
+
+# Draws the rifle on its own layer: above the torso, below the near arm.
+class WeaponView extends Node2D:
+	var soldier: Soldier
+	func _draw() -> void:
+		soldier.draw_weapon(self)
 
 func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 1
 	floor_snap_length = 8
-	var shape := CollisionShape2D.new()
-	var capsule := CapsuleShape2D.new()
+	shape = CollisionShape2D.new()
+	capsule = CapsuleShape2D.new()
 	capsule.radius = 14
-	capsule.height = 114
 	shape.shape = capsule
-	shape.position = Vector2(0,-57)
 	add_child(shape)
-	sprite = Sprite2D.new()
-	sprite.texture = load("res://assets/art/actors.png")
-	sprite.region_enabled = true
-	sprite.region_filter_clip_enabled = true
-	sprite.scale = Vector2.ONE * 0.23
-	sprite.position.y = -65.5
-	add_child(sprite)
+	_set_height(STAND_HEIGHT)
+	body = Node2D.new()
+	body.scale = Vector2.ONE*BODY_SCALE
+	add_child(body)
+	rig = load("res://scenes/characters/humanoid_greybox.tscn").instantiate()
+	body.add_child(rig)
+	# Manual mode: _process advances the animation, then puts the hands on the rifle.
+	rig.set_manual(true)
+	weapon_view = WeaponView.new()
+	weapon_view.soldier = self
+	weapon_view.z_index = 1
+	add_child(weapon_view)
 	weapon_texture = load("res://assets/art/v3/props.png")
-	_set_frame(false)
+
+func _process(delta: float) -> void:
+	if game.state not in ["playing","title"]: return
+	rig.advance(delta)
+	if not climbing and rolling <= 0:
+		rig.hold(weapon_point(GRIP_FRONT),weapon_point(GRIP_REAR),get_global_mouse_position())
+	weapon_view.queue_redraw()
 
 func _physics_process(delta: float) -> void:
 	if game.state != "playing":
@@ -84,11 +115,15 @@ func _physics_process(delta: float) -> void:
 	jump_buffer = maxf(0,jump_buffer-delta)
 	if Input.is_action_just_pressed("jump"): jump_buffer = 0.12
 	var vertical := Input.get_axis("up","down")
+	if rolling <= 0 and Input.is_action_just_pressed("roll") and is_on_floor() and not climbing:
+		_start_roll(direction)
 	var nearby: int = game.level.ladder_at(global_position,vertical)
-	if nearby >= 0 and absf(vertical) > 0.01 and not climbing and drop_left <= 0 and not (jump_buffer > 0 and vertical > 0):
+	if rolling <= 0 and nearby >= 0 and absf(vertical) > 0.01 and not climbing and drop_left <= 0 and not (jump_buffer > 0 and vertical > 0):
 		climbing = true
 		climb_index = nearby
-	if climbing:
+	if rolling > 0:
+		_roll(delta)
+	elif climbing:
 		var ladder: Rect2 = game.level.ladders[climb_index]
 		global_position.x = move_toward(global_position.x,ladder.get_center().x,delta*230)
 		velocity = Vector2(0,vertical * (92.0 if aiming else 158.0))
@@ -132,21 +167,54 @@ func _physics_process(delta: float) -> void:
 		if drop_left <= 0 and not climbing: set_collision_mask_value(1,true)
 	move_and_slide()
 	if position.y > 1480: game.fall_recover()
-	if Input.is_action_pressed("shoot") and not climbing and not game.tuner_blocks_fire(): fire()
+	if Input.is_action_pressed("shoot") and not climbing and rolling <= 0 and not game.tuner_blocks_fire(): fire()
 	elif cooldown < 0: cooldown = 0
 	if Input.is_action_just_pressed("interact"): game.interact()
-	walk_time += delta*(absf(velocity.x)*0.045+absf(velocity.y)*0.025)
-	var moving := absf(velocity.x) > 15 or climbing
-	_set_frame(moving and sin(walk_time) > 0)
-	sprite.flip_h = facing < 0
-	sprite.position.y = -65.5 + (sin(walk_time*2)*1.2 if moving else sin(Time.get_ticks_msec()*0.002)*0.45)
-	sprite.modulate = Color(1.3,0.75,0.65) if invulnerable > 0 and sin(invulnerable*40) > 0 else Color("cbd1c7")
+	_drive_body()
+	body.modulate = Color(1.3,0.75,0.65) if invulnerable > 0 and sin(invulnerable*40) > 0 else Color.WHITE
 	if aiming: laser_end = trace_laser()
 	queue_redraw()
 
-func _set_frame(walking: bool) -> void:
-	var cell := sprite.texture.get_size()*0.5
-	sprite.region_rect = Rect2(Vector2(cell.x if walking else 0,0),cell)
+func _drive_body() -> void:
+	var anim := "idle"
+	if rolling > 0: anim = "roll"
+	elif climbing: anim = "climb"
+	elif not is_on_floor(): anim = "run"
+	elif absf(velocity.x) > 15: anim = "walk" if aiming else "run"
+	rig.face(roll_dir if rolling > 0 else facing)
+	# The rig measures speed in its own units; airborne holds the stride pose.
+	var rig_velocity := Vector2.ZERO if anim == "run" and not is_on_floor() else velocity/BODY_SCALE
+	if anim != "roll" or rig.state != "roll": rig.drive(anim,rig_velocity)
+
+func _start_roll(direction: float) -> void:
+	rolling = HumanoidRig.ROLL_TIME
+	roll_dir = direction if direction != 0 else facing
+	_set_height(ROLL_HEIGHT)
+
+func _roll(delta: float) -> void:
+	var progress := 1.0-rolling/HumanoidRig.ROLL_TIME
+	# Full speed through the tumble, easing off into the stand-up.
+	velocity.x = roll_dir*ROLL_SPEED*(1.0 if progress < 0.75 else lerpf(1.0,0.35,(progress-0.75)/0.25))
+	velocity.y = minf(velocity.y+GRAVITY*delta,1100)
+	rolling -= delta
+	if rolling <= 0: cancel_roll()
+
+func cancel_roll() -> void:
+	rolling = 0
+	_set_height(STAND_HEIGHT)
+
+func roll_protected() -> bool:
+	var elapsed := HumanoidRig.ROLL_TIME-rolling
+	return rolling > 0 and elapsed >= ROLL_IFRAME_START and elapsed <= ROLL_IFRAME_END
+
+func _set_height(height: float) -> void:
+	capsule.height = height
+	shape.position.y = -height*0.5
+
+# A point given in gun space, in global coordinates (follows aim and recoil).
+func weapon_point(point: Vector2) -> Vector2:
+	var barrel := barrel_direction()
+	return global_position+Vector2(9*facing,-84)-barrel*recoil+Vector2(point.x,point.y*facing).rotated(barrel.angle())
 
 func gun_origin() -> Vector2:
 	return global_position+Vector2(9*facing,-84)
@@ -216,7 +284,7 @@ func finish_reload() -> void:
 	reload_left = 0
 
 func take_damage(amount: int) -> void:
-	if invulnerable > 0 or health <= 0 or game.state != "playing": return
+	if invulnerable > 0 or roll_protected() or health <= 0 or game.state != "playing": return
 	health = maxi(0,health-amount)
 	invulnerable = 0.85
 	game.injury = 1
@@ -226,10 +294,10 @@ func take_damage(amount: int) -> void:
 	if health <= 0: game.die()
 
 func _draw() -> void:
-	# Ground contact shadow and a fully independent mouse-aimed rifle.
+	# Ground contact shadow and the laser; the rifle is drawn by WeaponView.
 	draw_set_transform(Vector2.ZERO)
 	draw_ellipse_shadow()
-	if climbing: return
+	if climbing or rolling > 0: return
 	if aiming and game.state == "playing":
 		var from := gun_origin()-global_position
 		var to := laser_end-global_position
@@ -237,13 +305,16 @@ func _draw() -> void:
 		draw_line(from,to,Color(1,0.3,0.19,0.8),1,true)
 		draw_circle(to,4,Color(1,0.28,0.1,0.18))
 		draw_circle(to,1.8,Color("ffd1a2"))
+
+func draw_weapon(canvas: CanvasItem) -> void:
+	if climbing or rolling > 0: return
 	var barrel := barrel_direction()
-	draw_set_transform(Vector2(9*facing,-84)-barrel*recoil,barrel.angle(),Vector2(1,facing))
-	draw_texture_rect_region(weapon_texture,Rect2(-32,-8,98,28),Rect2(12,228,761,220),Color("cbd1c7"))
+	canvas.draw_set_transform(Vector2(9*facing,-84)-barrel*recoil,barrel.angle(),Vector2(1,facing))
+	canvas.draw_texture_rect_region(weapon_texture,Rect2(-32,-8,98,28),Rect2(12,228,761,220),Color("cbd1c7"))
 	if flash > 0:
-		draw_colored_polygon(PackedVector2Array([Vector2(65,-3),Vector2(92,-8),Vector2(84,0),Vector2(101,3),Vector2(83,6),Vector2(91,12),Vector2(65,6)]),Color("ffbf5b"))
-		draw_circle(Vector2(67,2),5,Color("fff2b3"))
-	draw_set_transform(Vector2.ZERO)
+		canvas.draw_colored_polygon(PackedVector2Array([Vector2(65,-3),Vector2(92,-8),Vector2(84,0),Vector2(101,3),Vector2(83,6),Vector2(91,12),Vector2(65,6)]),Color("ffbf5b"))
+		canvas.draw_circle(Vector2(67,2),5,Color("fff2b3"))
+	canvas.draw_set_transform(Vector2.ZERO)
 
 func draw_ellipse_shadow() -> void:
 	draw_set_transform(Vector2(0,-1),0,Vector2(1,0.18))
