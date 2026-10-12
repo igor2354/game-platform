@@ -1,5 +1,5 @@
 class_name CoreEnemyDummy
-extends StaticBody2D
+extends CharacterBody2D
 
 @export var body_size := Vector2(32,64)
 @export var identifier := "01"

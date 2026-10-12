@@ -33,7 +33,7 @@ func run() -> void:
 	root.add_child(lab)
 	hero = lab.player
 	await frames(8)
-	check(lab.level.enemies.size() == 3 and hero is CoreMovementPlayer,"main scene is the core lab with a capsule collider and three simple targets")
+	check(lab.level.enemies.size() == 4 and lab.level.zombie is CoreZombie and hero is CoreMovementPlayer,"main scene contains the core player, three stationary targets and a zombie arena")
 	check(hero.is_on_floor() and absf(hero.position.y-760) < 2,"player starts standing on the test floor")
 	if "--packed" in OS.get_cmdline_user_args():
 		check(not ResourceLoader.exists("res://scenes/archive/station_demo.tscn") and not FileAccess.file_exists("res://assets/drawn_soldier/walk.png"),"movement pack excludes the archived scene and painted actors")

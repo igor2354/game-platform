@@ -8,6 +8,7 @@ const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd"
 @export var settings_path := CoreMovementSettings.SAVE_PATH
 @export var shooting_settings_path := CoreShootingSettings.SAVE_PATH
 @export var camera_settings_path := CoreCameraSettings.SAVE_PATH
+@export var zombie_settings_path := CoreZombieSettings.SAVE_PATH
 
 @onready var level: CoreMovementLevel = $World/Level
 @onready var player: CoreMovementPlayer = $World/Player
@@ -20,6 +21,8 @@ var movement_overlay: CoreMovementOverlay
 var shooting_overlay: CoreMovementOverlay
 var camera_overlay: CoreMovementOverlay
 var camera_settings: CoreCameraSettings
+var zombie_overlay: CoreMovementOverlay
+var zombie_settings: CoreZombieSettings
 var camera_applied_values: Dictionary = {}
 var camera_was_paused := false
 var respawn_enemies_button: Button
@@ -50,14 +53,24 @@ func _ready() -> void:
 	for enemy in level.enemies:
 		enemy.damage_tuning = player.weapon.tuning
 		enemy.posture_changed.connect(player.allow_exit_overlapping_enemies)
+	level.zombie.target = player
+	var zombie_defaults := level.zombie.tuning.duplicate() as CoreZombieSettings
+	zombie_defaults.apply_values(zombie_defaults.as_dictionary())
+	zombie_settings = zombie_defaults.duplicate() as CoreZombieSettings
+	for enemy in level.enemies:
+		if enemy is CoreZombie: enemy.tuning = zombie_settings
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
 	if load_user_settings: player.tuning.load_saved(settings_path)
 	if load_user_settings: player.weapon.tuning.load_saved(shooting_settings_path)
 	if load_user_settings: camera_settings.load_saved(camera_settings_path)
+	if load_user_settings: zombie_settings.load_saved(zombie_settings_path)
+	_zombie_settings_changed()
 	player.fell.connect(_recover)
 	player.weapon.camera_impulse.connect(_camera_impulse)
+	player.weapon.shot_fired.connect(_shot_noise)
+	player.noise_emitted.connect(_broadcast_noise)
 	player.reset_to(CoreMovementLevel.SPAWN)
 	camera.make_current()
 	camera.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -89,6 +102,17 @@ func _ready() -> void:
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
 	overlay_layer.add_child(camera_overlay)
+	zombie_overlay = CoreMovementOverlay.new()
+	zombie_overlay.settings = zombie_settings
+	zombie_overlay.defaults = zombie_defaults
+	zombie_overlay.settings_path = zombie_settings_path
+	zombie_overlay.params = CoreZombieSettings.PARAMS
+	zombie_overlay.groups = ["Зрение","Слух","Движение","Бой"]
+	zombie_overlay.heading_text = "НАСТРОЙКА ЗОМБИ · F6"
+	zombie_overlay.help_text = "Обзор и скорость — сразу. Тайминги — с нового действия."
+	zombie_overlay.current_values_text = "Текущие настройки зомби · F1 — сектор и слух"
+	zombie_overlay.settings_changed.connect(_zombie_settings_changed)
+	overlay_layer.add_child(zombie_overlay)
 	for overlay in _overlays():
 		overlay.export_requested.connect(_open_settings_dialog.bind(true))
 		overlay.import_requested.connect(_open_settings_dialog.bind(false))
@@ -103,7 +127,19 @@ func _blocks_keyboard() -> bool:
 	return false
 
 func _overlays() -> Array[CoreMovementOverlay]:
-	return [movement_overlay,shooting_overlay,camera_overlay]
+	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay]
+
+func _zombie_settings_changed() -> void:
+	for enemy in level.enemies:
+		if enemy is CoreZombie: enemy.apply_tuning()
+	level.queue_redraw()
+
+func _shot_noise(origin: Vector2,_direction: Vector2,_aimed: bool,_spread: float) -> void:
+	_broadcast_noise(origin,1.0,"shot")
+
+func _broadcast_noise(point: Vector2,loudness: float,kind: String) -> void:
+	for enemy in level.enemies:
+		if enemy is CoreZombie: enemy.hear_noise(point,loudness,kind)
 
 func _blocks_shooting() -> bool:
 	if suppress_mouse_until_release:
@@ -116,7 +152,7 @@ func _blocks_shooting() -> bool:
 	return false
 
 func _setup_input() -> void:
-	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_dash":[KEY_SHIFT],"core_reset":[KEY_R],"core_pause":[KEY_ESCAPE],"core_debug":[KEY_F1],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_fire_mode":[KEY_B]}
+	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_dash":[KEY_SHIFT],"core_reset":[KEY_R],"core_pause":[KEY_ESCAPE],"core_debug":[KEY_F1],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_zombie_tuner":[KEY_F6],"core_fire_mode":[KEY_B],"core_zombie_test":[KEY_T]}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		InputMap.action_erase_events(action)
@@ -156,7 +192,7 @@ func _build_hud() -> void:
 	respawn_enemies_button.pressed.connect(_respawn_enemies)
 	hud_pointer_position = get_viewport().get_mouse_position()
 	shooting_telemetry = _label(layer,Vector2(30,813),"",18)
-	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · B — режим · F3 — движение · F4 — стрельба · F5 — камера · F1 — тело · R — сброс",18)
+	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · B — режим · F3–F6 — настройки · F1 — зоны · T — к зомби · R — сброс",18)
 
 func _label(parent: Node,point: Vector2,text: String,size: int) -> Label:
 	var label := Label.new()
@@ -169,6 +205,13 @@ func _label(parent: Node,point: Vector2,text: String,size: int) -> Label:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _blocks_keyboard(): return
+	if event.is_action_pressed("core_zombie_test") and not event.is_echo():
+		player.reset_to(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
+		_clear_projectiles()
+		camera_kick = Vector2.ZERO
+		camera_shake = 0
+		camera.offset = Vector2.ZERO
+		_update_camera(true)
 	if event.is_action_pressed("core_fire") and not get_tree().paused and not _blocks_shooting():
 		# Keep short clicks that begin and end between two physics ticks.
 		if player.weapon.tuning.fire_mode == CoreShootingSettings.FireMode.SINGLE and player.weapon.cooldown <= 0:
@@ -198,7 +241,7 @@ func _input(event: InputEvent) -> void:
 			if overlay.visible and overlay.panel.get_global_rect().has_point(event.position):
 				# Closing or dragging off the panel must not turn that click into fire.
 				suppress_mouse_until_release = true
-	var overlay_actions := {"core_tuner":movement_overlay,"core_weapon_tuner":shooting_overlay,"core_camera_tuner":camera_overlay}
+	var overlay_actions := {"core_tuner":movement_overlay,"core_weapon_tuner":shooting_overlay,"core_camera_tuner":camera_overlay,"core_zombie_tuner":zombie_overlay}
 	for action in overlay_actions:
 		if event.is_action_pressed(action) and not event.is_echo():
 			var selected: CoreMovementOverlay = overlay_actions[action]
@@ -256,7 +299,7 @@ func _settings_file_selected(path: String) -> void:
 	_close_settings_dialog()
 
 func _settings_resources() -> Dictionary:
-	return {"movement":player.tuning,"shooting":player.weapon.tuning,"camera":camera_settings}
+	return {"movement":player.tuning,"shooting":player.weapon.tuning,"camera":camera_settings,"zombie":zombie_settings}
 
 func _settings_file_message(message: String) -> void:
 	for overlay in _overlays():
@@ -273,13 +316,14 @@ func export_settings_file(path: String) -> bool:
 	return true
 
 func import_settings_file(path: String) -> bool:
-	var defaults := {"movement":movement_overlay.defaults,"shooting":shooting_overlay.defaults,"camera":camera_overlay.defaults}
+	var defaults := {"movement":movement_overlay.defaults,"shooting":shooting_overlay.defaults,"camera":camera_overlay.defaults,"zombie":zombie_overlay.defaults}
 	var result := SettingsFile.read_file(path,defaults)
 	if result.has("error"):
 		_settings_file_message(result.error)
 		return false
 	var resources := _settings_resources()
 	for section in resources: resources[section].apply_values(result.values[section])
+	_zombie_settings_changed()
 	var saved := true
 	for overlay in _overlays():
 		var save_result: int = overlay.settings.save_saved(overlay.settings_path)
@@ -361,7 +405,7 @@ func _process(delta: float) -> void:
 		camera_phase += delta
 		camera.offset = camera_kick+Vector2(sin(camera_phase*83)*.65,sin(camera_phase*127+1.2))*camera_shake
 	var names := {"idle":"стойка","run":"бег","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница"}
-	hud.text = "КОР ГЕЙМПЛЕЯ · ПЕРЕДВИЖЕНИЕ И СТРЕЛЬБА"+(" · ПАУЗА" if get_tree().paused else "")
+	hud.text = ("ПОГИБ · R — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/100" % player.health)+(" · ПАУЗА" if get_tree().paused else "")
 	var dash_status := "готов" if player.dash_available() else ("на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
 	telemetry.text = "Состояние: %s    Скорость: %.0f / %.0f    Дэш: %s    Последний дэш: %.0f px    Возвраты: %d" % [names[player.mode],player.velocity.x,player.velocity.y,dash_status,player.last_dash_distance,respawns]
 	var weapon := player.weapon

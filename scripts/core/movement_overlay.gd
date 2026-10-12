@@ -3,6 +3,7 @@ extends Control
 
 signal export_requested
 signal import_requested
+signal settings_changed
 
 var settings: Resource
 var defaults: Resource
@@ -115,7 +116,7 @@ func _ready() -> void:
 	import_button = _button("Импорт из файла",func(): import_requested.emit())
 	for button in [export_button,import_button]:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.tooltip_text = "Все настройки: движение, склоны, стрельба, звук и камера"
+		button.tooltip_text = "Все настройки: движение, стрельба, камера и зомби"
 		file_buttons.add_child(button)
 	status = _label("",14)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -214,6 +215,7 @@ func _change_value(value: float,key: String) -> void:
 	if syncing: return
 	settings.set_parameter(key,value)
 	_sync()
+	settings_changed.emit()
 	flash_left = 0
 
 func _change_fire_mode(index: int) -> void:
@@ -239,6 +241,13 @@ func _sync() -> void:
 	_update_status()
 
 func _update_readout() -> void:
+	if settings is CoreZombieSettings:
+		match tabs.get_tab_title(tabs.current_tab):
+			"Зрение": readout.text = "Сектор: %.0f° · Обнаружение: %.0f px\nСмещение X: %.0f px · X+ вперёд, X− назад\nF1 — сектор и слух; со спины может услышать." % [settings.vision_angle,settings.detection_range,settings.vision_offset_x]
+			"Слух": readout.text = "Шаги: %.0f px · выстрел: %.0f px\nДэш: %.0f px · через преграду: %.0f%%\nШум запоминается на %.1f с; 0 px — глухой." % [settings.hearing_range*settings.movement_noise_multiplier,settings.hearing_range*settings.shot_noise_multiplier,settings.hearing_range*settings.movement_noise_multiplier*2,settings.noise_occlusion_multiplier*100,settings.noise_memory_time]
+			"Движение": readout.text = "Патруль: ±%.0f px от исходной точки\nС одной ногой: патруль %.0f · погоня %.0f px/с\nБез обеих ног: %.0f px/с, пока есть руки" % [settings.patrol_radius,settings.patrol_speed*.55,settings.chase_speed*.55,settings.crawl_speed]
+			"Бой": readout.text = "Удар: %.0f HP · одной рукой: %.2f HP\nЦикл атаки: %.2f с · дальность %.0f px\nПрочность конечностей — F4 → «Урон»." % [settings.attack_damage,settings.attack_damage*.65,settings.attack_windup+settings.attack_recovery,settings.attack_range]
+		return
 	if settings is CoreCameraSettings:
 		readout.text = "Масштаб: %.2f× · Видимая ширина ≈ %.0f px\nX+: камера правее героя · Y+: ниже\nСкорость слежения 0 — без сглаживания" % [settings.zoom,get_viewport_rect().size.x/settings.zoom]
 		return
@@ -281,6 +290,7 @@ func load_profile() -> void:
 	if result == OK:
 		saved_values = settings.as_dictionary()
 		_sync()
+		settings_changed.emit()
 		_flash("Сохранённые значения загружены")
 	else: _flash("Сохранённого профиля пока нет" if result == ERR_FILE_NOT_FOUND else "Не удалось загрузить (%d)" % result)
 
@@ -288,6 +298,7 @@ func reset_profile() -> void:
 	_finish_editing("")
 	settings.apply_values(defaults.as_dictionary())
 	_sync()
+	settings_changed.emit()
 	_flash("Базовые значения восстановлены. Сохраните, чтобы оставить их.")
 
 func copy_profile() -> void:

@@ -2,6 +2,11 @@ class_name CoreMovementPlayer
 extends CharacterBody2D
 
 signal fell
+signal noise_emitted(point: Vector2,loudness: float,kind: String)
+const MAX_HEALTH := 100.0
+var health := MAX_HEALTH
+var hurt_left := 0.0
+var hurt_flash := 0.0
 const HEIGHT := 64.0
 const RADIUS := 14.0
 const WORLD_MASK := 1 | 4 | 8
@@ -31,6 +36,9 @@ var dash_held := false
 var body: CoreHybridBody
 var movement_shape: CollisionShape2D
 var dash_overlap_exceptions: Array[PhysicsBody2D] = []
+var step_noise_distance := 0.0
+var ladder_noise_distance := 0.0
+var movement_noise_suppressed := 0.0
 
 func _ready() -> void:
 	if tuning == null: tuning = CoreMovementSettings.new()
@@ -57,6 +65,13 @@ func _ready() -> void:
 
 func reset_to(point: Vector2) -> void:
 	_clear_dash_exceptions()
+	step_noise_distance = 0
+	ladder_noise_distance = 0
+	movement_noise_suppressed = .08
+	health = MAX_HEALTH
+	hurt_left = 0
+	hurt_flash = 0
+	if body: body.modulate = Color.WHITE
 	global_position = point
 	velocity = Vector2.ZERO
 	ground_speed = 0
@@ -80,10 +95,32 @@ func reset_to(point: Vector2) -> void:
 	queue_redraw()
 
 func dash_available() -> bool:
-	return not climbing and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or not air_dash_used)
+	return health > 0 and not climbing and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or not air_dash_used)
+
+func take_damage(amount: float) -> bool:
+	if health <= 0 or dash_left > 0 or hurt_left > 0 or not is_finite(amount) or amount <= 0: return false
+	health = maxf(0,health-amount)
+	hurt_left = .65
+	hurt_flash = .16
+	return true
 
 func _physics_process(delta: float) -> void:
 	_refresh_dash_exceptions()
+	movement_noise_suppressed = maxf(0,movement_noise_suppressed-delta)
+	var previous_position := global_position
+	var was_grounded := is_on_floor()
+	var previous_fall_speed := velocity.y
+	var was_dashing := dash_left > 0
+	hurt_left = maxf(0,hurt_left-delta)
+	hurt_flash = maxf(0,hurt_flash-delta)
+	body.modulate = Color("6c737a") if health <= 0 else Color("ff8f80") if hurt_flash > 0 else Color.WHITE
+	if health <= 0:
+		weapon.update_state(delta,false)
+		velocity.x = 0
+		velocity.y = minf(velocity.y+tuning.gravity*delta,tuning.fall_speed)
+		move_and_slide()
+		if global_position.y > 1120: fell.emit()
+		return
 	var input_allowed := not input_blocker.is_valid() or not bool(input_blocker.call())
 	var axis := Input.get_axis("core_left","core_right") if input_allowed else 0.0
 	var vertical := Input.get_axis("core_up","core_down") if input_allowed else 0.0
@@ -122,7 +159,29 @@ func _physics_process(delta: float) -> void:
 	# Choose this tick's body anchors before computing the muzzle and firing.
 	weapon.finish_tick()
 	body.update_arms()
+	_emit_movement_noise(previous_position,was_grounded,previous_fall_speed,was_dashing)
 	queue_redraw()
+
+func _emit_movement_noise(previous_position: Vector2,was_grounded: bool,fall_speed: float,was_dashing: bool) -> void:
+	if movement_noise_suppressed > 0: return
+	var travel := global_position.distance_to(previous_position)
+	if climbing:
+		step_noise_distance = 0
+		ladder_noise_distance += travel
+		if ladder_noise_distance >= 48:
+			ladder_noise_distance = fmod(ladder_noise_distance,48)
+			noise_emitted.emit(global_position-Vector2(0,HEIGHT*.5),.7,"ladder")
+		return
+	ladder_noise_distance = 0
+	if dash_left > 0 or was_dashing: return
+	if is_on_floor():
+		if not was_grounded and fall_speed > 180:
+			noise_emitted.emit(global_position-Vector2(0,8),1.5,"land")
+		step_noise_distance += travel
+		if step_noise_distance >= 64:
+			step_noise_distance = fmod(step_noise_distance,64)
+			noise_emitted.emit(global_position-Vector2(0,8),1.0,"step")
+	else: step_noise_distance = 0
 
 func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 	var grounded := is_on_floor()
@@ -170,6 +229,7 @@ func _start_dash(axis: float) -> void:
 	dash_origin = global_position
 	dashes += 1
 	set_collision_mask_value(3,false)
+	noise_emitted.emit(global_position-Vector2(0,HEIGHT*.5),2.0,"dash")
 
 func _tick_dash(delta: float) -> void:
 	# Enemy bodies are phased; swept movement still stops at world geometry.
@@ -211,6 +271,15 @@ func allow_exit_overlapping_enemies() -> void:
 		if enemy in get_collision_exceptions(): continue
 		add_collision_exception_with(enemy)
 		dash_overlap_exceptions.append(enemy)
+		var cleanup := _enemy_exiting.bind(enemy)
+		if not enemy.tree_exiting.is_connected(cleanup): enemy.tree_exiting.connect(cleanup)
+
+func _enemy_exiting(enemy: PhysicsBody2D) -> void:
+	# Remove the RID while it still exists; querying a freed exception is an
+	# engine error even after our local list has discarded the dead Node.
+	if enemy in dash_overlap_exceptions:
+		remove_collision_exception_with(enemy)
+		dash_overlap_exceptions.erase(enemy)
 
 func _refresh_dash_exceptions() -> void:
 	if dash_overlap_exceptions.is_empty(): return

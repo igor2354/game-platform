@@ -3,7 +3,7 @@ extends RefCounted
 const FORMAT := "dead-platform-settings"
 const VERSION := 1
 const MAX_BYTES := 1024*1024
-const SECTIONS := ["movement","shooting","camera"]
+const SECTIONS := ["movement","shooting","camera","zombie"]
 
 static func write_file(path: String,settings: Dictionary) -> Error:
 	var data := {"format":FORMAT,"version":VERSION}
@@ -38,13 +38,15 @@ static func read_file(path: String,defaults: Dictionary) -> Dictionary:
 	# Validate every section before touching any active resource. Missing keys
 	# use project defaults so older presets remain independent of current edits.
 	for section in SECTIONS:
-		if not data.get(section) is Dictionary:
+		# Version 1 files from older builds have no zombie section.
+		var source = data.get(section,{}) if section == "zombie" else data.get(section)
+		if not source is Dictionary:
 			return {"error":"В файле отсутствует раздел %s." % section}
 		var candidate: Resource = defaults[section].duplicate()
 		var merged: Dictionary = candidate.as_dictionary()
 		for key in merged:
-			if not data[section].has(key): continue
-			var value = data[section][key]
+			if not source.has(key): continue
+			var value = source[key]
 			if merged[key] is bool:
 				if not value is bool: return {"error":"%s.%s: нужно true или false." % [section,key]}
 			elif not (value is int or value is float) or not is_finite(float(value)):

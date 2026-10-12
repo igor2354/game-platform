@@ -43,12 +43,14 @@ func run() -> void:
 	await frames(8)
 	await single_shot()
 	check(gun.shots_fired == 1 and gun.recoil_back > 0 and gun.recoil_angle > 0,"a real shot kicks the weapon backwards and lifts its barrel")
-	check(lab.camera.offset.length() > 0 and lab.camera_kick.length() > 0,"a shot drives directional camera motion")
 	check(gun.effects.any(func(effect: Dictionary) -> bool: return effect.get("kind","") == "casing"),"shots eject visible casings")
 	# Audio runs in wall-clock time. A short shot can finish before two physics
 	# ticks on a busy runner; natural completion also proves it was played.
 	await process_frame
 	await process_frame
+	# Physics may run twice before an idle frame; the camera applies its
+	# impulse in _process, so observe it after an actual process update.
+	check(lab.camera.offset.length() > 0 and lab.camera_kick.length() > 0,"a shot drives directional camera motion")
 	check((gun.shot_audio.playing or shot_audio_finished) and gun.shot_audio.volume_db == gun.tuning.shot_volume,"shot sound plays at the configured volume")
 	var hip_back: float = shots[0].back
 	var hip_angle: float = shots[0].angle
