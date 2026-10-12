@@ -97,16 +97,19 @@ func run() -> void:
 	await frames(121)
 	check(gun.shots_fired >= 33 and gun.shots_fired <= 35,"fractional cadence preserves about 1000 RPM over two seconds")
 	var hill := lab.level.slopes[1]
-	for aimed in [false,true]:
-		await settle(hill[0].lerp(hill[1],.3)-Vector2(0,10))
-		Input.action_press("core_right")
-		Input.action_press("core_aim" if aimed else "core_fire")
-		await frames(30)
-		var origin := hero.position
-		await frames(3)
-		var measured := hero.position.distance_to(origin)/(3*hero.get_physics_process_delta_time())
-		var expected := hero.tuning.run_speed*(gun.tuning.ads_move_multiplier if aimed else gun.tuning.hip_move_multiplier)
-		check(hero.is_on_floor() and absf(measured-expected) < 2,"weapon slowdown follows a 35 degree slope (aimed %s, %.1f px/s)" % [aimed,measured])
+	for side in [0,2]:
+		for aimed in [false,true]:
+			await settle(hill[side].lerp(hill[side+1],.3)-Vector2(0,10))
+			Input.action_press("core_right")
+			Input.action_press("core_aim" if aimed else "core_fire")
+			await frames(30)
+			var origin := hero.position
+			await frames(6)
+			var measured := hero.position.distance_to(origin)/(6*hero.get_physics_process_delta_time())
+			var expected := (224.0 if side == 0 else 368.0)*(gun.tuning.ads_move_multiplier if aimed else gun.tuning.hip_move_multiplier)
+			# Allow the capsule's 0.08 px contact correction per physics tick;
+			# also allow small variations of the capsule's contact normal.
+			check(hero.is_on_floor() and absf(measured-expected) < 5 and absf(hero.ground_speed-expected) < 2,"weapon slowdown combines with ascent/descent (side %d, aimed %s, %.1f px/s)" % [side,aimed,measured])
 	await settle(Vector2(2250,760))
 	var target := lab.level.enemies[0]
 	for dummy in lab.level.enemies: dummy.reset_target()

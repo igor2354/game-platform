@@ -19,7 +19,11 @@ const PARAMS := [
 	["dash_cooldown","Восстановление от старта",.10,2.0,.01,"с","Дэш"],
 	["climb_speed","Скорость подъёма и спуска",40.0,450.0,10.0,"px/с","Лестница"],
 	["ladder_snap_speed","Скорость притягивания",60.0,500.0,10.0,"px/с","Лестница"],
-	["ladder_regrab_delay","Задержка повторного захвата",.05,.80,.01,"с","Лестница"]
+	["ladder_regrab_delay","Задержка повторного захвата",.05,.80,.01,"с","Лестница"],
+	["uphill_multiplier","Скорость на крутом подъёме",.20,1.0,.01,"×","Склоны"],
+	["downhill_multiplier","Скорость на крутом спуске",1.0,1.50,.01,"×","Склоны"],
+	["slope_start_angle","Угол начала эффекта",0.0,15.0,1.0,"°","Склоны"],
+	["slope_full_angle","Угол полного эффекта",16.0,45.0,1.0,"°","Склоны"]
 ]
 
 @export_category("Бег")
@@ -42,6 +46,17 @@ const PARAMS := [
 @export var climb_speed := 180.0
 @export var ladder_snap_speed := 180.0
 @export var ladder_regrab_delay := .22
+@export_category("Склоны")
+@export var uphill_multiplier := .70
+@export var downhill_multiplier := 1.15
+@export var slope_start_angle := 3.0
+@export var slope_full_angle := 35.0
+
+func slope_multiplier(angle_degrees: float,uphill: bool) -> float:
+	# Ease the angle contribution at both ends; acceleration handles changes
+	# in the target speed, including direction reversals and flat crests.
+	var weight := smoothstep(slope_start_angle,slope_full_angle,absf(angle_degrees))
+	return lerpf(1.0,uphill_multiplier if uphill else downhill_multiplier,weight)
 
 func as_dictionary() -> Dictionary:
 	var values := {}

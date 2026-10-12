@@ -20,3 +20,7 @@ dash_cooldown = 0.42
 climb_speed = 180.0
 ladder_snap_speed = 180.0
 ladder_regrab_delay = 0.22
+uphill_multiplier = 0.7
+downhill_multiplier = 1.15
+slope_start_angle = 3.0
+slope_full_angle = 35.0

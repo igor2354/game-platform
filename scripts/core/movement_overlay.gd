@@ -1,10 +1,13 @@
 class_name CoreMovementOverlay
 extends Control
 
+signal export_requested
+signal import_requested
+
 var settings: Resource
 var defaults: Resource
 var params: Array = CoreMovementSettings.PARAMS
-var groups := ["Бег","Прыжок","Дэш","Лестница"]
+var groups := ["Бег","Прыжок","Дэш","Лестница","Склоны"]
 var heading_text := "НАСТРОЙКА ДВИЖЕНИЯ · F3"
 var help_text := "Изменения применяются сразу. Проверяйте на площадке."
 var current_values_text := "Текущие значения · новые тайминги со следующего действия"
@@ -23,6 +26,8 @@ var load_button: Button
 var pointer_position := Vector2.ZERO
 var fire_mode_selector: OptionButton
 var camera_limits_toggle: CheckButton
+var export_button: Button
+var import_button: Button
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -83,11 +88,16 @@ func _ready() -> void:
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_theme_constant_override("separation",6)
 		scroll.add_child(box)
+		if settings is CoreMovementSettings and group == "Склоны":
+			var hint := _label("Множители от скорости бега: 1× — обычный темп.\nЭффект плавно растёт между заданными углами.\nПрименяется к бегу; дэш и лестница сохраняют свой темп.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
 		for param in params:
 			if param[6] == group: _add_row(box,param)
 	readout = _label("",16)
 	readout.add_theme_color_override("font_color",Color("91c6de"))
 	content.add_child(readout)
+	tabs.tab_changed.connect(func(_index: int): _update_readout())
 	content.add_child(_label("Числа — точный ввод. Enter — закончить ввод.",14))
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation",6)
@@ -98,6 +108,15 @@ func _ready() -> void:
 	for button in [save_button,load_button,reset_button,_button("Копировать",copy_profile)]:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		buttons.add_child(button)
+	var file_buttons := HBoxContainer.new()
+	file_buttons.add_theme_constant_override("separation",6)
+	content.add_child(file_buttons)
+	export_button = _button("Экспорт в файл",func(): export_requested.emit())
+	import_button = _button("Импорт из файла",func(): import_requested.emit())
+	for button in [export_button,import_button]:
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.tooltip_text = "Все настройки: движение, склоны, стрельба, звук и камера"
+		file_buttons.add_child(button)
 	status = _label("",14)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size.y = 38
@@ -230,6 +249,8 @@ func _update_readout() -> void:
 	var distance: float = settings.dash_speed*settings.dash_duration
 	var braking: float = settings.run_speed*settings.run_speed/(2*settings.braking)
 	readout.text = "Прыжок ≈ %.0f px · Дэш ≈ %.0f px\nРазгон ≈ %.2f с · Тормозной путь ≈ %.0f px" % [height,distance,settings.run_speed/settings.acceleration,braking]
+	if tabs.get_tab_title(tabs.current_tab) == "Склоны":
+		readout.text = "Скорость по поверхности, без стрельбы:\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nЗамедление от стрельбы умножается на эти скорости." % [settings.run_speed*settings.slope_multiplier(20,true),settings.run_speed*settings.slope_multiplier(20,false),settings.run_speed*settings.slope_multiplier(35,true),settings.run_speed*settings.slope_multiplier(35,false)]
 
 func _update_status() -> void:
 	if flash_left > 0: return

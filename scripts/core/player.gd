@@ -130,6 +130,7 @@ func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 	var run_speed := tuning.run_speed*weapon.movement_multiplier
 	if grounded:
 		var tangent := Vector2(-get_floor_normal().y,get_floor_normal().x)
+		run_speed *= slope_speed_multiplier(axis)
 		# Godot adjusts velocity after sliding. Keep acceleration along the floor
 		# separately so that this adjustment does not slow every following frame.
 		ground_speed = move_toward(ground_speed,axis*run_speed,rate*delta)
@@ -151,6 +152,13 @@ func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 	move_and_slide()
 	# Explicit snap follows downhill and convex crests; jumping never snaps back.
 	if grounded: apply_floor_snap()
+
+func slope_speed_multiplier(axis: float) -> float:
+	if not is_on_floor() or is_zero_approx(axis): return 1.0
+	var tangent := Vector2(-get_floor_normal().y,get_floor_normal().x)
+	# Y points down: a negative signed rise means moving uphill. Use input
+	# rather than facing, which can be changed independently by aiming.
+	return tuning.slope_multiplier(rad_to_deg(get_floor_angle()),tangent.y*axis < 0)
 
 func _start_dash(axis: float) -> void:
 	dash_direction = signf(axis) if axis != 0 else facing

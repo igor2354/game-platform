@@ -1,6 +1,9 @@
 class_name CoreMovementLab
 extends Node2D
 
+const SettingsFile := preload("res://scripts/core/settings_file.gd")
+const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd")
+
 @export var load_user_settings := true
 @export var settings_path := CoreMovementSettings.SAVE_PATH
 @export var shooting_settings_path := CoreShootingSettings.SAVE_PATH
@@ -26,6 +29,10 @@ var suppress_mouse_until_release := false
 var camera_kick := Vector2.ZERO
 var camera_shake := 0.0
 var camera_phase := 0.0
+var settings_dialog: FileDialog
+var settings_dialog_open := false
+var settings_dialog_exporting := false
+var settings_dialog_was_paused := false
 
 func _ready() -> void:
 	_setup_input()
@@ -79,10 +86,15 @@ func _ready() -> void:
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
 	overlay_layer.add_child(camera_overlay)
+	for overlay in _overlays():
+		overlay.export_requested.connect(_open_settings_dialog.bind(true))
+		overlay.import_requested.connect(_open_settings_dialog.bind(false))
+	_build_settings_dialog(overlay_layer)
 	player.input_blocker = _blocks_keyboard
 	player.weapon.input_blocker = _blocks_shooting
 
 func _blocks_keyboard() -> bool:
+	if settings_dialog_open: return true
 	for overlay in _overlays():
 		if overlay.blocks_gameplay_input(): return true
 	return false
@@ -173,6 +185,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		hud_pointer_position = event.position
+	if settings_dialog_open: return
 	if event is InputEventMouseButton and event.pressed:
 		if respawn_enemies_button.get_global_rect().has_point(event.position): suppress_mouse_until_release = true
 		for overlay in _overlays():
@@ -188,6 +201,93 @@ func _input(event: InputEvent) -> void:
 			selected.toggle()
 			get_viewport().set_input_as_handled()
 			return
+
+func _build_settings_dialog(parent: Node) -> void:
+	settings_dialog = SettingsFileDialog.new()
+	settings_dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	settings_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	settings_dialog.filters = PackedStringArray(["*.json ; Настройки игры (JSON)"])
+	settings_dialog.min_size = Vector2i(680,420)
+	settings_dialog.unresizable = false
+	settings_dialog.exclusive = true
+	settings_dialog.current_dir = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	parent.add_child(settings_dialog)
+	settings_dialog.file_selected.connect(_settings_file_selected)
+	settings_dialog.canceled.connect(_close_settings_dialog)
+	settings_dialog.close_requested.connect(_close_settings_dialog)
+
+func _open_settings_dialog(exporting: bool) -> void:
+	if settings_dialog_open: return
+	for overlay in _overlays(): overlay._finish_editing("")
+	settings_dialog_was_paused = get_tree().paused
+	settings_dialog_exporting = exporting
+	settings_dialog_open = true
+	get_tree().paused = true
+	suppress_mouse_until_release = true
+	player.weapon.queued_single_press = false
+	settings_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if exporting else FileDialog.FILE_MODE_OPEN_FILE
+	settings_dialog.get_ok_button().text = "Сохранить" if exporting else "Открыть"
+	settings_dialog.get_cancel_button().text = "Отмена"
+	settings_dialog.title = "Экспорт всех настроек" if exporting else "Импорт всех настроек"
+	settings_dialog.current_file = "dead-platform-settings.json" if exporting else ""
+	settings_dialog.popup_centered_clamped(Vector2i(860,560))
+	settings_dialog.get_ok_button().text = "Сохранить" if exporting else "Открыть"
+
+func _close_settings_dialog() -> void:
+	if not settings_dialog_open: return
+	settings_dialog.hide()
+	settings_dialog_open = false
+	get_tree().paused = settings_dialog_was_paused
+	suppress_mouse_until_release = true
+	player.weapon.queued_single_press = false
+	player.jump_buffer = 0
+	player.dash_held = Input.is_action_pressed("core_dash")
+
+func _settings_file_selected(path: String) -> void:
+	if settings_dialog_exporting: export_settings_file(path)
+	else: import_settings_file(path)
+	settings_dialog.current_dir = path.get_base_dir()
+	_close_settings_dialog()
+
+func _settings_resources() -> Dictionary:
+	return {"movement":player.tuning,"shooting":player.weapon.tuning,"camera":camera_settings}
+
+func _settings_file_message(message: String) -> void:
+	for overlay in _overlays():
+		overlay._flash(message)
+		overlay.flash_left = 8
+
+func export_settings_file(path: String) -> bool:
+	for overlay in _overlays(): overlay._finish_editing("")
+	var result := SettingsFile.write_file(path,_settings_resources())
+	if result != OK:
+		_settings_file_message("Не удалось экспортировать файл (%d)." % result)
+		return false
+	_settings_file_message("Все настройки экспортированы: %s" % path.get_file())
+	return true
+
+func import_settings_file(path: String) -> bool:
+	var defaults := {"movement":movement_overlay.defaults,"shooting":shooting_overlay.defaults,"camera":camera_overlay.defaults}
+	var result := SettingsFile.read_file(path,defaults)
+	if result.has("error"):
+		_settings_file_message(result.error)
+		return false
+	var resources := _settings_resources()
+	for section in resources: resources[section].apply_values(result.values[section])
+	var saved := true
+	for overlay in _overlays():
+		var save_result: int = overlay.settings.save_saved(overlay.settings_path)
+		if save_result == OK: overlay.saved_values = overlay.settings.as_dictionary()
+		else: saved = false
+		overlay._sync()
+	_update_camera(true)
+	suppress_mouse_until_release = true
+	player.weapon.queued_single_press = false
+	var message := "Все настройки импортированы и сохранены для следующих запусков."
+	if not saved: message = "Импорт применён. Не удалось сохранить часть профилей — нажмите «Сохранить» в нужном окне."
+	elif result.adjusted: message = "Все настройки импортированы и сохранены. Значения ограничены допустимыми диапазонами."
+	_settings_file_message(message)
+	return true
 
 func _clear_projectiles() -> void:
 	for bullet in get_tree().get_nodes_in_group("core_projectiles"):
