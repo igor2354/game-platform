@@ -244,6 +244,8 @@ func _update_readout() -> void:
 		return
 	if settings is CoreShootingSettings:
 		readout.text = "От бедра: %.1f–%.1f° · Темп: %.0f/мин\nСкорость очереди: %.0f%% · В прицеле: %.0f%%" % [settings.hip_spread,settings.hip_max_spread,settings.rounds_per_minute,settings.hip_move_multiplier*100,settings.ads_move_multiplier*100]
+		if tabs.get_tab_title(tabs.current_tab) == "Урон":
+			readout.text = "Урон: голова %.1f · корпус %.1f HP\nРуки %.1f · ноги %.1f HP в здоровье\nОтрыв: рука %.0f · нога %.0f базового урона\nПрочность снимается без множителя зоны." % [settings.damage*settings.head_damage_multiplier,settings.damage*settings.torso_damage_multiplier,settings.damage*settings.arm_damage_multiplier,settings.damage*settings.leg_damage_multiplier,settings.arm_durability,settings.leg_durability]
 		return
 	var height: float = settings.jump_speed*settings.jump_speed/(2*settings.gravity)
 	var distance: float = settings.dash_speed*settings.dash_duration

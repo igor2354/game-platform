@@ -67,7 +67,7 @@ func run() -> void:
 	paused = false
 	await reset_at(Vector2(2250,760))
 	var target := lab.level.enemies[0]
-	gun.aim_override = target.position-Vector2(0,32)
+	gun.aim_override = target.aim_point_for_part("torso")
 	gun.tuning.sway_radius = 0
 	Input.action_press("core_aim")
 	await single_shot()
@@ -108,7 +108,7 @@ func run() -> void:
 	paused = true
 	var overlay := lab.shooting_overlay
 	overlay.toggle()
-	check(overlay.tabs.get_tab_count() == 5 and overlay.rows.has("kill_volume") and overlay.rows.has("camera_shake"),"F4 exposes recoil and sound tabs")
+	check(overlay.tabs.get_tab_count() == 6 and overlay.rows.has("kill_volume") and overlay.rows.has("camera_shake"),"F4 exposes recoil, sound and damage tabs")
 	overlay.tabs.current_tab = 3
 	overlay.rows.recoil_back.slider.value = 7
 	overlay.rows.camera_kick.slider.value = 4

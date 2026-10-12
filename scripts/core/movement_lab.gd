@@ -47,6 +47,9 @@ func _ready() -> void:
 	var shooting_defaults := load("res://resources/core/shooting.tres").duplicate() as CoreShootingSettings
 	shooting_defaults.apply_values(shooting_defaults.as_dictionary())
 	player.weapon.tuning = shooting_defaults.duplicate() as CoreShootingSettings
+	for enemy in level.enemies:
+		enemy.damage_tuning = player.weapon.tuning
+		enemy.posture_changed.connect(player.allow_exit_overlapping_enemies)
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
@@ -73,7 +76,7 @@ func _ready() -> void:
 	shooting_overlay.defaults = shooting_defaults
 	shooting_overlay.settings_path = shooting_settings_path
 	shooting_overlay.params = CoreShootingSettings.PARAMS
-	shooting_overlay.groups = ["Оружие","От бедра","Прицел","Отдача","Звук"]
+	shooting_overlay.groups = ["Оружие","От бедра","Прицел","Отдача","Звук","Урон"]
 	shooting_overlay.heading_text = "НАСТРОЙКА СТРЕЛЬБЫ · F4"
 	overlay_layer.add_child(shooting_overlay)
 	camera_overlay = CoreMovementOverlay.new()
@@ -180,6 +183,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_recover()
 	if event.is_action_pressed("core_debug"):
 		player.debug_shape = not player.debug_shape
+		for enemy in level.enemies:
+			enemy.debug_zones = player.debug_shape
+			enemy.queue_redraw()
 		player.queue_redraw()
 
 func _input(event: InputEvent) -> void:

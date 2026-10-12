@@ -175,7 +175,9 @@ func _fire() -> void:
 	last_shot_spread = spread_degrees()
 	last_shot_direction = aim_direction.rotated(deg_to_rad(rng.randf_range(-last_shot_spread,last_shot_spread))) if not aiming else aim_direction
 	var muzzle := pivot()+aim_direction*34
-	var query := PhysicsRayQueryParameters2D.create(pivot(),muzzle,CoreMovementPlayer.WORLD_MASK,[player.get_rid()])
+	var query := PhysicsRayQueryParameters2D.create(pivot(),muzzle,CoreProjectile.BULLET_MASK,[player.get_rid()])
+	query.collide_with_areas = true
+	query.hit_from_inside = true
 	var hit := get_world_2d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		CoreProjectile.resolve_impact(hit,tuning.damage,last_shot_direction,_on_impact)

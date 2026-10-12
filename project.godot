@@ -33,6 +33,7 @@ import/blender/enabled=false
 2d_physics/layer_2="Player"
 2d_physics/layer_3="EnemyTargets"
 2d_physics/layer_4="OneWayPlatforms"
+2d_physics/layer_5="EnemyHitZones"
 
 [physics]
 

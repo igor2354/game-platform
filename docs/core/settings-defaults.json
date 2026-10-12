@@ -32,12 +32,15 @@
 	},
 	"shooting": {
 		"ads_move_multiplier": 0.3,
+		"arm_damage_multiplier": 0.25,
+		"arm_durability": 50.0,
 		"bullet_speed": 2400.0,
 		"camera_kick": 2.8,
 		"camera_return": 22.0,
 		"camera_shake": 1.2,
 		"damage": 25.0,
 		"fire_mode": 0,
+		"head_damage_multiplier": 2.0,
 		"hip_max_spread": 16.0,
 		"hip_move_multiplier": 0.65,
 		"hip_slow_ramp": 0.25,
@@ -45,6 +48,8 @@
 		"hit_volume": -13.0,
 		"kill_camera_boost": 1.8,
 		"kill_volume": -10.0,
+		"leg_damage_multiplier": 0.35,
+		"leg_durability": 50.0,
 		"recoil_angle": 2.4,
 		"recoil_back": 5.0,
 		"recoil_return": 24.0,
@@ -53,7 +58,8 @@
 		"spread_per_shot": 1.25,
 		"spread_recovery": 18.0,
 		"sway_frequency": 0.7,
-		"sway_radius": 10.0
+		"sway_radius": 10.0,
+		"torso_damage_multiplier": 1.0
 	},
 	"version": 1
 }

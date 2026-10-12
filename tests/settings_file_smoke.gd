@@ -65,6 +65,7 @@ func run() -> void:
 	shooting.rows.rounds_per_minute.number.value = 1300
 	gun.tuning.set_fire_mode(CoreShootingSettings.FireMode.SINGLE)
 	gun.tuning.kill_volume = -5
+	gun.tuning.apply_values({"head_damage_multiplier":3.4,"torso_damage_multiplier":.75,"arm_damage_multiplier":.2,"leg_damage_multiplier":.6,"arm_durability":75,"leg_durability":90})
 	lab.camera_settings.apply_values({"zoom":1.75,"offset_x":123,"limit_to_level":false})
 	var line: LineEdit = movement.rows.run_speed.number.get_line_edit()
 	line.grab_focus()
@@ -154,7 +155,7 @@ func run() -> void:
 	check(not lab.export_settings_file(directory+"/missing-directory/output.json") and snapshot() == expected,"an unwritable export path reports a failure without changing settings")
 	invalid = {"format":"dead-platform-settings","version":1,"movement":{"run_speed":400},"shooting":{"fire_mode":0},"camera":{"zoom":2},"unknown_section":{"ignored":true}}
 	write_text(scratch_path,JSON.stringify(invalid))
-	check(lab.import_settings_file(scratch_path) and hero.tuning.run_speed == 400 and hero.tuning.uphill_multiplier == .7 and gun.tuning.kill_volume == -10 and lab.camera_settings.offset_x == 0,"missing keys use project defaults and unknown sections are ignored")
+	check(lab.import_settings_file(scratch_path) and hero.tuning.run_speed == 400 and hero.tuning.uphill_multiplier == .7 and gun.tuning.kill_volume == -10 and gun.tuning.head_damage_multiplier == 2 and gun.tuning.arm_durability == 50 and lab.camera_settings.offset_x == 0,"missing keys use project defaults, including zonal damage, and unknown sections are ignored")
 	invalid = data.duplicate(true)
 	invalid.movement.run_speed = -20
 	invalid.movement.jump_speed = 200

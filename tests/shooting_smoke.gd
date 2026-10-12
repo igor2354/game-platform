@@ -114,7 +114,7 @@ func run() -> void:
 	var target := lab.level.enemies[0]
 	for dummy in lab.level.enemies: dummy.reset_target()
 	gun.tuning.sway_radius = 0
-	gun.aim_override = target.position-Vector2(0,32)
+	gun.aim_override = target.aim_point_for_part("torso")
 	Input.action_press("core_aim")
 	Input.action_press("core_fire")
 	await frames(2)
@@ -180,7 +180,7 @@ func run() -> void:
 	release_inputs()
 	await dispatch("core_weapon_tuner")
 	var overlay := lab.shooting_overlay
-	check(overlay.visible and overlay.rows.size() == CoreShootingSettings.PARAMS.size() and overlay.tabs.get_tab_count() == 5,"F4 exposes shooting, recoil and sound parameters in five tabs, also on pause")
+	check(overlay.visible and overlay.rows.size() == CoreShootingSettings.PARAMS.size() and overlay.tabs.get_tab_count() == 6,"F4 exposes shooting, recoil, sound and zonal damage in six tabs, also on pause")
 	overlay.tabs.current_tab = 2
 	overlay.rows.ads_move_multiplier.slider.value = .25
 	check(gun.tuning.ads_move_multiplier == .25 and overlay.rows.ads_move_multiplier.number.value == .25,"weapon sliders update the runtime settings live")

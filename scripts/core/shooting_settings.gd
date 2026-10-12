@@ -25,7 +25,13 @@ const PARAMS := [
 	["kill_camera_boost","Усиление при убийстве",0.0,4.0,.1,"×","Отдача"],
 	["shot_volume","Громкость выстрела",-40.0,0.0,1.0,"dB","Звук"],
 	["hit_volume","Громкость попадания",-40.0,0.0,1.0,"dB","Звук"],
-	["kill_volume","Громкость убийства",-40.0,0.0,1.0,"dB","Звук"]]
+	["kill_volume","Громкость убийства",-40.0,0.0,1.0,"dB","Звук"],
+	["head_damage_multiplier","Урон в голову",.5,5.0,.1,"×","Урон"],
+	["torso_damage_multiplier","Урон в туловище",.25,3.0,.05,"×","Урон"],
+	["arm_damage_multiplier","Урон в здоровье через руки",0.0,1.0,.05,"×","Урон"],
+	["leg_damage_multiplier","Урон в здоровье через ноги",0.0,1.0,.05,"×","Урон"],
+	["arm_durability","Прочность каждой руки",5.0,200.0,5.0,"HP","Урон"],
+	["leg_durability","Прочность каждой ноги",5.0,200.0,5.0,"HP","Урон"]]
 
 @export var rounds_per_minute := 1000.0
 @export var bullet_speed := 2400.0
@@ -50,6 +56,12 @@ const PARAMS := [
 @export var shot_volume := -18.0
 @export var hit_volume := -13.0
 @export var kill_volume := -10.0
+@export var head_damage_multiplier := 2.0
+@export var torso_damage_multiplier := 1.0
+@export var arm_damage_multiplier := .25
+@export var leg_damage_multiplier := .35
+@export var arm_durability := 50.0
+@export var leg_durability := 50.0
 
 func as_dictionary() -> Dictionary:
 	var values := {}

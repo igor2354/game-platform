@@ -132,7 +132,7 @@ func run() -> void:
 	bullet.direction = Vector2.RIGHT
 	bullet.damage = 25
 	bullet.shooter = hero.get_rid()
-	bullet.position = Vector2(2400,728)
+	bullet.position = Vector2(2400,target.aim_point_for_part("torso").y)
 	hero.get_parent().add_child(bullet)
 	await frames(2)
 	check(hero.dash_left > 0 and target.health == 75,"projectiles still hit an enemy while the player is dashing through it")
