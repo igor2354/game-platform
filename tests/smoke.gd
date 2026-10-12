@@ -17,9 +17,12 @@ func frames(count: int) -> void:
 	for i in count: await physics_frame
 
 func run() -> void:
-	game = load("res://scenes/main.tscn").instantiate()
+	game = load("res://scenes/archive/station_demo.tscn").instantiate()
 	root.add_child(game)
 	await frames(3)
+	# This regression suite exercises the retained greybox controller/roll.
+	# The default painted character/dash has its own input-driven suite.
+	game.player.set_body_mode("rig")
 	# Ignore any values saved from the F3 tuner on this machine.
 	game.feel.reset()
 	check(game.level.spans.size() == 10,"10 connected walking spans")
@@ -58,7 +61,7 @@ func run() -> void:
 	var initial_x := game.player.position.x
 	Input.action_press("right")
 	await frames(24)
-	var moving_state := game.player.rig.state
+	var moving_state: String = game.player.rig.state
 	Input.action_release("right")
 	check(game.player.position.x > initial_x+70,"horizontal movement")
 	check(moving_state == "run","greybox body plays the run cycle while moving")
@@ -147,6 +150,31 @@ func run() -> void:
 	check(game.player.health == hp_before,"roll invulnerability blocks damage early in the roll")
 	await frames(30)
 	check(game.player.rolling <= 0 and game.player.capsule.height == Soldier.STAND_HEIGHT and game.player.position.x > roll_from+120,"roll covers ground and stands back up")
+	# Hybrid body: whole frames for the body, a separate arms layer while armed.
+	game.player.set_body_mode("hybrid")
+	await frames(3)
+	check(game.player.rig is HybridBody and game.player.rig.state == "idle" and game.player.rig.arms.visible,"F4 hybrid body: frame-by-frame body with separate arms")
+	Input.action_press("right")
+	await frames(6)
+	var first_frame: int = game.player.rig.frame
+	await frames(8)
+	check(game.player.rig.state == "run" and game.player.rig.frame != first_frame and game.player.rig.arms.visible,"hybrid run steps through frames with arms on the rifle")
+	Input.action_press("roll")
+	await frames(2)
+	Input.action_release("roll")
+	Input.action_release("right")
+	await frames(3)
+	check(game.player.rig.state == "roll" and not game.player.rig.arms.visible,"hybrid roll uses whole frames, arms layer hidden")
+	await frames(40)
+	game.player.set_body_mode("rig")
+	await frames(2)
+	check(game.player.rig is HumanoidRig,"F4 switches back to the segmented rig")
+	if "adventurer" in game.player.body_modes():
+		game.player.set_body_mode("adventurer")
+		await frames(3)
+		check(game.player.rig is HybridBody and game.player.rig.frames_dir == Soldier.ADVENTURER_FRAMES and not game.player.rig.arms.visible,"third-party hand-drawn frame set loads, no separate arms")
+		game.player.set_body_mode("rig")
+		await frames(2)
 	# Stop the controller while checking the exact firing rule.
 	game.player.set_physics_process(false)
 	game.player.aim_direction = Vector2(0.92,-0.31).normalized()

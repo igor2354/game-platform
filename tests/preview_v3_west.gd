@@ -2,7 +2,7 @@ extends SceneTree
 func _initialize() -> void:
 	call_deferred("capture")
 func capture() -> void:
-	var game: DeadPlatformGame = load("res://scenes/main.tscn").instantiate()
+	var game: DeadPlatformGame = load("res://scenes/archive/station_demo.tscn").instantiate()
 	root.add_child(game)
 	game.player.set_physics_process(false)
 	game.set_process(false)

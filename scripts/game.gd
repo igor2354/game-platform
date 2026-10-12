@@ -74,7 +74,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _setup_input() -> void:
-	var bindings := {"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"up":[KEY_W,KEY_UP],"down":[KEY_S,KEY_DOWN],"jump":[KEY_SPACE],"roll":[KEY_SHIFT],"reload":[KEY_R],"interact":[KEY_E],"pause":[KEY_ESCAPE],"start":[KEY_ENTER],"effects":[KEY_F2],"tuner":[KEY_F3],"mute":[KEY_M]}
+	var bindings := {"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"up":[KEY_W,KEY_UP],"down":[KEY_S,KEY_DOWN],"jump":[KEY_SPACE],"roll":[KEY_SHIFT],"reload":[KEY_R],"interact":[KEY_E],"pause":[KEY_ESCAPE],"start":[KEY_ENTER],"effects":[KEY_F2],"tuner":[KEY_F3],"body":[KEY_F4],"mute":[KEY_M]}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		for key in bindings[action]:
@@ -181,6 +181,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		show_toast("Эффекты: "+("включены" if effects_enabled else "выключены"))
 	if event.is_action_pressed("tuner"):
 		tuner.toggle()
+	if event.is_action_pressed("body"):
+		var modes: Array[String] = player.body_modes()
+		player.set_body_mode(modes[(modes.find(player.body_mode)+1)%modes.size()])
+		show_toast("Тело: "+{"drawn":"рисованный солдат: рывок и живое снаряжение","rig":"сегментное на скелете","hybrid":"покадровое, руки отдельно","adventurer":"покадровое, чужой рисованный персонаж","concept":"3D-концепт: ППШ, перезарядка, перекат и лестницы"}[player.body_mode])
 	if event.is_action_pressed("mute"):
 		muted = not muted
 		ambient.volume_db = -80 if muted else -22

@@ -12,6 +12,9 @@ const BODY_SCALE := 0.6
 const STAND_HEIGHT := 114.0
 const ROLL_HEIGHT := 56.0
 const ROLL_SPEED := 380.0
+const DASH_TIME := .34
+const DASH_SPEED := 710.0
+const DASH_HEIGHT := 92.0
 # Roll invulnerability window, seconds from the start of the roll.
 const ROLL_IFRAME_START := 0.05
 const ROLL_IFRAME_END := 0.35
@@ -41,12 +44,17 @@ var climb := 0.0
 var flash := 0.0
 var rolling := 0.0
 var roll_dir := 1.0
+var evasion_duration := HumanoidRig.ROLL_TIME
 var weapon_texture: Texture2D
 var laser_end := Vector2.ZERO
 var capsule: CapsuleShape2D
 var shape: CollisionShape2D
 var body: Node2D
-var rig: HumanoidRig
+# HumanoidRig (segmented) or HybridBody (frame-by-frame body, code-driven arms);
+# both share the same interface, so the rest of Soldier doesn't care which.
+var rig
+var body_mode := "rig"
+const ADVENTURER_FRAMES := "res://assets/thirdparty/rvros_adventurer/"
 var weapon_view: WeaponView
 
 # Draws the rifle on its own layer: above the torso, below the near arm.
@@ -68,19 +76,45 @@ func _ready() -> void:
 	body = Node2D.new()
 	body.scale = Vector2.ONE*BODY_SCALE
 	add_child(body)
-	rig = load("res://scenes/characters/humanoid_greybox.tscn").instantiate()
-	body.add_child(rig)
-	# Manual mode: _process advances the animation, then puts the hands on the rifle.
-	rig.set_manual(true)
+	set_body_mode("drawn")
 	weapon_view = WeaponView.new()
 	weapon_view.soldier = self
 	weapon_view.z_index = 1
 	add_child(weapon_view)
 	weapon_texture = load("res://assets/art/v3/props.png")
 
+# Body variants to compare: "rig" segmented greybox, "hybrid" greybox frames
+# with separate arms, "adventurer" a third-party hand-drawn frame set.
+func body_modes() -> Array[String]:
+	var modes: Array[String] = ["drawn","rig","hybrid"]
+	if FileAccess.file_exists(ADVENTURER_FRAMES+"frames.json"): modes.append("adventurer")
+	if FileAccess.file_exists(ConceptBody.FRAMES+"frames.json"): modes.append("concept")
+	return modes
+
+func set_body_mode(mode: String) -> void:
+	if rolling > 0: cancel_roll()
+	body_mode = mode
+	if rig: rig.free()
+	if mode == "rig":
+		rig = load("res://scenes/characters/humanoid_greybox.tscn").instantiate()
+	elif mode == "concept":
+		rig = ConceptBody.new()
+	elif mode == "drawn":
+		rig = DrawnBody.new()
+	else:
+		rig = HybridBody.new()
+		if mode == "adventurer": rig.frames_dir = ADVENTURER_FRAMES
+	body.add_child(rig)
+	# Manual mode: _process advances the animation, then puts the hands on the rifle.
+	rig.set_manual(true)
+
 func _process(delta: float) -> void:
 	if game.state not in ["playing","title"]: return
 	rig.advance(delta)
+	if rig is ConceptBody:
+		var progress := 1.0-reload_left/RELOAD_TIME if reload_left > 0 else -1.0
+		var barrel := barrel_direction()
+		rig.set_weapon_pose(gun_origin()-barrel*recoil,barrel,progress,flash)
 	if not climbing and rolling <= 0:
 		rig.hold(weapon_point(GRIP_FRONT),weapon_point(GRIP_REAR),get_global_mouse_position())
 	weapon_view.queue_redraw()
@@ -177,24 +211,28 @@ func _physics_process(delta: float) -> void:
 
 func _drive_body() -> void:
 	var anim := "idle"
-	if rolling > 0: anim = "roll"
+	if rolling > 0: anim = "dash" if body_mode == "drawn" else "roll"
 	elif climbing: anim = "climb"
-	elif not is_on_floor(): anim = "run"
+	elif not is_on_floor(): anim = "air" if rig is ConceptBody else "run"
 	elif absf(velocity.x) > 15: anim = "walk" if aiming else "run"
 	rig.face(roll_dir if rolling > 0 else facing)
 	# The rig measures speed in its own units; airborne holds the stride pose.
 	var rig_velocity := Vector2.ZERO if anim == "run" and not is_on_floor() else velocity/BODY_SCALE
-	if anim != "roll" or rig.state != "roll": rig.drive(anim,rig_velocity)
+	if anim not in ["roll","dash"] or rig.state != anim: rig.drive(anim,rig_velocity)
 
 func _start_roll(direction: float) -> void:
-	rolling = HumanoidRig.ROLL_TIME
+	evasion_duration = DASH_TIME if body_mode == "drawn" else HumanoidRig.ROLL_TIME
+	rolling = evasion_duration
 	roll_dir = direction if direction != 0 else facing
-	_set_height(ROLL_HEIGHT)
+	_set_height(DASH_HEIGHT if body_mode == "drawn" else ROLL_HEIGHT)
 
 func _roll(delta: float) -> void:
-	var progress := 1.0-rolling/HumanoidRig.ROLL_TIME
+	var progress := 1.0-rolling/evasion_duration
 	# Full speed through the tumble, easing off into the stand-up.
-	velocity.x = roll_dir*ROLL_SPEED*(1.0 if progress < 0.75 else lerpf(1.0,0.35,(progress-0.75)/0.25))
+	if body_mode == "drawn":
+		velocity.x = roll_dir*DASH_SPEED*(1.0 if progress < .65 else lerpf(1.0,.18,(progress-.65)/.35))
+	else:
+		velocity.x = roll_dir*ROLL_SPEED*(1.0 if progress < .75 else lerpf(1.0,.35,(progress-.75)/.25))
 	velocity.y = minf(velocity.y+GRAVITY*delta,1100)
 	rolling -= delta
 	if rolling <= 0: cancel_roll()
@@ -204,8 +242,12 @@ func cancel_roll() -> void:
 	_set_height(STAND_HEIGHT)
 
 func roll_protected() -> bool:
-	var elapsed := HumanoidRig.ROLL_TIME-rolling
-	return rolling > 0 and elapsed >= ROLL_IFRAME_START and elapsed <= ROLL_IFRAME_END
+	var elapsed := evasion_duration-rolling
+	var end := .25 if body_mode == "drawn" else ROLL_IFRAME_END
+	return rolling > 0 and elapsed >= ROLL_IFRAME_START and elapsed <= end
+
+func evade_label() -> String:
+	return "рывок" if body_mode == "drawn" else "перекат"
 
 func _set_height(height: float) -> void:
 	capsule.height = height
@@ -224,6 +266,8 @@ func barrel_direction() -> Vector2:
 	return aim_direction.rotated(-facing*climb)
 
 func muzzle() -> Vector2:
+	if rig is ConceptBody:
+		return weapon_point(rig.vector(rig.meta.weapon.muzzle)*BODY_SCALE)
 	return gun_origin()+barrel_direction()*64
 
 func trace_laser() -> Vector2:
@@ -307,6 +351,9 @@ func _draw() -> void:
 		draw_circle(to,1.8,Color("ffd1a2"))
 
 func draw_weapon(canvas: CanvasItem) -> void:
+	# ConceptBody renders its own matching PPSh, drum, bolt and flash between
+	# the textured arms. Other body variants retain the original weapon layer.
+	if rig is ConceptBody: return
 	if climbing or rolling > 0: return
 	var barrel := barrel_direction()
 	canvas.draw_set_transform(Vector2(9*facing,-84)-barrel*recoil,barrel.angle(),Vector2(1,facing))

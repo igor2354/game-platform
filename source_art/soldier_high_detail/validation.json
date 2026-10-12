@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "source_editable_objects": 630,
+  "imported_meshes": 1,
+  "triangles": 1889920,
+  "embedded_textures": 3,
+  "texture_resolution": [
+    4096,
+    4096
+  ],
+  "animations": 0,
+  "armatures": 0,
+  "bounds_m": {
+    "x": [
+      -0.3549017906188965,
+      0.3569532036781311
+    ],
+    "y": [
+      -0.23081180453300476,
+      0.3799806535243988
+    ],
+    "z": [
+      0.0,
+      1.8605669736862183
+    ]
+  },
+  "glb_bytes": 100159244,
+  "portable_render": "previews/glb_validation.png"
+}

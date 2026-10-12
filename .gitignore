@@ -3,3 +3,8 @@
 .DS_Store
 builds/
 *.zip
+# Third-party packs whose licences forbid redistribution: download them yourself.
+assets/thirdparty/
+# Blender incremental saves; keep the actual editable .blend source.
+*.blend1
+*.blend2

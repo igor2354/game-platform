@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CoreMovementSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/movement_settings.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+run_speed = 320.0
+acceleration = 2400.0
+braking = 3000.0
+air_acceleration = 1500.0
+gravity = 1900.0
+fall_speed = 1100.0
+jump_speed = 720.0
+jump_cut_speed = 260.0
+coyote_time = 0.1
+jump_buffer_time = 0.12
+dash_speed = 760.0
+dash_duration = 0.16
+dash_cooldown = 0.42
+climb_speed = 180.0
+ladder_snap_speed = 180.0
+ladder_regrab_delay = 0.22

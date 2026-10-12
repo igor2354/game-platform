@@ -1,0 +1,101 @@
+class_name DrawnBody
+extends ConceptBody
+# Painted whole-body frames + painted IK arms + spring-driven equipment.
+# The complete dash/climb drawings already contain their hands and equipment.
+const DRAWN_FRAMES := "res://assets/drawn_soldier/"
+const GEAR_REST := {"carbine":Vector2(-21,-137),"bedroll":Vector2(-32,-122),"satchel":Vector2(-35,-119),"canteen":Vector2(-9,-105)}
+var equipment: Dictionary = {}
+var equipment_velocity: Dictionary = {}
+var equipment_angle_velocity: Dictionary = {}
+var equipment_root: Node2D
+var breath := 0.0
+var breath_scale := 1.0
+var travel_rate := 0.0
+var previous_rate := 0.0
+var sway := 0.0
+var reference_shoulder := Vector2(-27,-171)
+
+func _init() -> void:
+	frames_dir = DRAWN_FRAMES
+
+func _ready() -> void:
+	super._ready()
+	reference_shoulder = vector(meta.animations.idle.anchors[0].near)
+	equipment_root = Node2D.new()
+	add_child(equipment_root)
+	for name in GEAR_REST:
+		var sprite := Sprite2D.new()
+		sprite.texture = load(frames_dir+name+".png")
+		sprite.centered = false
+		sprite.offset = -vector(meta.equipment[name].pivot)
+		sprite.z_index = -2 if name in ["carbine","bedroll"] else 1
+		sprite.position = GEAR_REST[name]
+		if name == "carbine": sprite.rotation = -1.08
+		equipment_root.add_child(sprite)
+		equipment[name] = sprite
+		equipment_velocity[name] = Vector2.ZERO
+		equipment_angle_velocity[name] = 0.0
+	_show()
+
+func time_scale_for(anim: String, velocity: Vector2) -> float:
+	match anim:
+		"walk","run": return clampf(velocity.x*signf(scale.x)/float(meta.animations[anim].speed),-1.35,1.35)
+		"climb": return clampf(-velocity.y/float(meta.animations.climb.speed),-1.15,1.15)
+	return 1.0
+
+func drive(new_state: String, velocity: Vector2) -> void:
+	super.drive(new_state,velocity)
+	travel_rate = speed if state in ["walk","run"] else 0.0
+
+func _show() -> void:
+	var was_visible := equipment_root.visible if equipment_root else false
+	super._show()
+	if equipment_root:
+		equipment_root.visible = arms.visible
+		if arms.visible and not was_visible:
+			for name in equipment:
+				equipment[name].position = GEAR_REST[name]+shoulder_anchor("near")-reference_shoulder
+				equipment[name].rotation = -1.08 if name == "carbine" else 0.0
+				equipment_velocity[name] = Vector2.ZERO
+				equipment_angle_velocity[name] = 0.0
+
+func advance(delta: float) -> void:
+	breath += delta
+	breath_scale = 1.0+.0035*sin(breath*TAU/3.2) if state == "idle" else 1.0
+	for sprite in sprites.values(): sprite.scale.y = float(meta.scale)*breath_scale
+	super.advance(delta)
+	if not arms.visible:
+		previous_rate = 0
+		return
+	# Use animation phase and actual changes of movement speed. Springs carry
+	# momentum after stopping; a pause (delta=0) genuinely freezes everything.
+	var phase := time*TAU/float(meta.animations[state].duration)
+	var acceleration := clampf((travel_rate-previous_rate)*10,-8,8)
+	previous_rate = travel_rate
+	var active := absf(travel_rate)
+	sway = lerpf(sway,sin(phase)*active,1-exp(-delta*8))
+	var anchor := shoulder_anchor("near")-reference_shoulder
+	var remaining := minf(delta,.15)
+	while remaining > 0:
+		var step := minf(remaining,1.0/120)
+		remaining -= step
+		for name in equipment:
+			var sprite: Sprite2D = equipment[name]
+			var lag: float = {"carbine":.45,"bedroll":.75,"satchel":1.0,"canteen":1.15}[name]
+			var target: Vector2 = GEAR_REST[name]+anchor+Vector2(sway*2.5*lag,sin(phase*2-.45)*active*1.8*lag)
+			var velocity: Vector2 = equipment_velocity[name]
+			velocity += ((target-sprite.position)*85-velocity*13)*step
+			velocity.x -= acceleration*lag*step*9
+			sprite.position += velocity*step
+			equipment_velocity[name] = velocity
+			var rest := -1.08 if name == "carbine" else 0.0
+			var angular_target := rest+sway*.075*lag-acceleration*.012*lag
+			var angular_velocity: float = equipment_angle_velocity[name]
+			angular_velocity += ((angular_target-sprite.rotation)*70-angular_velocity*10)*step
+			sprite.rotation += angular_velocity*step
+			equipment_angle_velocity[name] = angular_velocity
+
+func shoulder_anchor(side: String) -> Vector2:
+	var point := super.shoulder_anchor(side)
+	point.y *= breath_scale
+	return point
