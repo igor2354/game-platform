@@ -5,6 +5,7 @@ var hero: CoreMovementPlayer
 var zombie: CoreZombie
 var checks := 0
 var failures := 0
+var posture_changes := 0
 
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
@@ -40,6 +41,7 @@ func run() -> void:
 	root.add_child(lab)
 	hero = lab.player
 	zombie = lab.level.zombie
+	zombie.posture_changed.connect(func(): posture_changes += 1)
 	await frames(8)
 	check(zombie.target == hero and zombie in lab.level.enemies and zombie.hit_zones.size() == 6,"the playable lab contains an active zombie with six damage regions")
 	check(zombie.state == CoreZombie.State.PATROL and zombie.position.x < zombie.home.x and zombie.is_on_floor(),"an unaware zombie patrols on solid ground")
@@ -168,10 +170,35 @@ func run() -> void:
 	for part in ["left_arm","right_arm"]: zombie.take_projectile_hit(50,part)
 	await frames(90)
 	check(zombie.health == 75 and hero.health == 100 and zombie.attacks_started == 0,"removing both arms leaves the zombie alive but prevents melee attacks")
+	for lost_leg in ["left_leg","right_leg"]:
+		reset_encounter(-220)
+		await frames(4)
+		var changes_before := posture_changes
+		zombie.take_projectile_hit(25,lost_leg)
+		check(not zombie.is_prone() and zombie.health == 91.25 and posture_changes == changes_before,"a damaged but attached "+lost_leg+" does not trigger a fall")
+		zombie.take_projectile_hit(25,lost_leg)
+		var remaining := "right_leg" if lost_leg == "left_leg" else "left_leg"
+		check(zombie.is_prone() and zombie.health == 82.5 and posture_changes == changes_before+1 and zombie.body_shape.shape is CircleShape2D,"severing "+lost_leg+" immediately causes one living prone transition")
+		check(zombie.has_part(remaining) and zombie.part_rect(remaining).has_area() and zombie.hit_zones[remaining].collision_layer == 16,"the surviving "+remaining+" stays visible with an active prone hit region")
+		zombie.set_physics_process(false)
+		var aim := zombie.aim_point_for_part(remaining)
+		var leg_bullet := CoreProjectile.new()
+		leg_bullet.position = aim-Vector2(0,80)
+		leg_bullet.direction = Vector2.DOWN
+		leg_bullet.speed = 4000
+		leg_bullet.damage = 50
+		leg_bullet.shooter = hero.get_rid()
+		lab.get_node("World").add_child(leg_bullet)
+		await frames(4)
+		check(zombie.health == 65 and zombie.last_hit_part == remaining and not zombie.has_part(remaining) and posture_changes == changes_before+1,"a real projectile severs the surviving prone leg without a duplicate fall event")
+		zombie.set_physics_process(true)
+		zombie.reset_target()
+		check(not zombie.is_prone() and zombie.body_shape.shape is RectangleShape2D and zombie.has_part("left_leg") and zombie.has_part("right_leg") and zombie.health == 100,"respawn restores standing anatomy after losing "+lost_leg+" first")
 	reset_encounter(-220)
 	zombie.take_projectile_hit(50,"left_leg")
+	check(zombie.is_prone() and zombie.body_shape.shape is CircleShape2D and zombie.has_part("right_leg") and zombie.hit_zones.head.get_child(0).position.y > -30,"losing the first leg immediately lowers the zombie's body and hitboxes in the same hit")
 	await frames(8)
-	check(is_equal_approx(absf(zombie.velocity.x),zombie.tuning.chase_speed*.55),"losing one leg slows pursuit to 55 percent")
+	check(is_equal_approx(absf(zombie.velocity.x),zombie.tuning.crawl_speed),"losing one leg immediately switches pursuit to crawl speed")
 	zombie.take_projectile_hit(50,"right_leg")
 	await frames(8)
 	check(zombie.is_prone() and is_equal_approx(absf(zombie.velocity.x),zombie.tuning.crawl_speed) and zombie.health == 65,"losing both legs produces a living crawler with lower hitboxes")

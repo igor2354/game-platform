@@ -23,14 +23,73 @@ const PARAMS := [
 	["uphill_multiplier","Скорость на крутом подъёме",.20,1.0,.01,"×","Склоны"],
 	["downhill_multiplier","Скорость на крутом спуске",1.0,1.50,.01,"×","Склоны"],
 	["slope_start_angle","Угол начала эффекта",0.0,15.0,1.0,"°","Склоны"],
-	["slope_full_angle","Угол полного эффекта",16.0,45.0,1.0,"°","Склоны"]
+	["slope_full_angle","Угол полного эффекта",16.0,45.0,1.0,"°","Склоны"],
+	["crouch_height","Высота в приседе",32.0,56.0,1.0,"px","Приседание"],
+	["crouch_speed_multiplier","Скорость в приседе",.1,1.0,.05,"×","Приседание"],
+	["crouch_noise_multiplier","Шум шагов в приседе",0.0,1.0,.05,"×","Приседание"],
+	["walk_jump_multiplier","Дальность прыжка · бег",.25,2.0,.05,"×","Бег"],
+	["sprint_duration","Максимальное время спринта",.2,15.0,.1,"с","Спринт"],
+	["sprint_recovery_time","Полное восстановление спринта",.2,15.0,.1,"с","Спринт"],
+	["sprint_speed","Скорость спринта",100.0,1200.0,10.0,"px/с","Спринт"],
+	["sprint_jump_multiplier","Дальность прыжка · спринт",.25,2.0,.05,"×","Спринт"],
+	["sprint_noise_multiplier","Шум шагов в спринте",0.0,3.0,.05,"×","Спринт"],
+	["dash_uphill_multiplier","Скорость дэша вверх",.2,2.0,.05,"×","Дэш"],
+	["dash_downhill_multiplier","Скорость дэша вниз",.2,2.0,.05,"×","Дэш"],
+	["dash_slope_start_angle","Угол начала эффекта дэша",0.0,15.0,1.0,"°","Дэш"],
+	["dash_slope_full_angle","Угол полного эффекта дэша",16.0,45.0,1.0,"°","Дэш"],
+	["slide_speed_multiplier","Начальная скорость подката",.5,3.0,.05,"×","Подкат"],
+	["slide_min_speed","Минимальная скорость старта",50.0,1000.0,10.0,"px/с","Подкат"],
+	["slide_duration","Длительность подката",.1,2.0,.05,"с","Подкат"],
+	["slide_braking","Торможение подката",0.0,3000.0,50.0,"px/с²","Подкат"],
+	["slide_cooldown","Восстановление от старта",.1,3.0,.05,"с","Подкат"],
+	["slide_height","Высота в подкате",28.0,42.0,1.0,"px","Подкат"],
+	["slide_damage","Урон при столкновении",0.0,100.0,1.0,"HP","Подкат"],
+	["slide_damage_min_speed","Минимальная скорость урона",0.0,1000.0,10.0,"px/с","Подкат"],
+	["slide_knockdown_chance","Шанс сбивания",0.0,1.0,.05,"×","Подкат"],
+	["slide_knockdown_min_speed","Минимальная скорость сбивания",0.0,1000.0,10.0,"px/с","Подкат"],
+	["slide_knockdown_duration","Время на земле · люди",.2,5.0,.1,"с","Подкат"],
+	["slide_zombie_knockdown_duration","Время на земле · зомби",.2,5.0,.1,"с","Подкат"],
+	["slide_knockback_speed","Сила отбрасывания",0.0,600.0,10.0,"px/с","Подкат"],
+	["slow_walk_speed","Скорость ходьбы",40.0,750.0,10.0,"px/с","Ходьба"],
+	["slow_walk_acceleration","Разгон ходьбы",200.0,6000.0,50.0,"px/с²","Ходьба"],
+	["slow_walk_braking","Торможение ходьбы",200.0,8000.0,50.0,"px/с²","Ходьба"],
+	["slow_walk_air_acceleration","Управление в воздухе",200.0,4000.0,50.0,"px/с²","Ходьба"],
+	["slow_walk_jump_multiplier","Дальность прыжка · ходьба",.25,2.0,.05,"×","Ходьба"],
+	["slow_walk_noise_multiplier","Шум шагов при ходьбе",0.0,3.0,.05,"×","Ходьба"],
+	["run_backward_multiplier","Скорость бега задом",.1,1.0,.05,"×","Движение задом"],
+	["slow_walk_backward_multiplier","Скорость ходьбы задом",.1,1.0,.05,"×","Движение задом"],
+	["crouch_backward_multiplier","Скорость в приседе задом",.1,1.0,.05,"×","Движение задом"],
+	["acceleration_smoothing","Плавность разгона",0.0,1.0,.01,"с","Разгон"],
+	["max_health","Максимальное здоровье героя",1.0,1000.0,1.0,"HP","Здоровье"]
 ]
 
+@export_category("Здоровье")
+@export var max_health := 100.0
 @export_category("Бег")
 @export var run_speed := 320.0
 @export var acceleration := 2400.0
+@export var acceleration_smoothing := .15
 @export var braking := 3000.0
 @export var air_acceleration := 1500.0
+# Legacy profile key: this is the default run's jump factor.
+@export var walk_jump_multiplier := 1.0
+@export_category("Ходьба")
+@export var slow_walk_speed := 140.0
+@export var slow_walk_acceleration := 1000.0
+@export var slow_walk_braking := 1800.0
+@export var slow_walk_air_acceleration := 900.0
+@export var slow_walk_jump_multiplier := 1.0
+@export var slow_walk_noise_multiplier := .5
+@export_category("Движение задом")
+@export var run_backward_multiplier := .7
+@export var slow_walk_backward_multiplier := .8
+@export var crouch_backward_multiplier := .8
+@export_category("Спринт")
+@export var sprint_speed := 520.0
+@export var sprint_jump_multiplier := 1.15
+@export var sprint_noise_multiplier := 1.5
+@export var sprint_duration := 3.0
+@export var sprint_recovery_time := 2.0
 @export_category("Прыжок")
 @export var gravity := 1900.0
 @export var fall_speed := 1100.0
@@ -39,9 +98,15 @@ const PARAMS := [
 @export var coyote_time := .10
 @export var jump_buffer_time := .12
 @export_category("Дэш")
+@export var air_dash_enabled := true
 @export var dash_speed := 760.0
 @export var dash_duration := .16
 @export var dash_cooldown := .42
+@export_category("Дэш на склонах")
+@export var dash_uphill_multiplier := 1.0
+@export var dash_downhill_multiplier := 1.0
+@export var dash_slope_start_angle := 3.0
+@export var dash_slope_full_angle := 35.0
 @export_category("Лестница")
 @export var climb_speed := 180.0
 @export var ladder_snap_speed := 180.0
@@ -51,6 +116,48 @@ const PARAMS := [
 @export var downhill_multiplier := 1.15
 @export var slope_start_angle := 3.0
 @export var slope_full_angle := 35.0
+@export_category("Приседание")
+@export var crouch_height := 42.0
+@export var crouch_speed_multiplier := .45
+@export var crouch_noise_multiplier := .4
+@export_category("Подкат")
+@export var slide_speed_multiplier := 1.35
+@export var slide_min_speed := 250.0
+@export var slide_duration := .65
+@export var slide_braking := 600.0
+@export var slide_cooldown := .8
+@export var slide_height := 32.0
+@export var slide_damage := 25.0
+@export var slide_damage_min_speed := 100.0
+@export_category("Сбивание подкатом")
+@export var slide_knockdown_enabled := true
+@export var slide_knockdown_chance := 1.0
+@export var slide_knockdown_min_speed := 200.0
+# Keep the legacy profile key for the human timer.
+@export var slide_knockdown_duration := 1.5
+@export var slide_zombie_knockdown_duration := 3.0
+@export var slide_knockback_speed := 180.0
+
+func acceleration_step(speed: float,target: float,current_acceleration: float,rate: float,delta: float) -> Vector2:
+	# Limit jerk while ramping up; taper acceleration using the remaining
+	# velocity distance needed to stop that acceleration at the target.
+	if acceleration_smoothing <= 0 or delta <= 0:
+		return Vector2(move_toward(speed,target,rate*delta),0)
+	var error := target-speed
+	if absf(error) < .00001: return Vector2(target,0)
+	var jerk := rate/acceleration_smoothing
+	var desired := signf(error)*minf(rate,sqrt(2*jerk*absf(error)))
+	var next_acceleration := move_toward(current_acceleration,desired,jerk*delta)
+	var next_speed := speed+(current_acceleration+next_acceleration)*.5*delta
+	# Monotonic response for live target changes; never overshoot a speed cap.
+	next_speed = clampf(next_speed,minf(speed,target),maxf(speed,target))
+	if is_equal_approx(next_speed,target): return Vector2(target,0)
+	return Vector2(next_speed,next_acceleration)
+
+func acceleration_time(speed: float,rate: float) -> float:
+	var base := absf(speed)/rate
+	if acceleration_smoothing <= 0: return base
+	return base+acceleration_smoothing if base >= acceleration_smoothing else 2*sqrt(base*acceleration_smoothing)
 
 func slope_multiplier(angle_degrees: float,uphill: bool) -> float:
 	# Ease the angle contribution at both ends; acceleration handles changes
@@ -58,12 +165,18 @@ func slope_multiplier(angle_degrees: float,uphill: bool) -> float:
 	var weight := smoothstep(slope_start_angle,slope_full_angle,absf(angle_degrees))
 	return lerpf(1.0,uphill_multiplier if uphill else downhill_multiplier,weight)
 
+func dash_slope_multiplier(angle_degrees: float,uphill: bool) -> float:
+	var weight := smoothstep(dash_slope_start_angle,dash_slope_full_angle,absf(angle_degrees))
+	return lerpf(1.0,dash_uphill_multiplier if uphill else dash_downhill_multiplier,weight)
+
 func as_dictionary() -> Dictionary:
-	var values := {}
+	var values := {"slide_knockdown_enabled":slide_knockdown_enabled,"air_dash_enabled":air_dash_enabled}
 	for param in PARAMS: values[param[0]] = get(param[0])
 	return values
 
 func apply_values(values: Dictionary) -> void:
+	if values.get("air_dash_enabled") is bool: air_dash_enabled = values.air_dash_enabled
+	if values.get("slide_knockdown_enabled") is bool: slide_knockdown_enabled = values.slide_knockdown_enabled
 	for param in PARAMS:
 		var value = values.get(param[0],get(param[0]))
 		if (value is float or value is int) and is_finite(float(value)):
@@ -79,12 +192,23 @@ func set_parameter(key: String,value: float) -> void:
 			return
 
 func _normalize() -> void:
+	sprint_speed = maxf(sprint_speed,run_speed)
+	slow_walk_speed = minf(slow_walk_speed,run_speed)
 	jump_cut_speed = minf(jump_cut_speed,jump_speed)
 	dash_cooldown = maxf(dash_cooldown,dash_duration)
+	slide_cooldown = maxf(slide_cooldown,slide_duration)
+
+func slow_walk_jump_range() -> float:
+	return slow_walk_speed*slow_walk_jump_multiplier*2*jump_speed/gravity
+
+func jump_range(sprint: bool) -> float:
+	var speed := sprint_speed if sprint else run_speed
+	var multiplier := sprint_jump_multiplier if sprint else walk_jump_multiplier
+	return speed*multiplier*2*jump_speed/gravity
 
 func save_saved(path := SAVE_PATH) -> Error:
 	var config := ConfigFile.new()
-	for param in PARAMS: config.set_value("movement",param[0],get(param[0]))
+	for key in as_dictionary(): config.set_value("movement",key,get(key))
 	return config.save(path)
 
 func load_saved(path := SAVE_PATH) -> Error:
@@ -92,11 +216,11 @@ func load_saved(path := SAVE_PATH) -> Error:
 	var result := config.load(path)
 	if result != OK: return result
 	var values := {}
-	for param in PARAMS: values[param[0]] = config.get_value("movement",param[0],get(param[0]))
+	for key in as_dictionary(): values[key] = config.get_value("movement",key,get(key))
 	apply_values(values)
 	return OK
 
 func as_text() -> String:
 	var lines := PackedStringArray()
-	for param in PARAMS: lines.append("%s = %s" % [param[0],str(get(param[0]))])
+	for key in as_dictionary(): lines.append("%s = %s" % [key,str(get(key))])
 	return "\n".join(lines)

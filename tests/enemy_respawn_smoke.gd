@@ -10,7 +10,9 @@ func check(ok: bool,message: String) -> void:
 		failures += 1
 		push_error("FAIL "+message)
 func frames(count: int) -> void:
-	for i in count: await physics_frame
+	for i in count:
+		await physics_frame
+		await process_frame
 func mouse_button(pressed: bool,point: Vector2) -> void:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
@@ -24,6 +26,8 @@ func move_pointer(point: Vector2) -> void:
 	root.push_input(event,true)
 	await process_frame
 func run() -> void:
+	root.size = Vector2i(1440,900)
+	root.gui_embed_subwindows = true
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	root.add_child(lab)
@@ -43,7 +47,13 @@ func run() -> void:
 	lab.level.enemies[1].take_damage(25)
 	lab.level.enemies[2].take_damage(100)
 	await frames(16)
-	check(lab.respawn_enemies_button.visible and lab.respawn_enemies_button.text == "Возродить врагов","HUD exposes the enemy respawn button")
+	lab.developer_mode.set_enabled(true)
+	lab.developer_mode.show_section(4)
+	await process_frame
+	await process_frame
+	lab.developer_mode.tools_scroll.ensure_control_visible(lab.respawn_enemies_button)
+	await frames(4)
+	check(lab.respawn_enemies_button.is_visible_in_tree() and lab.respawn_enemies_button.text.begins_with("Возродить врагов"),"developer testing exposes the enemy respawn button in its scroll area")
 	paused = true
 	var player_position := hero.position
 	var bullet := CoreProjectile.new()
@@ -53,6 +63,7 @@ func run() -> void:
 	hero.get_parent().add_child(bullet)
 	bullet.add_to_group("core_projectiles")
 	var point := lab.respawn_enemies_button.get_global_rect().get_center()
+	await move_pointer(point)
 	await mouse_button(true,point)
 	await mouse_button(false,point)
 	await process_frame
@@ -71,7 +82,7 @@ func run() -> void:
 	await frames(4)
 	check(gun.shots_fired == 7,"hovering the respawn button blocks shooting")
 	lab.respawn_enemies_button.pressed.emit()
-	await move_pointer(Vector2(500,400))
+	await move_pointer(Vector2(100,400))
 	await frames(4)
 	check(gun.shots_fired == 7,"dragging away with the UI click held cannot fire after respawn")
 	Input.action_release("core_fire")

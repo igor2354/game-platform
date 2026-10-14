@@ -7,6 +7,7 @@ var direction := Vector2.RIGHT
 var speed := 2400.0
 var damage := 25.0
 var shooter: RID
+var attack_origin := Vector2.INF
 var life := 1.5
 var distance_travelled := 0.0
 var impact_callback: Callable
@@ -19,7 +20,7 @@ func _physics_process(delta: float) -> void:
 	query.hit_from_inside = true
 	var hit := get_world_2d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
-		resolve_impact(hit,damage,direction,impact_callback)
+		resolve_impact(hit,damage,direction,impact_callback,attack_origin)
 		queue_free()
 		return
 	distance_travelled += global_position.distance_to(next)
@@ -28,7 +29,7 @@ func _physics_process(delta: float) -> void:
 	if life <= 0: queue_free()
 	queue_redraw()
 
-static func resolve_impact(hit: Dictionary,amount: float,shot_direction: Vector2,callback: Callable) -> void:
+static func resolve_impact(hit: Dictionary,amount: float,shot_direction: Vector2,callback: Callable,attack_origin := Vector2.INF) -> void:
 	var enemy: CoreEnemyDummy
 	var part := "torso"
 	if hit.collider is CoreEnemyDummy: enemy = hit.collider
@@ -37,7 +38,7 @@ static func resolve_impact(hit: Dictionary,amount: float,shot_direction: Vector2
 		part = str(hit.collider.get_meta("body_part"))
 	var target_hit := is_instance_valid(enemy) and enemy.health > 0 and enemy.has_part(part)
 	var killed := false
-	if target_hit: killed = enemy.take_projectile_hit(amount,part,shot_direction)
+	if target_hit: killed = enemy.take_projectile_hit(amount,part,shot_direction,attack_origin)
 	elif not is_instance_valid(enemy) and hit.collider.has_method("take_damage"): hit.collider.take_damage(amount)
 	if callback.is_valid(): callback.call(hit.position,target_hit,killed,shot_direction)
 func _draw() -> void:

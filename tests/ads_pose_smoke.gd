@@ -15,7 +15,7 @@ func check(ok: bool,message: String) -> void:
 func frames(count: int) -> void:
 	for i in count: await physics_frame
 func release() -> void:
-	for action in ["core_aim","core_fire","core_right","core_dash","core_up"]: Input.action_release(action)
+	for action in ["core_aim","core_fire","core_right","core_left","core_crouch","core_walk","core_jump","core_dash","core_up"]: Input.action_release(action)
 func settle(point: Vector2) -> void:
 	release()
 	lab._recover()
@@ -36,6 +36,10 @@ func run() -> void:
 	gun.tuning.sway_radius = 0
 	gun.shot_fired.connect(record)
 	await settle(Vector2(300,760))
+	for animation in CoreHybridBody.ADS_TEXTURES:
+		var texture: Texture2D = CoreHybridBody.ADS_TEXTURES[animation]
+		var base: Texture2D = CoreHybridBody.TEXTURES[animation]
+		check(texture.get_width() == base.get_width() and texture.get_height() == base.get_height()*5,"head-lean atlas preserves the movement frames: "+animation)
 	check(gun.local_pivot() == Vector2(0,-36),"hip fire keeps its original weapon height")
 	Input.action_press("core_aim")
 	await frames(3)
@@ -46,7 +50,9 @@ func run() -> void:
 	check(gun.ads_blend == frozen,"pause freezes the raise transition")
 	paused = false
 	await frames(12)
-	check(gun.ads_blend == 1 and absf(gun.local_pivot().y-hero.body.eye_anchor().y-3) < .001,"settled ADS places the sight line at the current eyes")
+	check(gun.ads_blend == 1 and gun.local_pivot().distance_to(hero.body.ads_anchor()) < .001,"settled ADS mounts the weapon at the shoulder")
+	check(gun.local_pivot().y > hero.body.shoulder("near").y-8 and hero.body.head_aim_stage() == 4 and hero.body.sprite.vframes == 5,"weapon is lower than the former eye-level mount and the baked head leans to the stock")
+	check(absf((gun.local_pivot()-Vector2(11,0)).x-hero.body.shoulder("near").x) < .001 and absf(gun.local_pivot().y-hero.body.shoulder("near").y) < 3,"horizontal stock rests against the shoulder")
 	check(attached(),"both hands hold the raised weapon")
 	Input.action_press("core_fire")
 	await frames(3)
@@ -68,13 +74,52 @@ func run() -> void:
 	var poses := {}
 	for i in 70:
 		await physics_frame
-		aligned = aligned and absf(gun.local_pivot().y-hero.body.eye_anchor().y-3) < .001 and attached()
+		aligned = aligned and gun.local_pivot().distance_to(hero.body.ads_anchor()) < .001 and hero.body.head_aim_stage() == 4 and attached()
 		if hero.body.state == "run": poses[hero.body.frame] = true
-	check(aligned and poses.size() == 8,"the raised weapon follows all eight moving head poses")
+	check(aligned and poses.size() == 8,"shoulder mount and tilted head follow all eight moving body poses")
 	Input.action_release("core_right")
 	Input.action_release("core_aim")
 	await frames(12)
-	check(gun.ads_blend == 0 and gun.local_pivot() == Vector2(0,-36),"releasing RMB lowers the weapon to hip height")
+	check(gun.ads_blend == 0 and gun.local_pivot() == Vector2(0,-36) and hero.body.head_aim_stage() == 0 and hero.body.sprite.vframes == 1,"releasing RMB restores the hip weapon and upright baked head")
+	for side in [-1.0,1.0]:
+		await settle(Vector2(300,760))
+		gun.aim_override = hero.position+Vector2(side*1000,-24)
+		Input.action_press("core_crouch")
+		await frames(8)
+		var upright_eye := hero.body.eye_anchor()
+		Input.action_press("core_aim")
+		var stages := {}
+		for i in 12:
+			await physics_frame
+			stages[hero.body.head_aim_stage()] = true
+		check(stages.size() >= 3 and hero.body.head_aim_stage() == 4,"aiming animates several baked head-lean stages in crouch, side "+str(side))
+		check(hero.crouching and hero.body.eye_anchor().y > upright_eye.y+3 and gun.local_pivot().distance_to(hero.body.ads_anchor()) < .001 and attached(),"crouched head leans down and hands retain the shoulder-mounted gun, side "+str(side))
+		Input.action_press("core_left" if side < 0 else "core_right")
+		await frames(12)
+		check(hero.body.state == "crouch_walk" and hero.body.head_aim_stage() == 4 and attached(),"crouch movement keeps the aiming head and both grips, side "+str(side))
+	await settle(Vector2(300,760))
+	Input.action_press("core_aim")
+	Input.action_press("core_walk")
+	Input.action_press("core_right")
+	await frames(12)
+	var walk_frames := {}
+	var walk_aligned := true
+	for i in 110:
+		await physics_frame
+		if hero.body.state == "walk": walk_frames[hero.body.frame] = true
+		walk_aligned = walk_aligned and hero.body.sprite.frame_coords.y == 4 and attached()
+	check(walk_frames.size() == 8 and walk_aligned,"standing walk uses all eight aimed frames and keeps the head lean and grips")
+	await settle(Vector2(300,760))
+	Input.action_press("core_aim")
+	await frames(12)
+	Input.action_press("core_jump")
+	var jump_frames := {}
+	var jump_aligned := true
+	for i in 65:
+		await physics_frame
+		if hero.body.state == "jump": jump_frames[hero.body.frame] = true
+		jump_aligned = jump_aligned and hero.body.sprite.frame_coords.y == 4 and attached()
+	check(jump_frames.size() == 8 and jump_aligned and hero.is_on_floor(),"a complete real jump retains the baked aiming head and both gun grips")
 	await settle(Vector2(300,760))
 	Input.action_press("core_aim")
 	await frames(12)
@@ -92,7 +137,7 @@ func run() -> void:
 	# A high obstacle crosses the raised barrel, but not the hip muzzle line.
 	var wall := StaticBody2D.new()
 	wall.collision_layer = 1
-	wall.position = Vector2(326,704)
+	wall.position = Vector2(326,710)
 	var shape := CollisionShape2D.new()
 	var box := RectangleShape2D.new()
 	box.size = Vector2(4,16)

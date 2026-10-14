@@ -40,7 +40,7 @@ func run() -> void:
 	var overlay := lab.zombie_overlay
 	var zombie := lab.level.zombie
 	var hero := lab.player
-	check(not overlay.visible and overlay.rows.size() == 18 and overlay.tabs.get_tab_count() == 4,"F6 starts closed with eighteen controls across vision, hearing, movement and combat")
+	check(not overlay.visible and overlay.rows.size() == 29 and overlay.tabs.get_tab_count() == 7 and overlay.zombie_toggles.size() == 7 and overlay.damage_reaction_toggle != null,"F6 starts closed with twenty-nine numeric controls and seven module switches")
 	check(zombie.tuning == lab.zombie_settings and overlay.settings == zombie.tuning and overlay.defaults != zombie.tuning,"the panel edits the zombie's runtime resource rather than project defaults")
 	await dispatch("core_zombie_tuner")
 	check(overlay.visible and not paused and overlay.rows.vision_angle.number.value == 120,"F6 opens the zombie panel during play")
@@ -98,6 +98,19 @@ func run() -> void:
 	check(zombie.is_prone() and zombie.health == 65 and zombie.velocity.x == 0,"zero crawl speed stops a wounded zombie without healing it")
 	paused = true
 	var frozen := zombie.position
+	overlay.tabs.current_tab = 5
+	overlay.rows.shove_delay.number.value = .65
+	overlay.rows.shove_speed.slider.value = 350
+	overlay.rows.shove_lift.number.value = 220
+	overlay.rows.shove_cooldown.slider.value = 1.8
+	overlay.rows.shove_damage.number.value = 20
+	check(zombie.tuning.shove_delay == .65 and zombie.tuning.shove_speed == 350 and zombie.tuning.shove_lift == 220 and zombie.tuning.shove_cooldown == 1.8 and zombie.tuning.shove_damage == 20 and overlay.readout.text.contains("13.0 HP") and zombie.position == frozen,"shove tab updates delay, force, damage, cooldown and one-arm preview during pause")
+	overlay.tabs.current_tab = 4
+	overlay.rows.crawl_max_angle.slider.value = 28
+	overlay.rows.crawl_uphill_multiplier.number.value = .5
+	overlay.rows.crawl_downhill_multiplier.slider.value = 1.3
+	overlay.rows.crawl_step_height.number.value = 18
+	check(zombie.tuning.crawl_max_angle == 28 and zombie.tuning.crawl_uphill_multiplier == .5 and zombie.tuning.crawl_downhill_multiplier == 1.3 and zombie.tuning.crawl_step_height == 18 and overlay.readout.text.contains("35°: склон недоступен") and zombie.position == frozen,"crawl tab sliders and numeric input update terrain limits and speed preview during pause")
 	overlay.tabs.current_tab = 0
 	overlay.rows.vision_angle.slider.value = 80
 	check(zombie.tuning.vision_angle == 80 and overlay.readout.text.contains("80°") and zombie.position == frozen,"vision settings and their preview remain editable during pause")
@@ -141,7 +154,7 @@ func run() -> void:
 	var hp := zombie.health
 	var phase := zombie.state
 	overlay.reset_button.pressed.emit()
-	check(zombie.tuning.vision_angle == 120 and zombie.tuning.attack_damage == 15 and zombie.tuning.patrol_radius == 180 and zombie.health == hp and zombie.state == phase,"Reset restores settings without healing the enemy or resetting its AI")
+	check(zombie.tuning.vision_angle == 120 and zombie.tuning.attack_damage == 15 and zombie.tuning.shove_damage == 10 and zombie.tuning.patrol_radius == 180 and zombie.tuning.crawl_max_angle == 45 and zombie.tuning.crawl_step_height == 12 and zombie.tuning.crawl_uphill_multiplier == .65 and zombie.health == hp and zombie.state == phase,"Reset restores settings including crawl and shove damage defaults without healing the enemy or resetting its AI")
 	saved.load_saved(path)
 	check(same_values(saved.as_dictionary(),persisted),"Reset preserves the saved profile until Save is pressed")
 	check((load("res://resources/core/zombie.tres") as CoreZombieSettings).attack_damage == 15,"runtime edits leave the source resource unchanged")
@@ -160,8 +173,8 @@ func run() -> void:
 	new_lab(true)
 	await frames(8)
 	check(same_values(lab.zombie_settings.as_dictionary(),persisted) and lab.level.zombie.tuning == lab.zombie_settings,"the saved zombie profile loads automatically in a new game")
-	lab.zombie_settings.apply_values({"vision_angle":360,"attack_windup":0,"attack_recovery":-2,"detection_range":900,"forget_range":100})
-	check(lab.zombie_settings.vision_angle == 180 and lab.zombie_settings.attack_windup == .1 and lab.zombie_settings.attack_recovery == .2 and lab.zombie_settings.forget_range == 900,"unsafe numbers and dependent ranges are normalised")
+	lab.zombie_settings.apply_values({"vision_angle":360,"attack_windup":0,"attack_recovery":-2,"detection_range":900,"forget_range":100,"crawl_max_angle":100,"crawl_step_height":-5,"crawl_uphill_multiplier":-2,"crawl_downhill_multiplier":20})
+	check(lab.zombie_settings.vision_angle == 180 and lab.zombie_settings.attack_windup == .1 and lab.zombie_settings.attack_recovery == .2 and lab.zombie_settings.forget_range == 900 and lab.zombie_settings.crawl_max_angle == 60 and lab.zombie_settings.crawl_step_height == 0 and lab.zombie_settings.crawl_uphill_multiplier == .1 and lab.zombie_settings.crawl_downhill_multiplier == 2,"unsafe numbers, crawl terrain values and dependent ranges are normalised")
 	lab.zombie_settings.apply_values({"vision_angle":NAN,"attack_damage":INF})
 	check(lab.zombie_settings.vision_angle == 180 and lab.zombie_settings.attack_damage == 35,"non-finite settings are ignored")
 	lab.queue_free()

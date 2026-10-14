@@ -19,6 +19,7 @@ func release_inputs() -> void:
 func settle(point: Vector2) -> void:
 	release_inputs()
 	hero.reset_to(point)
+	hero.weapon.aim_override = point+Vector2(2000,-36)
 	await frames(8)
 func dispatch(action: String) -> void:
 	var event := InputEventAction.new()
@@ -32,6 +33,7 @@ func run() -> void:
 	lab.load_user_settings = false
 	root.add_child(lab)
 	hero = lab.player
+	hero.weapon.aim_override = hero.position+Vector2(2000,-36)
 	await frames(8)
 	check(lab.level.enemies.size() == 4 and lab.level.zombie is CoreZombie and hero is CoreMovementPlayer,"main scene contains the core player, three stationary targets and a zombie arena")
 	check(hero.is_on_floor() and absf(hero.position.y-760) < 2,"player starts standing on the test floor")
@@ -90,7 +92,7 @@ func run() -> void:
 	await settle(Vector2(250,760))
 	Input.action_press("core_dash")
 	await frames(3)
-	check(hero.dash_left > 0 and hero.mode == "dash" and hero.velocity.x > 700,"Shift starts a fast horizontal ground dash")
+	check(hero.dash_left > 0 and hero.mode == "dash" and hero.velocity.x > 700,"Alt starts a fast horizontal ground dash")
 	Input.action_release("core_dash")
 	await frames(13)
 	check(hero.dash_left == 0 and hero.last_dash_distance > 112 and hero.last_dash_distance < 140,"dash travels a finite distance and returns to normal movement")

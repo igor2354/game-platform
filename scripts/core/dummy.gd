@@ -12,6 +12,9 @@ signal posture_changed
 
 var damage_tuning: CoreShootingSettings = CoreShootingSettings.new()
 var health := MAX_HEALTH
+var max_health := MAX_HEALTH
+var test_frozen := false
+var invulnerable := false
 var hit_flash := 0.0
 var received_hits := 0
 var reaction_offset := Vector2.ZERO
@@ -28,12 +31,127 @@ var detached_parts: Array[Dictionary] = []
 var body_shape: CollisionShape2D
 var debug_zones := false
 var idle_clock := 0.0
+var knockdown_left := 0.0
+var knockdown_saved_mask := 0
+var knockdown_moves_in_subclass := false
+var knockdown_getup_lift := 0.0
+
+func maximum_health() -> float: return max_health
+
+func set_maximum_health(value: float) -> void:
+	if not is_finite(value): return
+	max_health = clampf(value,1,1000)
+	set_current_health(minf(health,max_health))
+
+func set_current_health(value: float) -> void:
+	if not is_finite(value): return
+	var was_alive := health > 0
+	health = clampf(value,0,max_health)
+	if not was_alive and health > 0:
+		if is_knocked_down(): collision_mask = knockdown_saved_mask
+		knockdown_left = 0
+		knockdown_saved_mask = 0
+		velocity = Vector2.ZERO
+		rotation = 0
+	death_progress = 0
+	hit_flash = 0
+	hit_notice_left = 0
+	reaction_offset = Vector2.ZERO
+	collision_layer = 4 if health > 0 else 0
+	_on_health_changed(was_alive)
+	_update_body_shape()
+	_sync_zones()
+	queue_redraw()
+
+func _on_health_changed(_was_alive: bool) -> void: pass
+
+func set_invulnerable(value: bool) -> void:
+	invulnerable = value
+	if value and health <= 0: set_current_health(max_health)
+	queue_redraw()
+
+func set_test_frozen(value: bool) -> void:
+	test_frozen = value
+	queue_redraw()
 
 func has_part(part: String) -> bool:
 	return part in PARTS and part not in missing_parts
 
 func is_prone() -> bool:
-	return "left_leg" in missing_parts and "right_leg" in missing_parts
+	return is_knocked_down() or ("left_leg" in missing_parts and "right_leg" in missing_parts)
+
+func is_knocked_down() -> bool:
+	return knockdown_left > 0
+
+func take_slide_hit(amount: float,direction: Vector2,_attack_origin: Vector2) -> bool:
+	if health <= 0 or not is_finite(amount) or amount <= 0: return false
+	last_hit_part = "torso"
+	last_hit_damage = amount
+	last_hit_severed = false
+	hit_notice_left = .85
+	return take_damage(amount,direction)
+
+func knock_down(duration: float,impulse: Vector2) -> bool:
+	if test_frozen or health <= 0 or duration <= 0 or not is_finite(duration) or not is_finite(impulse.x) or not is_finite(impulse.y): return false
+	if not is_knocked_down(): knockdown_saved_mask = collision_mask
+	knockdown_left = maxf(knockdown_left,duration)
+	velocity = impulse
+	collision_mask = 1|8
+	_update_body_shape()
+	_sync_zones()
+	_on_knockdown_started()
+	posture_changed.emit()
+	queue_redraw()
+	return true
+
+func _on_knockdown_started() -> void: pass
+func _on_knockdown_ended() -> void: pass
+
+func _can_get_up() -> bool:
+	var shape := RectangleShape2D.new()
+	var size := body_size
+	shape.size = size
+	knockdown_getup_lift = 0
+	if is_on_floor():
+		var normal := get_floor_normal()
+		if normal.y < -.1: knockdown_getup_lift = absf(normal.x/normal.y)*size.x*.5
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = Transform2D(0,global_position-Vector2(0,size.y*.5+knockdown_getup_lift+safe_margin+.02))
+	# Enemies already ignore each other's movement bodies. Including layer 4
+	# here would leave a densely packed fallen group waiting on itself forever.
+	query.collision_mask = 1|2
+	query.exclude = [get_rid()]
+	query.margin = .01
+	return get_world_2d().direct_space_state.intersect_shape(query,1).is_empty()
+
+func _tick_knockdown_timer(delta: float) -> void:
+	if not is_knocked_down() or health <= 0: return
+	knockdown_left = maxf(0,knockdown_left-delta)
+	if knockdown_left > 0: return
+	# Evaluate permanent limb loss separately, and never stand into a ceiling
+	# or the player. Retry next tick when the space becomes free.
+	if not is_prone():
+		if not _can_get_up():
+			knockdown_left = .001
+			return
+		global_position.y -= knockdown_getup_lift
+	collision_mask = knockdown_saved_mask
+	rotation = 0
+	_update_body_shape()
+	_sync_zones()
+	_on_knockdown_ended()
+	posture_changed.emit()
+
+func _move_knockdown(delta: float) -> void:
+	var grounded := is_on_floor()
+	var speed := move_toward(velocity.x,0,900*delta)
+	if grounded:
+		var tangent := Vector2(-get_floor_normal().y,get_floor_normal().x)
+		velocity = tangent*speed
+	else: velocity = Vector2(speed,minf(1100,velocity.y+1900*delta))
+	move_and_slide()
+	if grounded: apply_floor_snap()
 
 func limb_max_health(part: String) -> float:
 	return damage_tuning.arm_durability if part.ends_with("arm") else damage_tuning.leg_durability
@@ -54,7 +172,8 @@ func part_rect(part: String) -> Rect2:
 		"left_leg":Rect2(-10,-24,8,24),"right_leg":Rect2(2,-24,8,24)}
 	var prone := {
 		"head":Rect2(5,-24,14,14),"torso":Rect2(-22,-20,26,15),
-		"left_arm":Rect2(-3,-6,32,5),"right_arm":Rect2(-3,-14,34,6)}
+		"left_arm":Rect2(-3,-6,32,5),"right_arm":Rect2(-3,-14,34,6),
+		"left_leg":Rect2(-46,-12,24,7),"right_leg":Rect2(-46,-20,24,7)}
 	var rect: Rect2 = prone.get(part,Rect2()) if is_prone() else standing.get(part,Rect2())
 	var proportions := body_size/Vector2(32,64)
 	return Rect2(rect.position*proportions,rect.size*proportions)
@@ -66,7 +185,7 @@ func aim_point_for_part(part: String) -> Vector2:
 	if part == "torso" and not is_prone(): point.y = rect.position.y+rect.size.y*.23
 	return to_global(point+reaction_offset)
 
-func take_projectile_hit(amount: float,part: String,direction := Vector2.RIGHT) -> bool:
+func take_projectile_hit(amount: float,part: String,direction := Vector2.RIGHT,_attack_origin := Vector2.INF) -> bool:
 	if health <= 0 or not has_part(part) or not is_finite(amount) or amount <= 0: return false
 	last_hit_part = part
 	last_hit_damage = amount*damage_multiplier(part)
@@ -82,26 +201,33 @@ func take_projectile_hit(amount: float,part: String,direction := Vector2.RIGHT) 
 func take_damage(amount: float,direction := Vector2.RIGHT) -> bool:
 	# Generic damage (explosions/test reset) bypasses the location multiplier.
 	if health <= 0 or not is_finite(amount) or amount < 0: return false
-	health = maxf(0,health-amount)
+	if not invulnerable: health = maxf(0,health-amount)
+	else: last_hit_damage = 0
 	received_hits += 1
 	hit_flash = .12
 	hit_side = 1 if direction.x >= 0 else -1
-	reaction_offset = (reaction_offset+direction*3).limit_length(5)
+	if not test_frozen: reaction_offset = (reaction_offset+direction*3).limit_length(5)
 	if health <= 0: collision_layer = 0
 	_sync_zones()
 	queue_redraw()
 	return health <= 0
 
 func _sever_part(part: String,direction: Vector2) -> void:
+	var was_prone := is_prone()
 	var rect := part_rect(part)
 	detached_parts.append({"part":part,"point":to_global(rect.get_center()+reaction_offset),"size":rect.size,"velocity":direction*100+Vector2(0,-95),"rotation":0.0,"spin":direction.x*5,"life":12.0,"settled":false})
 	missing_parts.append(part)
-	if part.ends_with("leg") and is_prone():
+	if part.ends_with("leg") and not was_prone and is_prone():
 		_update_body_shape()
 		posture_changed.emit()
 
 func reset_target() -> void:
-	health = MAX_HEALTH
+	if is_knocked_down(): collision_mask = knockdown_saved_mask
+	knockdown_left = 0
+	knockdown_saved_mask = 0
+	velocity = Vector2.ZERO
+	rotation = 0
+	health = max_health
 	received_hits = 0
 	hit_flash = 0
 	reaction_offset = Vector2.ZERO
@@ -119,6 +245,9 @@ func reset_target() -> void:
 	queue_redraw()
 
 func _physics_process(delta: float) -> void:
+	if test_frozen: return
+	if is_knocked_down() and not knockdown_moves_in_subclass: _move_knockdown(delta)
+	_tick_knockdown_timer(delta)
 	idle_clock += delta
 	hit_flash = maxf(0,hit_flash-delta)
 	hit_notice_left = maxf(0,hit_notice_left-delta)
@@ -168,6 +297,12 @@ func _ready() -> void:
 
 func _update_body_shape() -> void:
 	if not body_shape: return
+	if is_knocked_down():
+		if not body_shape.shape is CircleShape2D: body_shape.shape = CircleShape2D.new()
+		(body_shape.shape as CircleShape2D).radius = 12*body_size.y/64
+		body_shape.position = Vector2(0,-12)*body_size.y/64
+		return
+	if not body_shape.shape is RectangleShape2D: body_shape.shape = RectangleShape2D.new()
 	var rect := Rect2(-28,-24,62,24) if is_prone() else Rect2(-16,-64,32,64)
 	var proportions := body_size/Vector2(32,64)
 	body_shape.position = rect.get_center()*proportions
@@ -232,9 +367,9 @@ func _draw() -> void:
 	var top := -body_size.y if not is_prone() else -34*body_size.y/64
 	if health > 0:
 		draw_rect(Rect2(-20,top-7,40,4),Color("273742"))
-		draw_rect(Rect2(-20,top-7,40*health/MAX_HEALTH,4),Color("81c6a7"))
+		draw_rect(Rect2(-20,top-7,40*health/max_health,4),Color("81c6a7"))
 	var font := ThemeDB.fallback_font
-	draw_string(font,Vector2(-32,top-14),"%s · %.0f HP" % [identifier,health],HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("d0c8b7"))
+	draw_string(font,Vector2(-32,top-14),"%s · %.0f/%.0f HP%s%s" % [identifier,health,max_health," · ∞" if invulnerable else ""," · СТОП" if test_frozen else ""],HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("d0c8b7"))
 	if hit_notice_left > 0 and last_hit_part != "":
 		var text: String = PART_NAMES[last_hit_part]+(" · ОТРЫВ" if last_hit_severed else " −%.1f" % last_hit_damage)
 		draw_string(font,Vector2(-45,top-30),text,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffa88b"))

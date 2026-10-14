@@ -27,7 +27,7 @@ func run() -> void:
 	await frames(8)
 	var overlay := lab.camera_overlay
 	var hero := lab.player
-	check(not overlay.visible and overlay.rows.size() == 5 and overlay.camera_limits_toggle != null,"camera window starts closed with zoom, framing and follow controls")
+	check(not overlay.visible and overlay.rows.size() == 8 and overlay.camera_limits_toggle != null,"camera window starts closed with zoom, framing and follow controls")
 	await dispatch("core_camera_tuner")
 	check(overlay.visible and not paused,"F5 opens the camera window without pausing the game")
 	check(overlay.rows.offset_y.number.value == -278 and overlay.rows.look_ahead.slider.value == 64,"controls represent the default framing values exactly")
@@ -54,10 +54,10 @@ func run() -> void:
 		anchor = hero.global_position-Vector2(0,32)
 		screen_anchor = hero.get_viewport().get_canvas_transform()*anchor
 		check(screen_anchor.distance_to(screen_expected) < .1,"chosen hero position is preserved at zoom %.1f" % zoom)
-	hero.facing = -1
+	hero.weapon.aim_override = hero.global_position+Vector2(-200,-36)
 	overlay.rows.look_ahead.slider.value = 100
 	await frames(4)
-	check(absf(lab.camera.position.x-(hero.position.x+20/lab.camera_settings.zoom)) < .1,"look-ahead follows the hero facing and combines with horizontal offset")
+	check(absf(lab.camera.position.x-(hero.position.x+20/lab.camera_settings.zoom)) < .1,"look-ahead follows the visible hero facing and combines with horizontal offset")
 	hero.reset_to(Vector2(2200,610))
 	await frames(5)
 	check(absf(lab.camera.position.y-(hero.position.y-32-80/lab.camera_settings.zoom)) < .1,"camera follows the hero vertically during airborne movement")

@@ -27,8 +27,17 @@ func run() -> void:
 	await frames(8)
 	var overlay := lab.movement_overlay
 	var hero := lab.player
+	hero.weapon.aim_override = hero.position+Vector2(2000,-36)
 	var source := load("res://resources/core/movement.tres") as CoreMovementSettings
-	check(not overlay.visible and overlay.rows.size() == 20 and overlay.tabs.get_tab_count() == 5,"movement overlay starts closed with all parameters in five tabs")
+	check(not overlay.visible and overlay.rows.size() == 57 and overlay.tabs.get_tab_count() == 12 and overlay.slide_knockdown_toggle != null,"movement overlay starts closed with all parameters in twelve tabs and a knockdown switch")
+	check(not overlay.groups.has("Дэш на склонах") and not overlay.groups.has("Сбивание подкатом"),"the two former auxiliary tabs are removed")
+	var dash_box := overlay.tabs.get_tab_control(overlay.groups.find("Дэш")).get_child(0)
+	var slide_box := overlay.tabs.get_tab_control(overlay.groups.find("Подкат")).get_child(0)
+	var dash_keys := CoreMovementSettings.PARAMS.filter(func(param: Array): return param[6] == "Дэш")
+	var slide_keys := CoreMovementSettings.PARAMS.filter(func(param: Array): return param[6] == "Подкат")
+	check(dash_keys.size() == 7 and dash_keys.all(func(param: Array): return dash_box.is_ancestor_of(overlay.rows[param[0]].number)),"all seven basic and slope dash controls share one page")
+	check(slide_keys.size() == 13 and slide_keys.all(func(param: Array): return slide_box.is_ancestor_of(overlay.rows[param[0]].number)),"all thirteen slide and knockdown controls share one page")
+	check(dash_box.is_ancestor_of(overlay.air_dash_toggle) and slide_box.is_ancestor_of(overlay.slide_knockdown_toggle),"both switches remain in their combined mechanic pages")
 	await dispatch("core_tuner")
 	check(overlay.visible and not paused,"F3 opens the overlay while gameplay remains active")
 	overlay.rows.run_speed.slider.value = 500
@@ -78,7 +87,7 @@ func run() -> void:
 	overlay.save_button.pressed.emit()
 	check(hero.tuning.run_speed == 620 and not overlay.blocks_gameplay_input(),"Save commits an unfinished number before writing the profile")
 	var loaded := CoreMovementSettings.new()
-	check(loaded.load_saved(path) == OK and loaded.run_speed == 620 and loaded.dash_duration == .6 and loaded.uphill_multiplier == .5 and loaded.downhill_multiplier == 1.25 and loaded.slope_full_angle == 20,"Save writes a complete movement profile including slope settings")
+	check(loaded.load_saved(path) == OK and loaded.run_speed == 620 and loaded.dash_duration == .6 and loaded.uphill_multiplier == .5 and loaded.downhill_multiplier == 1.25 and loaded.slope_full_angle == 20 and loaded.crouch_height == 42 and loaded.crouch_speed_multiplier == .45 and loaded.crouch_noise_multiplier == .4,"Save writes a complete movement profile including slope and crouch settings")
 	overlay.rows.run_speed.slider.value = 420
 	overlay.load_button.pressed.emit()
 	check(hero.tuning.run_speed == 620 and overlay.rows.run_speed.slider.value == 620,"Load restores the saved values into the active player and controls")

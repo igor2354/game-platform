@@ -35,7 +35,7 @@ func run() -> void:
 	for animation in ["run","jump","dash","climb"]:
 		var texture: Texture2D = CoreHybridBody.TEXTURES[animation]
 		check(texture.get_width() == 8*384 and texture.get_height() == 384 and CoreHybridBody.POSES.DATA[animation].size() == 8,animation+" contains eight baked frames with shoulder anchors")
-	check(hero.body.near_arm.z_index > hero.weapon.z_index and hero.body.far_arm.z_index < hero.body.z_index,"near and far arms layer around the body and weapon")
+	check(hero.body.far_arm.get_index() < hero.body.get_index() and hero.body.get_index() < hero.visuals.gun.get_index() and hero.visuals.gun.get_index() < hero.body.near_arm.get_index(),"near and far arms layer around the body and weapon inside the character group")
 	var grips_ok := true
 	var reach_ok := true
 	for direction in [Vector2.RIGHT,Vector2.LEFT,Vector2.UP,Vector2.DOWN,Vector2(1,-1),Vector2(-1,1)]:

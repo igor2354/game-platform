@@ -106,10 +106,10 @@ func run() -> void:
 			var origin := hero.position
 			await frames(6)
 			var measured := hero.position.distance_to(origin)/(6*hero.get_physics_process_delta_time())
-			var expected := (224.0 if side == 0 else 368.0)*(gun.tuning.ads_move_multiplier if aimed else gun.tuning.hip_move_multiplier)
+			var expected := (224.0 if side == 0 else 368.0)*hero.tuning.run_backward_multiplier*(gun.tuning.ads_move_multiplier if aimed else gun.tuning.hip_move_multiplier)
 			# Allow the capsule's 0.08 px contact correction per physics tick;
 			# also allow small variations of the capsule's contact normal.
-			check(hero.is_on_floor() and absf(measured-expected) < 5 and absf(hero.ground_speed-expected) < 2,"weapon slowdown combines with ascent/descent (side %d, aimed %s, %.1f px/s)" % [side,aimed,measured])
+			check(hero.is_on_floor() and absf(measured-expected) < 5 and absf(hero.ground_speed-expected) < 2,"weapon and backward slowdown combine with ascent/descent (side %d, aimed %s, %.1f px/s)" % [side,aimed,measured])
 	await settle(Vector2(2250,760))
 	var target := lab.level.enemies[0]
 	for dummy in lab.level.enemies: dummy.reset_target()
@@ -215,7 +215,7 @@ func run() -> void:
 	check(gun.shots_fired == count,"clicks over a settings panel do not shoot into the level")
 	release_inputs()
 	var click := InputEventMouseButton.new()
-	click.position = overlay.panel.position+Vector2(20,20)
+	click.position = overlay.panel.get_global_rect().position+Vector2(20,20)
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
 	root.push_input(click,true)

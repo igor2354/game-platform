@@ -1,8 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://bnpwic4y30b08"]
 
-[ext_resource type="Script" path="res://scripts/core/movement_lab.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/core/level.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/core/player.gd" id="3"]
+[ext_resource type="Script" uid="uid://cke7vwlld3ryv" path="res://scripts/core/movement_lab.gd" id="1"]
+[ext_resource type="Script" uid="uid://krbov527sbw5" path="res://scripts/core/level.gd" id="2"]
+[ext_resource type="Script" uid="uid://db8csigd4dd1b" path="res://scripts/core/player.gd" id="3"]
 [ext_resource type="Resource" path="res://resources/core/movement.tres" id="4"]
 
 [node name="MovementLab" type="Node2D"]

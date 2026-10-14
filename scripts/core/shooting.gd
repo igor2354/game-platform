@@ -15,6 +15,7 @@ var cooldown := 0.0
 var sway_clock := 0.0
 var aim_point := Vector2.ZERO
 var aim_direction := Vector2.RIGHT
+var aim_facing := 1.0
 var aim_override := Vector2.INF # Automated tests/capture only; normal play uses mouse.
 var shots_fired := 0
 var hits := 0
@@ -59,6 +60,7 @@ func _audio_player(kind: String,polyphony: int) -> AudioStreamPlayer:
 	return audio_player
 func reset_state() -> void:
 	aiming = false
+	aim_facing = 1
 	ads_blend = 0
 	firing = false
 	trigger_held = Input.is_action_pressed("core_fire")
@@ -91,15 +93,14 @@ func pivot() -> Vector2:
 	return player.global_position+local_pivot()
 func local_pivot() -> Vector2:
 	if not player.body: return HIP_PIVOT
-	# The barrel sits just below the sight line; stock rests beside the cheek.
-	var eye := player.body.eye_anchor()
-	var raised := eye+Vector2(player.body.facing*7,3)
-	return HIP_PIVOT.lerp(raised,smoothstep(0,1,ads_blend))
+	var hip := Vector2(0,-player.collision_height()/3.0) if player.crouching else HIP_PIVOT
+	# Mount the stock at the shoulder; the baked head leans down to the sights.
+	var raised := player.body.ads_anchor()
+	return hip.lerp(raised,smoothstep(0,1,ads_blend))
 func look_facing() -> float:
-	# Use the body centre, not the offset muzzle, to avoid flipping repeatedly
-	# when the mouse is directly above/below a raised weapon.
-	var horizontal := aim_point.x-player.global_position.x
-	return signf(horizontal) if absf(horizontal) > 1 else player.facing
+	# Gaze is independent of movement facing, including dash and vertical aim.
+	# All consumers use the same sample from _update_aim in this physics tick.
+	return aim_facing
 func update_state(delta: float,input_allowed: bool) -> void:
 	sway_clock += delta
 	cooldown = cooldown-delta if firing else maxf(0,cooldown-delta)
@@ -112,7 +113,7 @@ func update_state(delta: float,input_allowed: bool) -> void:
 		effect.life -= delta
 		if effect.get("kind","") == "casing": _tick_casing(effect,delta)
 	effects = effects.filter(func(effect: Dictionary) -> bool: return effect.life > 0)
-	var blocked := not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.climbing or player.dash_left > 0
+	var blocked := not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.climbing or player.dash_left > 0 or player.slide_left > 0
 	var trigger := Input.is_action_pressed("core_fire")
 	if tuning.fire_mode != last_fire_mode:
 		trigger_needs_release = trigger and trigger_held
@@ -151,12 +152,14 @@ func _update_aim() -> void:
 		var phase := sway_clock*TAU*tuning.sway_frequency
 		target += Vector2(sin(phase),sin(phase*.73+.8)*.7)*tuning.sway_radius
 	aim_point = target
+	var horizontal := target.x-player.global_position.x
+	if absf(horizontal) > 1: aim_facing = signf(horizontal)
 	var offset := target-pivot()
 	aim_direction = offset.normalized() if offset.length_squared() > 1 else Vector2(player.facing,0)
 	if aiming or firing: player.facing = look_facing()
 func finish_tick() -> void:
 	# Dash and ladder entry take priority over shooting in the same frame.
-	if player.climbing or player.dash_left > 0:
+	if player.climbing or player.dash_left > 0 or player.slide_left > 0:
 		aiming = false
 		ads_blend = 0
 		firing = false
@@ -180,13 +183,15 @@ func _fire() -> void:
 	query.hit_from_inside = true
 	var hit := get_world_2d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
-		CoreProjectile.resolve_impact(hit,tuning.damage,last_shot_direction,_on_impact)
+		CoreProjectile.resolve_impact(hit,tuning.damage,last_shot_direction,_on_impact,pivot())
 	else:
 		var bullet := CoreProjectile.new()
 		bullet.direction = last_shot_direction
 		bullet.speed = tuning.bullet_speed
 		bullet.damage = tuning.damage
 		bullet.shooter = player.get_rid()
+		# Remember where the shot started, rather than tracking a hidden shooter.
+		bullet.attack_origin = pivot()
 		bullet.impact_callback = _on_impact
 		player.get_parent().add_child(bullet)
 		bullet.global_position = muzzle
@@ -224,13 +229,17 @@ func _on_impact(point: Vector2,target_hit: bool,killed := false,direction := Vec
 	queue_redraw()
 func visual_pose() -> Dictionary:
 	var base := local_pivot()
-	var visual_direction := aim_direction.rotated(-player.facing*recoil_angle)
+	# Carry the gun with the body during sprint, sprint dash and slide. A
+	# cursor behind the slide must not twist the gripping arms backwards.
+	# Reticle and camera gaze remain independent throughout these actions.
+	var carrying := player.sprint_pose_active() or player.sprint_dash_pose_active() or player.slide_left > 0
+	var visual_direction := Vector2(player.body.facing,.25).normalized() if carrying else aim_direction.rotated(-look_facing()*recoil_angle)
 	var normal := Vector2(-visual_direction.y,visual_direction.x)*player.body.facing if player.body else Vector2(-visual_direction.y,visual_direction.x)*player.facing
-	var recoil := -aim_direction*recoil_back
+	var recoil := -visual_direction*recoil_back
 	var breech := base+recoil
 	return {"breech":breech,"direction":visual_direction,"normal":normal,"rear_grip":breech+visual_direction*3+normal*5,"front_grip":breech+visual_direction*20+normal*3}
 
-func _draw() -> void:
+func draw_weapon(canvas: Node2D) -> void:
 	var pose := visual_pose()
 	var breech: Vector2 = pose.breech
 	var visual_direction: Vector2 = pose.direction
@@ -239,16 +248,18 @@ func _draw() -> void:
 		breech = Vector2(-2,-32)
 		visual_direction = Vector2(.5,-.866)
 		normal = Vector2(-visual_direction.y,visual_direction.x)
-		draw_line(Vector2(-6,-48),Vector2(5,-27),Color("34434d"),2,true)
+		canvas.draw_line(Vector2(-6,-48),Vector2(5,-27),Color("34434d"),2,true)
 	# A simple stock, receiver, barrel and drum silhouette; arms are separate.
-	draw_line(breech-visual_direction*11,breech,Color("64746e"),5,true)
-	draw_line(breech,breech+visual_direction*16,Color("34434d"),6,true)
-	draw_line(breech+visual_direction*13,breech+visual_direction*34,Color("a9b6b6"),3,true)
-	draw_circle(breech+visual_direction*10+normal*5,4,Color("485961"))
-	draw_line(breech+visual_direction*3,breech+visual_direction*3+normal*5,Color("34434d"),3,true)
+	canvas.draw_line(breech-visual_direction*11,breech,Color("64746e"),5,true)
+	canvas.draw_line(breech,breech+visual_direction*16,Color("34434d"),6,true)
+	canvas.draw_line(breech+visual_direction*13,breech+visual_direction*34,Color("a9b6b6"),3,true)
+	canvas.draw_circle(breech+visual_direction*10+normal*5,4,Color("485961"))
+	canvas.draw_line(breech+visual_direction*3,breech+visual_direction*3+normal*5,Color("34434d"),3,true)
 	if flash_left > 0 and not player.climbing:
 		var muzzle := breech+visual_direction*37
-		draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
+		canvas.draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
+
+func _draw() -> void:
 	var center := to_local(aim_point)
 	var color := Color("81c6a7") if aiming else Color("f0c96a")
 	if aiming:

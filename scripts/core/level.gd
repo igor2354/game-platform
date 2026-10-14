@@ -3,6 +3,7 @@ extends Node2D
 
 const WIDTH := 5900.0
 const FLOOR := 760.0
+const FALL_LIMIT := 1120.0
 const SPAWN := Vector2(160,760)
 const ZOMBIE_TEST_SPAWN := Vector2(4980,760)
 var floors: Array[Rect2] = [Rect2(0,760,960,100),Rect2(1160,760,WIDTH-1160,100)]
@@ -79,7 +80,7 @@ func _draw() -> void:
 	if is_instance_valid(zombie):
 		var home := to_local(zombie.home)+Vector2(0,10)
 		draw_line(home-Vector2(zombie.tuning.patrol_radius,0),home+Vector2(zombie.tuning.patrol_radius,0),Color("a0bb87"),2)
-	for item in [[Vector2(96,612),"01 · БЕГ И ТОРМОЖЕНИЕ"],[Vector2(805,612),"02 · ПРЫЖОК / ДЭШ"],[Vector2(1360,284),"03 · ЛЕСТНИЦЫ"],[Vector2(2400,612),"04 · ЗАГЛУШКИ ВРАГОВ"]]:
+	for item in [[Vector2(96,612),"01 · ХОДЬБА / СПРИНТ"],[Vector2(805,612),"02 · ПРЫЖОК / ДЭШ"],[Vector2(1360,284),"03 · ЛЕСТНИЦЫ"],[Vector2(2400,612),"04 · ЗАГЛУШКИ ВРАГОВ"]]:
 		draw_string(font,item[0],item[1],HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("a4b4ba"))
 	draw_line(SPAWN-Vector2(0,90),SPAWN,Color("81c6a7"),2)
 	draw_string(font,SPAWN-Vector2(40,102),"СТАРТ",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("81c6a7"))

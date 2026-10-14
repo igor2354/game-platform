@@ -23,6 +23,8 @@ var camera_overlay: CoreMovementOverlay
 var camera_settings: CoreCameraSettings
 var zombie_overlay: CoreMovementOverlay
 var zombie_settings: CoreZombieSettings
+var developer_mode: CoreDeveloperMode
+var developer_button: Button
 var camera_applied_values: Dictionary = {}
 var camera_was_paused := false
 var respawn_enemies_button: Button
@@ -62,6 +64,7 @@ func _ready() -> void:
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
+	player.visuals.settings = camera_settings
 	if load_user_settings: player.tuning.load_saved(settings_path)
 	if load_user_settings: player.weapon.tuning.load_saved(shooting_settings_path)
 	if load_user_settings: camera_settings.load_saved(camera_settings_path)
@@ -83,6 +86,8 @@ func _ready() -> void:
 	movement_overlay.settings = player.tuning
 	movement_overlay.defaults = defaults
 	movement_overlay.settings_path = settings_path
+	movement_overlay.hosted = true
+	movement_overlay.settings_changed.connect(_player_settings_changed)
 	overlay_layer.add_child(movement_overlay)
 	shooting_overlay = CoreMovementOverlay.new()
 	shooting_overlay.settings = player.weapon.tuning
@@ -91,37 +96,45 @@ func _ready() -> void:
 	shooting_overlay.params = CoreShootingSettings.PARAMS
 	shooting_overlay.groups = ["Оружие","От бедра","Прицел","Отдача","Звук","Урон"]
 	shooting_overlay.heading_text = "НАСТРОЙКА СТРЕЛЬБЫ · F4"
+	shooting_overlay.hosted = true
 	overlay_layer.add_child(shooting_overlay)
 	camera_overlay = CoreMovementOverlay.new()
 	camera_overlay.settings = camera_settings
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера"]
+	camera_overlay.groups = ["Камера","Визуал"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
+	camera_overlay.hosted = true
 	overlay_layer.add_child(camera_overlay)
 	zombie_overlay = CoreMovementOverlay.new()
 	zombie_overlay.settings = zombie_settings
 	zombie_overlay.defaults = zombie_defaults
 	zombie_overlay.settings_path = zombie_settings_path
 	zombie_overlay.params = CoreZombieSettings.PARAMS
-	zombie_overlay.groups = ["Зрение","Слух","Движение","Бой"]
+	zombie_overlay.groups = ["Зрение","Слух","Движение","Бой","Ползание","Сбрасывание","Попадания"]
 	zombie_overlay.heading_text = "НАСТРОЙКА ЗОМБИ · F6"
 	zombie_overlay.help_text = "Обзор и скорость — сразу. Тайминги — с нового действия."
 	zombie_overlay.current_values_text = "Текущие настройки зомби · F1 — сектор и слух"
 	zombie_overlay.settings_changed.connect(_zombie_settings_changed)
+	zombie_overlay.hosted = true
 	overlay_layer.add_child(zombie_overlay)
 	for overlay in _overlays():
 		overlay.export_requested.connect(_open_settings_dialog.bind(true))
 		overlay.import_requested.connect(_open_settings_dialog.bind(false))
+	developer_mode = CoreDeveloperMode.new()
+	developer_mode.lab = self
+	overlay_layer.add_child(developer_mode)
+	developer_button.pressed.connect(developer_mode.toggle)
 	_build_settings_dialog(overlay_layer)
 	player.input_blocker = _blocks_keyboard
 	player.weapon.input_blocker = _blocks_shooting
 
 func _blocks_keyboard() -> bool:
 	if settings_dialog_open: return true
+	if developer_mode and developer_mode.blocks_keyboard_input(): return true
 	for overlay in _overlays():
 		if overlay.blocks_gameplay_input(): return true
 	return false
@@ -133,6 +146,10 @@ func _zombie_settings_changed() -> void:
 	for enemy in level.enemies:
 		if enemy is CoreZombie: enemy.apply_tuning()
 	level.queue_redraw()
+
+func _player_settings_changed() -> void:
+	player.apply_health_limit()
+	if developer_mode: developer_mode._sync_health()
 
 func _shot_noise(origin: Vector2,_direction: Vector2,_aimed: bool,_spread: float) -> void:
 	_broadcast_noise(origin,1.0,"shot")
@@ -146,13 +163,15 @@ func _blocks_shooting() -> bool:
 		if Input.is_action_pressed("core_fire") or Input.is_action_pressed("core_aim"): return true
 		suppress_mouse_until_release = false
 	if _blocks_keyboard(): return true
-	if respawn_enemies_button.get_global_rect().has_point(hud_pointer_position): return true
+	if developer_button.get_global_rect().has_point(hud_pointer_position): return true
+	if developer_mode.blocks_mouse_input(hud_pointer_position): return true
+	if respawn_enemies_button.is_visible_in_tree() and respawn_enemies_button.get_global_rect().has_point(hud_pointer_position): return true
 	for overlay in _overlays():
 		if overlay.blocks_mouse_input(): return true
 	return false
 
 func _setup_input() -> void:
-	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_dash":[KEY_SHIFT],"core_reset":[KEY_R],"core_pause":[KEY_ESCAPE],"core_debug":[KEY_F1],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_zombie_tuner":[KEY_F6],"core_fire_mode":[KEY_B],"core_zombie_test":[KEY_T]}
+	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_crouch":[KEY_C],"core_walk":[KEY_CTRL],"core_sprint":[KEY_SHIFT],"core_dash":[KEY_ALT],"core_reset":[KEY_R],"core_pause":[KEY_ESCAPE],"core_debug":[KEY_F1],"core_respawn_enemies":[KEY_F7],"core_developer":[KEY_F2],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_zombie_tuner":[KEY_F6],"core_fire_mode":[KEY_B],"core_zombie_test":[KEY_T]}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		InputMap.action_erase_events(action)
@@ -176,10 +195,20 @@ func _build_hud() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(panel)
 	hud = _label(layer,Vector2(30,15),"КОР ГЕЙМПЛЕЯ · ПЕРЕДВИЖЕНИЕ И СТРЕЛЬБА",27)
-	_label(layer,Vector2(30,57),"A/D — бег     Пробел — прыжок     Shift — дэш     W/S — лестница     R — на старт     Esc — пауза",20)
+	_label(layer,Vector2(30,57),"A/D — бег   Ctrl — ходьба   Shift — спринт   Alt — дэш   Пробел — прыжок   W/S — лестница   C — присед/подкат   R — старт   Esc — пауза",18)
 	telemetry = _label(layer,Vector2(30,94),"",18)
+	developer_button = Button.new()
+	developer_button.text = "Разработчик · F2"
+	developer_button.focus_mode = Control.FOCUS_NONE
+	developer_button.add_theme_font_size_override("font_size",18)
+	layer.add_child(developer_button)
+	developer_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	developer_button.offset_left = -259
+	developer_button.offset_right = -24
+	developer_button.offset_top = 16
+	developer_button.offset_bottom = 58
 	respawn_enemies_button = Button.new()
-	respawn_enemies_button.text = "Возродить врагов"
+	respawn_enemies_button.text = "Возродить врагов · F7"
 	respawn_enemies_button.tooltip_text = "Восстановить всех врагов, не возвращая героя на старт"
 	respawn_enemies_button.focus_mode = Control.FOCUS_NONE
 	respawn_enemies_button.add_theme_font_size_override("font_size",18)
@@ -192,7 +221,15 @@ func _build_hud() -> void:
 	respawn_enemies_button.pressed.connect(_respawn_enemies)
 	hud_pointer_position = get_viewport().get_mouse_position()
 	shooting_telemetry = _label(layer,Vector2(30,813),"",18)
-	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · B — режим · F3–F6 — настройки · F1 — зоны · T — к зомби · R — сброс",18)
+	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · B — режим огня · F2 — режим разработчика",18)
+
+func _teleport_zombie() -> void:
+	player.reset_to(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
+	_clear_projectiles()
+	camera_kick = Vector2.ZERO
+	camera_shake = 0
+	camera.offset = Vector2.ZERO
+	_update_camera(true)
 
 func _label(parent: Node,point: Vector2,text: String,size: int) -> Label:
 	var label := Label.new()
@@ -206,12 +243,9 @@ func _label(parent: Node,point: Vector2,text: String,size: int) -> Label:
 func _unhandled_input(event: InputEvent) -> void:
 	if _blocks_keyboard(): return
 	if event.is_action_pressed("core_zombie_test") and not event.is_echo():
-		player.reset_to(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
-		_clear_projectiles()
-		camera_kick = Vector2.ZERO
-		camera_shake = 0
-		camera.offset = Vector2.ZERO
-		_update_camera(true)
+		_teleport_zombie()
+	if event.is_action_pressed("core_respawn_enemies") and not event.is_echo():
+		_respawn_enemies()
 	if event.is_action_pressed("core_fire") and not get_tree().paused and not _blocks_shooting():
 		# Keep short clicks that begin and end between two physics ticks.
 		if player.weapon.tuning.fire_mode == CoreShootingSettings.FireMode.SINGLE and player.weapon.cooldown <= 0:
@@ -224,30 +258,28 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("core_reset"):
 		get_tree().paused = false
 		_recover()
-	if event.is_action_pressed("core_debug"):
-		player.debug_shape = not player.debug_shape
-		for enemy in level.enemies:
-			enemy.debug_zones = player.debug_shape
-			enemy.queue_redraw()
-		player.queue_redraw()
+	if event.is_action_pressed("core_debug") and not event.is_echo():
+		developer_mode.toggle_debug()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		hud_pointer_position = event.position
 	if settings_dialog_open: return
 	if event is InputEventMouseButton and event.pressed:
-		if respawn_enemies_button.get_global_rect().has_point(event.position): suppress_mouse_until_release = true
+		if developer_button.get_global_rect().has_point(event.position) or developer_mode.blocks_mouse_input(event.position): suppress_mouse_until_release = true
+		if respawn_enemies_button.is_visible_in_tree() and respawn_enemies_button.get_global_rect().has_point(event.position): suppress_mouse_until_release = true
 		for overlay in _overlays():
 			if overlay.visible and overlay.panel.get_global_rect().has_point(event.position):
 				# Closing or dragging off the panel must not turn that click into fire.
 				suppress_mouse_until_release = true
-	var overlay_actions := {"core_tuner":movement_overlay,"core_weapon_tuner":shooting_overlay,"core_camera_tuner":camera_overlay,"core_zombie_tuner":zombie_overlay}
+	if event.is_action_pressed("core_developer") and not event.is_echo():
+		developer_mode.toggle()
+		get_viewport().set_input_as_handled()
+		return
+	var overlay_actions := {"core_tuner":0,"core_weapon_tuner":1,"core_camera_tuner":2,"core_zombie_tuner":3}
 	for action in overlay_actions:
 		if event.is_action_pressed(action) and not event.is_echo():
-			var selected: CoreMovementOverlay = overlay_actions[action]
-			for overlay in _overlays():
-				if overlay != selected and overlay.visible: overlay.toggle()
-			selected.toggle()
+			developer_mode.toggle_section(overlay_actions[action])
 			get_viewport().set_input_as_handled()
 			return
 
@@ -268,6 +300,7 @@ func _build_settings_dialog(parent: Node) -> void:
 func _open_settings_dialog(exporting: bool) -> void:
 	if settings_dialog_open: return
 	for overlay in _overlays(): overlay._finish_editing("")
+	developer_mode.finish_health_edit()
 	settings_dialog_was_paused = get_tree().paused
 	settings_dialog_exporting = exporting
 	settings_dialog_open = true
@@ -302,6 +335,7 @@ func _settings_resources() -> Dictionary:
 	return {"movement":player.tuning,"shooting":player.weapon.tuning,"camera":camera_settings,"zombie":zombie_settings}
 
 func _settings_file_message(message: String) -> void:
+	developer_mode.status.text = message
 	for overlay in _overlays():
 		overlay._flash(message)
 		overlay.flash_left = 8
@@ -323,6 +357,7 @@ func import_settings_file(path: String) -> bool:
 		return false
 	var resources := _settings_resources()
 	for section in resources: resources[section].apply_values(result.values[section])
+	_player_settings_changed()
 	_zombie_settings_changed()
 	var saved := true
 	for overlay in _overlays():
@@ -372,7 +407,9 @@ func _camera_impulse(direction: Vector2,kick: float,shake: float) -> void:
 
 func camera_target() -> Vector2:
 	var anchor := player.global_position-Vector2(0,CoreMovementPlayer.HEIGHT*.5)
-	var target := anchor+Vector2(camera_settings.offset_x+player.facing*camera_settings.look_ahead,camera_settings.offset_y)/camera_settings.zoom
+	# Temporary dash/slide/ladder poses must not reverse the camera's look-ahead.
+	# The weapon owns a stable gaze sample, independent of movement direction.
+	var target := anchor+Vector2(camera_settings.offset_x+player.weapon.look_facing()*camera_settings.look_ahead,camera_settings.offset_y)/camera_settings.zoom
 	if camera_settings.limit_to_level:
 		var half_width := get_viewport_rect().size.x*.5/camera_settings.zoom
 		var minimum := minf(half_width,CoreMovementLevel.WIDTH*.5)
@@ -380,7 +417,7 @@ func camera_target() -> Vector2:
 	return target
 
 func _update_camera(force_snap := false) -> void:
-	var values := camera_settings.as_dictionary()
+	var values := camera_settings.framing_values()
 	var changed := values != camera_applied_values
 	var is_paused := get_tree().paused
 	if is_paused and not camera_was_paused and not changed and not force_snap:
@@ -404,9 +441,10 @@ func _process(delta: float) -> void:
 		camera_shake *= decay
 		camera_phase += delta
 		camera.offset = camera_kick+Vector2(sin(camera_phase*83)*.65,sin(camera_phase*127+1.2))*camera_shake
-	var names := {"idle":"стойка","run":"бег","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница"}
-	hud.text = ("ПОГИБ · R — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/100" % player.health)+(" · ПАУЗА" if get_tree().paused else "")
-	var dash_status := "готов" if player.dash_available() else ("на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
-	telemetry.text = "Состояние: %s    Скорость: %.0f / %.0f    Дэш: %s    Последний дэш: %.0f px    Возвраты: %d" % [names[player.mode],player.velocity.x,player.velocity.y,dash_status,player.last_dash_distance,respawns]
+	var names := {"idle":"стойка","run":"бег","walk":"ходьба","sprint":"спринт","slide":"подкат","crouch":"присед","crouch_walk":"ходьба в приседе","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница"}
+	hud.text = ("ПОГИБ · R — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/%.0f" % [player.health,player.maximum_health()])+(" · БЕССМЕРТИЕ" if player.invulnerable else "")+(" · ПАУЗА" if get_tree().paused else "")
+	var dash_status := "готов" if player.dash_available() else ("в подкате" if player.slide_left > 0 else "на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
+	var sprint_status := "восст. %.1f с" % player.sprint_recovery_left() if player.sprint_exhausted else "%.1f / %.1f с" % [player.sprint_seconds_left(),player.tuning.sprint_duration]
+	telemetry.text = "Состояние: %s · Скорость: %.0f / %.0f · Спринт: %s · Дэш: %s (%.0f px) · Возвраты: %d" % [names[player.mode],player.velocity.x,player.velocity.y,sprint_status,dash_status,player.last_dash_distance,respawns]
 	var weapon := player.weapon
 	shooting_telemetry.text = "%s · %s · Разброс: ±%.1f° · Скорость: %.0f%% · Выстрелы: %d · Попадания: %d · Убийства: %d" % ["ОДИНОЧНЫЙ" if weapon.tuning.fire_mode == CoreShootingSettings.FireMode.SINGLE else "АВТО","ПРИЦЕЛ" if weapon.aiming else "ОТ БЕДРА",weapon.spread_degrees(),weapon.movement_multiplier*100,weapon.shots_fired,weapon.hits,weapon.kills]

@@ -1,0 +1,30 @@
+extends SceneTree
+func _initialize() -> void: call_deferred("capture")
+func capture() -> void:
+	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
+	lab.load_user_settings = false
+	root.add_child(lab)
+	lab.player.reset_to(Vector2(1800,760))
+	lab.player.weapon.aim_override = Vector2(3000,715)
+	lab.camera_settings.apply_values({"zoom":3,"offset_x":200,"offset_y":-120,"look_ahead":0,"follow_speed":0})
+	for tick in 12: await physics_frame
+	Input.action_press("core_right")
+	Input.action_press("core_walk")
+	for tick in 28: await physics_frame
+	paused = true
+	lab.movement_overlay.toggle()
+	lab.movement_overlay.tabs.current_tab = lab.movement_overlay.groups.find("Ходьба")
+	await process_frame
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("res://docs/core/standing_walk_settings.png")
+	lab.movement_overlay.tabs.current_tab = 0
+	await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("res://docs/core/run_settings.png")
+	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
+	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	for action in ["core_right","core_walk"]: Input.action_release(action)
+	lab.queue_free()
+	await process_frame
+	quit()

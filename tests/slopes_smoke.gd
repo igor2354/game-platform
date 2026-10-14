@@ -39,6 +39,8 @@ func run() -> void:
 	lab.load_user_settings = false
 	root.add_child(lab)
 	hero = lab.player
+	# Terrain checks isolate slope multipliers from gaze-dependent retreat speed.
+	hero.tuning.run_backward_multiplier = 1
 	await frames(8)
 	check(lab.level.slopes.size() == 2,"two hills have real solid collision ramps")
 	for i in lab.level.slopes.size():
@@ -116,13 +118,13 @@ func run() -> void:
 			hero.tuning.apply_values({"uphill_multiplier":.5,"downhill_multiplier":1.25})
 			await settle(steep[side].lerp(steep[side+1],.3 if sign == 1 else .7)-Vector2(0,10))
 			Input.action_press("core_right" if sign == 1 else "core_left")
-			await frames(12)
+			await frames(22)
 			var sample := await sample_speed()
 			var uphill: bool = (side == 0 and sign == 1) or (side == 2 and sign == -1)
 			var expected := 160.0 if uphill else 400.0
 			check(absf(sample.x-expected) < CONTACT_SPEED_TOLERANCE and absf(sample.y-expected) < TARGET_SPEED_TOLERANCE,"custom slope speeds work on both faces and directions (%.1f px/s)" % sample.x)
 			hero.tuning.apply_values({"uphill_multiplier":1.0,"downhill_multiplier":1.0})
-			await frames(7)
+			await frames(32)
 			sample = await sample_speed()
 			check(absf(sample.x-320) < CONTACT_SPEED_TOLERANCE and absf(sample.y-320) < .1 and hero.is_on_floor(),"live 1x settings restore ordinary surface speed without lifting off (%.1f px/s)" % sample.x)
 	# The angle sliders must affect actual movement, not just the preview.
