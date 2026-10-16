@@ -8,7 +8,7 @@ func capture() -> void:
 	for i in 8: await physics_frame
 	var dev := lab.developer_mode
 	dev.set_enabled(true)
-	dev.show_section(4)
+	dev.show_section(CoreDeveloperMode.Section.TESTING)
 	var tools := dev.enemy_tools
 	tools.freeze_toggle.button_pressed = true
 	tools.invulnerable_toggle.button_pressed = true

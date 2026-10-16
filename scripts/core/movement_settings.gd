@@ -2,6 +2,35 @@ class_name CoreMovementSettings
 extends Resource
 
 const SAVE_PATH := "user://core_movement.cfg"
+const SWITCHES := [
+	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],
+	["jump_enabled", "Прыжок включён", "Прыжок", "Запрещает новые прыжки; гравитация и уже начатый полёт сохраняются."],
+	["dash_enabled", "Дэш включён", "Дэш", "Запрещает новые дэши и завершает текущий с безопасным восстановлением коллизий."],
+	["ladder_enabled", "Лестницы включены", "Лестница", "Отключает захват лестниц; герой отпускает уже захваченную лестницу."],
+	["slopes_enabled", "Влияние склонов на скорость", "Склоны", "Отключает замедление вверх и ускорение вниз. Форма поверхности и настройки дэша сохраняются."],
+	["crouch_enabled", "Приседание включено", "Приседание", "Отключает приседание; под низким потолком герой встанет только при достаточном месте."],
+	["sprint_enabled", "Спринт включён", "Спринт", "Отключает спринт и расход его запаса. Обычное движение сохраняется."],
+	["slide_enabled", "Подкат включён", "Подкат", "Отключает подкат, его урон и сбивание. Приседание включается отдельно."],
+	["walk_enabled", "Медленная ходьба включена", "Ходьба", "Отключает режим Ctrl, оставляя обычный бег и другие способы движения."],
+	["backward_enabled", "Замедление движения задом", "Движение задом", "Выключено: движение задом имеет полный темп выбранного способа передвижения."],
+	["acceleration_enabled", "Плавность разгона включена", "Разгон", "Выключено: прежний линейный разгон, без сглаживания. Значения ускорения и торможения сохраняются."],
+	["health_enabled", "Получать урон", "Здоровье", "Выключено: входящий урон не уменьшает HP. Ручное изменение HP, лечение и отдельное бессмертие остаются доступны."],
+	["push_enabled", "Захват и перемещение включены", "Толкание", "G — взять/отпустить предмет; A/D — толкать и тянуть. Выключение освобождает руки; гравитация и импульсы пуль сохраняются."]
+]
+@export var run_enabled := true
+@export var jump_enabled := true
+@export var dash_enabled := true
+@export var ladder_enabled := true
+@export var slopes_enabled := true
+@export var crouch_enabled := true
+@export var sprint_enabled := true
+@export var slide_enabled := true
+@export var walk_enabled := true
+@export var backward_enabled := true
+@export var acceleration_enabled := true
+@export var health_enabled := true
+@export var push_enabled := true
+
 # key, label, minimum, maximum, step, unit, group
 const PARAMS := [
 	["run_speed","Скорость бега",100.0,750.0,10.0,"px/с","Бег"],
@@ -60,7 +89,15 @@ const PARAMS := [
 	["slow_walk_backward_multiplier","Скорость ходьбы задом",.1,1.0,.05,"×","Движение задом"],
 	["crouch_backward_multiplier","Скорость в приседе задом",.1,1.0,.05,"×","Движение задом"],
 	["acceleration_smoothing","Плавность разгона",0.0,1.0,.01,"с","Разгон"],
-	["max_health","Максимальное здоровье героя",1.0,1000.0,1.0,"HP","Здоровье"]
+	["max_health","Максимальное здоровье героя",1.0,1000.0,1.0,"HP","Здоровье"],
+	["push_speed","Скорость толкания и тяги",20.0,240.0,5.0,"px/с","Толкание"],
+	["push_force","Максимальное усилие",0.0,40000.0,500.0,"Н","Толкание"],
+	["push_response","Сила выхода на скорость",10.0,500.0,10.0,"×","Толкание"],
+	["push_activation_delay","Задержка усилия после захвата",0.0,.5,.01,"с","Толкание"],
+	["push_contact_distance","Свободный ход захвата",0.0,12.0,.5,"px","Толкание"],
+	["push_animation_rate","Темп шагов с предметом",.25,2.5,.05,"×","Толкание"],
+	["push_hand_height","Высота захвата руками",20.0,54.0,1.0,"px","Толкание"],
+	["push_hand_spacing","Разнос кистей по высоте",0.0,20.0,1.0,"px","Толкание"]
 ]
 
 @export_category("Здоровье")
@@ -137,11 +174,20 @@ const PARAMS := [
 @export var slide_knockdown_duration := 1.5
 @export var slide_zombie_knockdown_duration := 3.0
 @export var slide_knockback_speed := 180.0
+@export_category("Толкание")
+@export var push_speed := 100.0
+@export var push_force := 16000.0
+@export var push_response := 250.0
+@export var push_activation_delay := .08
+@export var push_contact_distance := 4.0
+@export var push_animation_rate := 1.0
+@export var push_hand_height := 40.0
+@export var push_hand_spacing := 8.0
 
 func acceleration_step(speed: float,target: float,current_acceleration: float,rate: float,delta: float) -> Vector2:
 	# Limit jerk while ramping up; taper acceleration using the remaining
 	# velocity distance needed to stop that acceleration at the target.
-	if acceleration_smoothing <= 0 or delta <= 0:
+	if not acceleration_enabled or acceleration_smoothing <= 0 or delta <= 0:
 		return Vector2(move_toward(speed,target,rate*delta),0)
 	var error := target-speed
 	if absf(error) < .00001: return Vector2(target,0)
@@ -156,10 +202,11 @@ func acceleration_step(speed: float,target: float,current_acceleration: float,ra
 
 func acceleration_time(speed: float,rate: float) -> float:
 	var base := absf(speed)/rate
-	if acceleration_smoothing <= 0: return base
+	if not acceleration_enabled or acceleration_smoothing <= 0: return base
 	return base+acceleration_smoothing if base >= acceleration_smoothing else 2*sqrt(base*acceleration_smoothing)
 
 func slope_multiplier(angle_degrees: float,uphill: bool) -> float:
+	if not slopes_enabled: return 1.0
 	# Ease the angle contribution at both ends; acceleration handles changes
 	# in the target speed, including direction reversals and flat crests.
 	var weight := smoothstep(slope_start_angle,slope_full_angle,absf(angle_degrees))
@@ -171,10 +218,13 @@ func dash_slope_multiplier(angle_degrees: float,uphill: bool) -> float:
 
 func as_dictionary() -> Dictionary:
 	var values := {"slide_knockdown_enabled":slide_knockdown_enabled,"air_dash_enabled":air_dash_enabled}
+	for entry in SWITCHES: values[entry[0]] = get(entry[0])
 	for param in PARAMS: values[param[0]] = get(param[0])
 	return values
 
 func apply_values(values: Dictionary) -> void:
+	for entry in SWITCHES:
+		if values.get(entry[0]) is bool: set(entry[0],values[entry[0]])
 	if values.get("air_dash_enabled") is bool: air_dash_enabled = values.air_dash_enabled
 	if values.get("slide_knockdown_enabled") is bool: slide_knockdown_enabled = values.slide_knockdown_enabled
 	for param in PARAMS:
@@ -217,6 +267,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	if result != OK: return result
 	var values := {}
 	for key in as_dictionary(): values[key] = config.get_value("movement",key,get(key))
+	for entry in SWITCHES: values[entry[0]] = config.get_value("movement",entry[0],true)
 	apply_values(values)
 	return OK
 

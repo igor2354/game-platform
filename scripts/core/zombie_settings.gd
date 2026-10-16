@@ -9,7 +9,8 @@ const SWITCHES := [
 	["combat_enabled","Атаковать в ближнем бою","Бой","Выключение отменяет текущий замах и новые удары. Сбрасывание игрока настраивается отдельно."],
 	["crawl_enabled","Ползать при потере ноги","Ползание","Выключает самостоятельное ползание. Зомби остаётся лежать, но может замечать и атаковать игрока. Для ползания также нужно включить движение."],
 	["shove_enabled","Сбрасывать игрока","Сбрасывание","Выключение отменяет подготовку сбрасывания. Обычная ближняя атака настраивается отдельно."],
-	["damage_reaction_enabled","Реагировать на попадания игрока","Попадания","Выключает реакцию ИИ на попадания. Урон и потеря конечностей продолжают работать."]
+	["damage_reaction_enabled","Реагировать на попадания игрока","Попадания","Выключает реакцию ИИ на попадания. Урон и потеря конечностей продолжают работать."],
+	["stun_enabled","Поддаваться ошеломлению","Ошеломление","Дэш сквозь зомби прерывает его действия. Выключение сразу снимает ошеломление; остальные настройки сохраняются."]
 ]
 @export var vision_enabled := true
 @export var hearing_enabled := true
@@ -17,6 +18,7 @@ const SWITCHES := [
 @export var combat_enabled := true
 @export var crawl_enabled := true
 @export var shove_enabled := true
+@export var stun_enabled := true
 const PARAMS := [
 	["detection_range","Дальность обнаружения",32.0,1200.0,1.0,"px","Зрение"],
 	["vision_angle","Угол обзора перед собой",20.0,180.0,5.0,"°","Зрение"],
@@ -46,7 +48,8 @@ const PARAMS := [
 	["shove_damage","Урон при сбрасывании",0.0,100.0,1.0,"HP","Сбрасывание"],
 	["shove_cooldown","Перерыв между толчками",.4,3.0,.1,"с","Сбрасывание"],
 	["damage_memory_time","Память источника урона",.1,15.0,.1,"с","Попадания"],
-	["damage_chase_multiplier","Скорость к источнику урона",.1,3.0,.05,"×","Попадания"]
+	["damage_chase_multiplier","Скорость к источнику урона",.1,3.0,.05,"×","Попадания"],
+	["dash_stun_duration","Ошеломление от дэша",.1,10.0,.1,"с","Ошеломление"]
 ]
 @export var detection_range := 360.0
 @export var vision_angle := 120.0
@@ -78,6 +81,7 @@ const PARAMS := [
 @export var damage_reaction_enabled := true
 @export var damage_memory_time := 1.5
 @export var damage_chase_multiplier := 1.0
+@export var dash_stun_duration := 1.5
 
 func as_dictionary() -> Dictionary:
 	var values := {}

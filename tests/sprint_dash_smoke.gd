@@ -26,6 +26,10 @@ func encounter(move: float,look: float,release_shift: bool,airborne := false) ->
 	hero.weapon.aim_override = hero.position+Vector2(look*1200,-45)
 	lab.camera_settings.apply_values({"zoom":2.5,"offset_x":look*250,"offset_y":-180,"look_ahead":200,"follow_speed":8,"limit_to_level":false})
 	await frames(8)
+	# Start the dash check after establishing the chosen gaze. Directional
+	# interpolation itself is measured separately by camera_turn_smoke.
+	lab._update_camera(true)
+	lab.camera.force_update_scroll()
 	Input.action_press("core_right" if move > 0 else "core_left")
 	Input.action_press("core_sprint")
 	await frames(24)

@@ -29,7 +29,7 @@ func run() -> void:
 	var hero := lab.player
 	hero.weapon.aim_override = hero.position+Vector2(2000,-36)
 	var source := load("res://resources/core/movement.tres") as CoreMovementSettings
-	check(not overlay.visible and overlay.rows.size() == 57 and overlay.tabs.get_tab_count() == 12 and overlay.slide_knockdown_toggle != null,"movement overlay starts closed with all parameters in twelve tabs and a knockdown switch")
+	check(not overlay.visible and overlay.rows.size() == 64 and overlay.tabs.get_tab_count() == 12 and overlay.slide_knockdown_toggle != null,"movement overlay starts closed with all movement parameters in twelve tabs and a knockdown switch")
 	check(not overlay.groups.has("Дэш на склонах") and not overlay.groups.has("Сбивание подкатом"),"the two former auxiliary tabs are removed")
 	var dash_box := overlay.tabs.get_tab_control(overlay.groups.find("Дэш")).get_child(0)
 	var slide_box := overlay.tabs.get_tab_control(overlay.groups.find("Подкат")).get_child(0)

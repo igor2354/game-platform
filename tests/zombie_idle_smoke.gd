@@ -60,6 +60,9 @@ func run() -> void:
 		hero.noise_emitted.emit(hero.global_position-Vector2(0,8),1.0,"step")
 		await frames(8)
 		check(zombie.state == CoreZombie.State.INVESTIGATE and zombie.global_position.x > anchor.x+5,"a player noise event wakes the waiting crawler and moves it toward the source")
+		# Isolate expiry of the remembered sound from a new visual/contact melee
+		# encounter when the crawler reaches the player who emitted that sound.
+		hero.reset_to(CoreMovementLevel.SPAWN)
 		await frames(24)
 		anchor = zombie.global_position
 		check(zombie.state == CoreZombie.State.WAIT and zombie.noise_memory_left == 0 and zombie.velocity.x == 0,"expired sound memory stops the crawler rather than returning home")

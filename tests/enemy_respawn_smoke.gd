@@ -48,7 +48,7 @@ func run() -> void:
 	lab.level.enemies[2].take_damage(100)
 	await frames(16)
 	lab.developer_mode.set_enabled(true)
-	lab.developer_mode.show_section(4)
+	lab.developer_mode.show_section(CoreDeveloperMode.Section.TESTING)
 	await process_frame
 	await process_frame
 	lab.developer_mode.tools_scroll.ensure_control_visible(lab.respawn_enemies_button)

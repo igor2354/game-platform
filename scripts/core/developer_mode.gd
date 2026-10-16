@@ -4,6 +4,8 @@ extends Control
 var lab: Node
 var enabled := false
 var current_section := 0
+var current_player_tab := 0
+var player_tabs: TabContainer
 var panel: PanelContainer
 var pages: Control
 var tools_page: VBoxContainer
@@ -15,6 +17,7 @@ var heal_button: Button
 var health_readout: Label
 var syncing_health := false
 var enemy_tools: CoreEnemyTools
+var ammo_button: Button
 var navigation: Array[Button] = []
 var debug_toggle: CheckButton
 var telemetry_toggle: CheckButton
@@ -28,7 +31,11 @@ var export_button: Button
 var import_button: Button
 var close_button: Button
 var status: Label
-const SECTIONS := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Тестирование"]
+enum Section { PLAYER, ZOMBIE, TESTING, PHYSICS }
+const SECTIONS := ["Игрок","Зомби","Тестирование","Физика"]
+const OVERLAY_SECTIONS := [Section.PLAYER,Section.PLAYER,Section.PLAYER,Section.ZOMBIE,Section.PHYSICS,Section.PLAYER]
+const OVERLAY_NAMES := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Физика","Здоровье"]
+const PLAYER_OVERLAYS := [0,1,2,5]
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -69,7 +76,7 @@ func _ready() -> void:
 		button.toggle_mode = true
 		sidebar.add_child(button)
 		navigation.append(button)
-	var hint := _label("F3 — движение\nF4 — стрельба\nF5 — камера\nF6 — зомби\nF1 — зоны\nF7 — возродить врагов\nT — к зомби\n\nПравки — сразу.\nПауза — в тестировании.\n\nЧисла: точный ввод.\nEnter: закончить ввод.",14)
+	var hint := _label("F3 — движение\nF4 — стрельба\nF5 — камера\nF6 — зомби\nF1 — зоны\nF7 — возродить врагов\nF9 — к зомби\nF10 — к солдату\n\nПравки — сразу.\nПауза — в тестировании.\n\nЧисла: точный ввод.\nEnter: закончить ввод.",14)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar.add_child(hint)
@@ -77,11 +84,26 @@ func _ready() -> void:
 	pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(pages)
-	for index in lab._overlays().size():
-		var overlay: CoreMovementOverlay = lab._overlays()[index]
-		overlay.panel.reparent(pages)
+	player_tabs = TabContainer.new()
+	player_tabs.set_tab_focus_mode(Control.FOCUS_NONE)
+	pages.add_child(player_tabs)
+	for index in lab._ui_overlays().size():
+		var overlay: CoreMovementOverlay = lab._ui_overlays()[index]
+		if OVERLAY_SECTIONS[index] == Section.PLAYER:
+			# The container owns tab visibility; the original panels retain their
+			# own visibility and input gating inside stable page wrappers.
+			var page := MarginContainer.new()
+			page.name = OVERLAY_NAMES[index]
+			player_tabs.add_child(page)
+			overlay.panel.reparent(page)
+			# Reserve one row for Player navigation. The existing parameter
+			# lists remain scrollable and all profile actions stay on screen.
+			overlay.tabs.custom_minimum_size.y = 200
+		else:
+			overlay.panel.reparent(pages)
 		overlay.panel.hide()
-		overlay.toggle_requested.connect(toggle_section.bind(index))
+		overlay.toggle_requested.connect(toggle_overlay.bind(index))
+	player_tabs.tab_changed.connect(_player_tab_changed)
 	tools_scroll = ScrollContainer.new()
 	tools_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	pages.add_child(tools_scroll)
@@ -90,9 +112,13 @@ func _ready() -> void:
 	tools_page.add_theme_constant_override("separation",12)
 	tools_scroll.add_child(tools_page)
 	tools_page.add_child(_label("ИНСТРУМЕНТЫ ТЕСТИРОВАНИЯ",19))
-	var description := _label("Управляйте тестовой площадкой без изменения баланса.\nF1 — зоны; F7 — возродить врагов; T — к зомби.",16)
+	var description := _label("Управляйте тестовой площадкой без изменения баланса.\nF1 — зоны; F7 — возродить врагов; F9 — к зомби.",16)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tools_page.add_child(description)
+	var health_box: VBoxContainer = lab.health_overlay.tabs.get_tab_control(0).get_child(0)
+	var health_tools := VBoxContainer.new()
+	health_tools.add_theme_constant_override("separation",6)
+	health_box.add_child(health_tools)
 	invulnerable_toggle = CheckButton.new()
 	invulnerable_toggle.text = "Бессмертие героя"
 	invulnerable_toggle.tooltip_text = "Блокирует урон, сохраняя физические толчки. Не записывается в профили и JSON."
@@ -101,9 +127,9 @@ func _ready() -> void:
 		_prepare_action()
 		lab.player.set_invulnerable(value)
 		_sync_health())
-	tools_page.add_child(invulnerable_toggle)
+	health_tools.add_child(invulnerable_toggle)
 	var health_row := HBoxContainer.new()
-	tools_page.add_child(health_row)
+	health_tools.add_child(health_row)
 	var health_label := _label("Текущие HP героя",16)
 	health_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	health_row.add_child(health_label)
@@ -122,27 +148,34 @@ func _ready() -> void:
 	health_slider.step = .01
 	health_slider.focus_mode = Control.FOCUS_NONE
 	health_slider.value_changed.connect(_change_health)
-	tools_page.add_child(health_slider)
+	health_tools.add_child(health_slider)
 	health_readout = _label("",14)
-	tools_page.add_child(health_readout)
+	health_tools.add_child(health_readout)
 	heal_button = _button("Полностью восстановить HP",func():
 		_prepare_action()
 		lab.player.set_current_health(lab.player.maximum_health())
 		_sync_health())
-	tools_page.add_child(heal_button)
+	health_tools.add_child(heal_button)
+	ammo_button = _button("Пополнить боеприпасы",func():
+		_prepare_action()
+		lab.player.weapon.refill_ammunition())
+	tools_page.add_child(ammo_button)
 	enemy_tools = CoreEnemyTools.new()
 	enemy_tools.lab = lab
 	tools_page.add_child(enemy_tools)
 	pause_button = _button("Пауза",func():
 		_prepare_action()
 		get_tree().paused = not get_tree().paused)
-	reset_button = _button("Вернуть героя на старт · R",func():
+	reset_button = _button("Вернуть героя на старт · F8",func():
 		_prepare_action()
 		lab._recover())
-	zombie_button = _button("Перейти к зоне зомби · T",func():
+	zombie_button = _button("Перейти к зоне зомби · F9",func():
 		_prepare_action()
 		lab._teleport_zombie())
 	for button in [pause_button,reset_button,zombie_button]: tools_page.add_child(button)
+	tools_page.add_child(_button("К новому зомби-солдату · F10",func():
+		_prepare_action()
+		lab._teleport_player(CoreMovementLevel.CONCEPT_ZOMBIE_TEST_SPAWN)))
 	lab.respawn_enemies_button.reparent(tools_page)
 	lab.respawn_enemies_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	lab.respawn_enemies_button.custom_minimum_size.y = 38
@@ -177,7 +210,7 @@ func _layout() -> void:
 	panel.position = Vector2(maxf(12,size.x-936),140)
 	panel.size = Vector2(minf(924,size.x-24),maxf(540,size.y-156))
 func _prepare_action() -> void:
-	for overlay in lab._overlays(): overlay._finish_editing("")
+	for overlay in lab._ui_overlays(): overlay._finish_editing("")
 	finish_health_edit()
 	lab.suppress_mouse_until_release = true
 	lab.player.weapon.queued_single_press = false
@@ -187,12 +220,28 @@ func set_enabled(value: bool) -> void:
 	_prepare_action()
 	enabled = value
 	visible = value
-	for overlay in lab._overlays():
+	for overlay in lab._ui_overlays():
 		overlay.hide()
 		overlay.panel.hide()
 	if enabled: show_section(current_section)
 	_apply_debug()
 func toggle() -> void: set_enabled(not enabled)
+func toggle_overlay(index: int) -> void:
+	if enabled and current_section == OVERLAY_SECTIONS[index] and (current_section != Section.PLAYER or current_player_tab == PLAYER_OVERLAYS.find(index)):
+		set_enabled(false)
+	else:
+		show_overlay(index)
+		if not enabled: set_enabled(true)
+func show_overlay(index: int) -> void:
+	_prepare_action()
+	if OVERLAY_SECTIONS[index] == Section.PLAYER:
+		current_player_tab = PLAYER_OVERLAYS.find(index)
+		player_tabs.set_current_tab(current_player_tab)
+	show_section(OVERLAY_SECTIONS[index])
+func _player_tab_changed(index: int) -> void:
+	_prepare_action()
+	current_player_tab = index
+	_refresh_pages()
 func toggle_section(index: int) -> void:
 	if enabled and current_section == index:
 		set_enabled(false)
@@ -202,12 +251,16 @@ func toggle_section(index: int) -> void:
 func show_section(index: int) -> void:
 	_prepare_action()
 	current_section = clampi(index,0,SECTIONS.size()-1)
-	for i in lab._overlays().size():
-		var overlay: CoreMovementOverlay = lab._overlays()[i]
-		overlay.visible = enabled and i == current_section
+	_refresh_pages()
+func _refresh_pages() -> void:
+	player_tabs.visible = enabled and current_section == Section.PLAYER
+	for i in lab._ui_overlays().size():
+		var overlay: CoreMovementOverlay = lab._ui_overlays()[i]
+		overlay.visible = enabled and OVERLAY_SECTIONS[i] == current_section
+		if current_section == Section.PLAYER: overlay.visible = overlay.visible and i == PLAYER_OVERLAYS[current_player_tab]
 		overlay.panel.visible = overlay.visible
 		if overlay.visible: overlay._sync()
-	tools_page.visible = enabled and current_section == 4
+	tools_page.visible = enabled and current_section == Section.TESTING
 	tools_scroll.visible = tools_page.visible
 	for i in navigation.size(): navigation[i].set_pressed_no_signal(i == current_section)
 	_layout()
@@ -220,8 +273,12 @@ func _apply_debug() -> void:
 	for enemy in lab.level.enemies:
 		enemy.debug_zones = lab.player.debug_shape
 		enemy.queue_redraw()
-	lab.telemetry.visible = enabled and telemetry_toggle.button_pressed
-	lab.shooting_telemetry.visible = enabled and telemetry_toggle.button_pressed
+	for load_fixture in lab.level.hanging_loads:
+		load_fixture.debug_shapes = lab.player.debug_shape
+		load_fixture.queue_redraw()
+		load_fixture.body.queue_redraw()
+	lab.telemetry.visible = telemetry_toggle.button_pressed
+	lab.shooting_telemetry.visible = telemetry_toggle.button_pressed
 func blocks_mouse_input(point: Vector2) -> bool:
 	return enabled and panel.get_global_rect().has_point(point)
 func blocks_keyboard_input() -> bool:
@@ -247,7 +304,7 @@ func _sync_health() -> void:
 	if not blocks_keyboard_input():
 		health_number.max_value = lab.player.maximum_health()
 		health_number.set_value_no_signal(lab.player.health)
-	health_readout.text = "HP: %.2f / %.0f · Максимум: F3 → «Здоровье»" % [lab.player.health,lab.player.maximum_health()]
+	health_readout.text = "HP: %.2f / %.0f" % [lab.player.health,lab.player.maximum_health()]
 	syncing_health = false
 func _input(event: InputEvent) -> void:
 	if blocks_keyboard_input() and event.is_action_pressed("core_pause"):
@@ -262,7 +319,7 @@ func save_all() -> void:
 		if result == OK:
 			overlay.saved_values = overlay.settings.as_dictionary()
 			overlay._flash("Профиль раздела сохранён.")
-		else: failures.append(SECTIONS[i])
+		else: failures.append(OVERLAY_NAMES[i])
 	status.text = "Все профили сохранены для следующих запусков." if failures.is_empty() else "Не удалось сохранить: "+", ".join(failures)
 func load_all() -> void:
 	_prepare_action()
@@ -274,7 +331,7 @@ func load_all() -> void:
 		var candidate: Resource = overlay.settings.duplicate()
 		var result: int = candidate.load_saved(overlay.settings_path)
 		if result != OK and result != ERR_FILE_NOT_FOUND:
-			status.text = "Ошибка загрузки раздела «%s» (%d). Настройки не изменены." % [SECTIONS[i],result]
+			status.text = "Ошибка загрузки раздела «%s» (%d). Настройки не изменены." % [OVERLAY_NAMES[i],result]
 			return
 		if result == OK: loaded += 1
 		candidates.append(candidate)
@@ -286,7 +343,7 @@ func load_all() -> void:
 		overlay._sync()
 		overlay.settings_changed.emit()
 	lab._update_camera(true)
-	status.text = "Загружено профилей: %d из 4. Разделы без файла сохранены без изменений." % loaded
+	status.text = "Загружено профилей: %d из %d. Разделы без файла сохранены без изменений." % [loaded,lab._overlays().size()]
 func reset_all() -> void:
 	_prepare_action()
 	for overlay in lab._overlays(): overlay.reset_profile()

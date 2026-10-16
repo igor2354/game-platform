@@ -60,8 +60,8 @@ func run() -> void:
 	await reset_at(Vector2(160,760))
 	Input.action_press("core_aim")
 	await single_shot()
-	check(shots[0].aimed and shots[0].error < .00001,"visual recoil preserves ADS bullet accuracy")
-	check(absf(shots[0].back-hip_back*.55) < .001 and absf(shots[0].angle-hip_angle*.55) < .001,"aiming reduces visual recoil")
+	check(shots[0].aimed and shots[0].error < .00001,"ADS bullets follow the effective recoiled crosshair")
+	check(absf(shots[0].back-hip_back*gun.tuning.ads_recoil_back_multiplier) < .001 and absf(shots[0].angle-hip_angle*gun.tuning.ads_recoil_angle/gun.tuning.recoil_angle) < .001,"aiming uses separate kick and weapon translation settings")
 	paused = true
 	var state := [gun.recoil_back,gun.recoil_angle,lab.camera.offset,lab.camera_kick,lab.camera_shake]
 	await frames(8)
@@ -110,7 +110,7 @@ func run() -> void:
 	paused = true
 	var overlay := lab.shooting_overlay
 	overlay.toggle()
-	check(overlay.tabs.get_tab_count() == 6 and overlay.rows.has("kill_volume") and overlay.rows.has("camera_shake"),"F4 exposes recoil, sound and damage tabs")
+	check(overlay.tabs.get_tab_count() == 8 and overlay.rows.has("reload_volume") and overlay.rows.has("kill_volume") and overlay.rows.has("camera_shake"),"F4 exposes ammunition, recoil, sound and damage tabs")
 	overlay.tabs.current_tab = 3
 	overlay.rows.recoil_back.slider.value = 7
 	overlay.rows.camera_kick.slider.value = 4
@@ -128,6 +128,8 @@ func run() -> void:
 	check(gun.kills == 0 and gun.kill_marker_left == 0 and gun.recoil_back == 0 and gun.effects.is_empty() and lab.camera.offset == Vector2.ZERO and not gun.hit_audio.playing and not gun.kill_audio.playing,"R clears recoil, camera feedback, sounds, death state and temporary effects")
 	gun.tuning.recoil_back = 0
 	gun.tuning.recoil_angle = 0
+	gun.tuning.hip_recoil_climb = 0
+	gun.tuning.hip_recoil_horizontal = 0
 	gun.tuning.camera_kick = 0
 	gun.tuning.camera_shake = 0
 	await single_shot()

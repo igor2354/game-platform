@@ -37,7 +37,7 @@ func run() -> void:
 			lab.camera.force_update_scroll()
 			var screen_point := lab.get_viewport_rect().size*.5+Vector2(look*450,90)
 			var physical_point := screen_point*Vector2(DisplayServer.window_get_size())/lab.get_viewport_rect().size
-			Input.warp_mouse(physical_point)
+			lab.aim_cursor.set_screen_point(screen_point)
 			hero.weapon.aim_override = Vector2.INF
 			if ads: Input.action_press("core_aim")
 			Input.action_press("core_fire")

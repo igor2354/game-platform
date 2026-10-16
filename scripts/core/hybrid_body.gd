@@ -13,7 +13,11 @@ const TEXTURES = {
 	"crouch":preload("res://resources/core/hybrid/crouch.png"),
 	"crouch_walk":preload("res://resources/core/hybrid/crouch_walk.png"),
 	"sprint":preload("res://resources/core/hybrid/sprint.png"),
-	"slide":preload("res://resources/core/hybrid/slide.png")
+	"slide":preload("res://resources/core/hybrid/slide.png"),
+	"push":preload("res://resources/core/hybrid/push.png"),
+	"pull":preload("res://resources/core/hybrid/pull.png")
+	,"barrel_tip":preload("res://resources/core/hybrid/barrel_tip.png")
+	,"barrel_roll":preload("res://resources/core/hybrid/barrel_roll.png")
 }
 const RUN_STRIDE := 96.0
 const ADS_STAGES := 5
@@ -33,6 +37,7 @@ var phase := 0.0
 var facing := 1.0
 var previous_mode := "idle"
 var landing_left := 0.0
+var push_last_position := Vector2.ZERO
 var far_arm: CoreHybridArm
 var near_arm: CoreHybridArm
 
@@ -60,19 +65,43 @@ func reset_visual() -> void:
 
 func advance(delta: float) -> void:
 	facing = player.weapon.look_facing()
+	if player.weapon.reloading: facing = player.weapon.reload_facing
 	if player.sprint_pose_active():
 		facing = signf(player.velocity.x) if absf(player.velocity.x) > 5 else signf(player.movement_axis)
 	if player.sprint_dash_pose_active(): facing = player.dash_direction
 	if player.mode == "slide": facing = player.slide_direction
+	if player.grenades and player.grenades.busy(): facing = player.weapon.look_facing()
 	if player.climbing: facing = 1
+	if player.pushing: facing = player.push_direction
 	landing_left = maxf(0,landing_left-delta)
 	if previous_mode in ["jump","fall"] and player.mode in ["idle","walk","run","sprint"]:
 		landing_left = .075
-	if player.mode == "climb":
+	if player.barrel_knockdown_left > 0 or player.mode == "knocked_down":
+		state = "slide"
+		facing = player.facing
+		frame = 3
+	elif player.mode == "climb":
 		state = "climb"
 		# World distance drives the cycle; stopping and reversing keep the pose.
 		phase = fposmod(-(player.global_position.y-player.ladder.position.y-12)/48,1)
 		frame = posmod(floori(phase*8),8)
+	elif player.mode == "push":
+		state = "pull" if player.movement_axis*player.push_direction < 0 else "push"
+		if previous_mode != "push":
+			phase = 0
+			push_last_position = player.global_position
+		# Slow weight shifts remain readable when a heavy box hardly moves.
+		# Sliding collisions can report zero commanded velocity even while the
+		# moving rigid body carries the character; measure actual displacement.
+		var travel := absf(player.global_position.x-push_last_position.x)
+		var effort := delta*.35 if player.movement_axis != 0 else 0.0
+		if player.movement_axis != 0:
+			phase = fposmod(phase+(effort+travel/110)*player.tuning.push_animation_rate,1)
+		push_last_position = player.global_position
+		frame = floori(phase*8) if player.movement_axis != 0 else 0
+		if is_instance_valid(player.push_target) and player.push_target.has_method("grab_pose"):
+			state = player.push_target.grab_pose()
+			if state == "barrel_tip": frame = clampi(floori(player.push_target.tip_progress()*8),0,7)
 	elif player.mode == "dash":
 		state = "dash_back" if player.dash_direction*facing < 0 else "dash"
 		frame = clampi(floori((1-player.dash_left/player.tuning.dash_duration)*8),0,7)
@@ -118,7 +147,11 @@ func _show_frame() -> void:
 
 func head_aim_stage() -> int:
 	if not player.weapon or not ADS_TEXTURES.has(state): return 0
-	return roundi(smoothstep(0,1,player.weapon.ads_blend)*(ADS_STAGES-1))
+	var blend := smoothstep(0,1,player.weapon.ads_blend)
+	if player.weapon.reloading:
+		var progress := player.weapon.reload_progress()
+		blend = maxf(blend,smoothstep(.03,.20,progress)*(1-smoothstep(.85,1,progress)))
+	return roundi(blend*(ADS_STAGES-1))
 
 func _pose_height_scale() -> float:
 	return player.collision_height()/(32.0 if state == "slide" else 42.0 if state in ["crouch","crouch_walk"] else CoreMovementPlayer.HEIGHT)
@@ -140,7 +173,14 @@ func ads_anchor() -> Vector2:
 
 func update_arms() -> void:
 	if not near_arm: return
-	if state == "climb":
+	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
+	if player.grenades and player.grenades.busy():
+		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
+		near_arm.pose(shoulder("near"),player.grenades.hand_point("near"),facing,false)
+	elif state in ["push","pull","barrel_tip","barrel_roll"]:
+		far_arm.pose(shoulder("far"),player.push_hand_point("far")-player.global_position,facing,true)
+		near_arm.pose(shoulder("near"),player.push_hand_point("near")-player.global_position,facing,false)
+	elif state == "climb":
 		for side in ["far","near"]:
 			var arm := far_arm if side == "far" else near_arm
 			var desired_height := 33.0 if side == "far" else 45.0
@@ -158,4 +198,47 @@ func update_arms() -> void:
 		var gun_pose := player.weapon.visual_pose()
 		far_arm.pose(shoulder("far"),gun_pose.front_grip,facing,true)
 		near_arm.pose(shoulder("near"),gun_pose.rear_grip,facing,false)
+
+func ragdoll_pose() -> Dictionary:
+	# Use the exact baked frame and articulated arms at the instant of impact.
+	# A sprint, crouch or airborne hit must not reset the body to a T-pose.
+	var data: Dictionary = POSES.DATA[state][frame]
+	var skeleton: Dictionary = data.skeleton
+	var y_scale := _pose_height_scale()
+	var mirror := Vector2(facing,y_scale)
+	var hip := Vector2(data.hip[0],data.hip[1])*mirror
+	var neck := Vector2(skeleton.neck[0],skeleton.neck[1])
+	var head := Vector2(skeleton.head[0],skeleton.head[1])
+	var blend := float(head_aim_stage())/(ADS_STAGES-1)
+	head = neck+(head-neck).rotated(blend*PI/15)+Vector2(2,4)*blend
+	head *= mirror
+	neck *= mirror
+	var parts := {
+		"pelvis":{"position":hip,"rotation":0.0,"dimensions":Vector2(13,5*y_scale)},
+		"head":{"position":head,"rotation":blend*PI/15*facing,"dimensions":Vector2(12,14*y_scale)}
+	}
+	var joints := {"neck":neck,"waist":hip}
+	_pose_segment(parts,"torso",neck,hip,13)
+	for entry in [["left",far_arm],["right",near_arm]]:
+		var side: String = entry[0]
+		var arm: CoreHybridArm = entry[1]
+		_pose_segment(parts,side+"_upper_arm",arm.shoulder,arm.elbow,6.8)
+		_pose_segment(parts,side+"_forearm",arm.elbow,arm.hand,5.2)
+		joints[side+"_shoulder"] = arm.shoulder
+		joints[side+"_elbow"] = arm.elbow
+		var leg: Dictionary = skeleton.legs["far" if side == "left" else "near"]
+		var h := Vector2(leg.hip[0],leg.hip[1])*mirror
+		var knee := Vector2(leg.knee[0],leg.knee[1])*mirror
+		var ankle := Vector2(leg.ankle[0],leg.ankle[1])*mirror
+		var foot := Vector2(leg.foot[0],leg.foot[1])*mirror
+		_pose_segment(parts,side+"_thigh",h,knee,8)
+		_pose_segment(parts,side+"_shin",knee,ankle,6)
+		parts[side+"_foot"] = {"position":foot+Vector2(facing*1.5,-2*y_scale),"rotation":0.0,"dimensions":Vector2(9,4*y_scale)}
+		joints[side+"_hip"] = h
+		joints[side+"_knee"] = knee
+		joints[side+"_ankle"] = ankle
+	return {"parts":parts,"joints":joints,"facing":facing,"pelvis_offset":-hip.y}
+
+func _pose_segment(parts: Dictionary,key: String,a: Vector2,b: Vector2,width: float) -> void:
+	parts[key] = {"position":(a+b)*.5,"rotation":Vector2.DOWN.angle_to(b-a),"dimensions":Vector2(width,maxf(2,a.distance_to(b)))}
 

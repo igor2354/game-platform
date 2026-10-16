@@ -33,7 +33,7 @@ func dispatch(action: String) -> void:
 	await process_frame
 	await process_frame
 func record(origin: Vector2,direction: Vector2,aimed: bool,spread: float) -> void:
-	records.append({"origin":origin,"direction":direction,"aimed":aimed,"spread":spread,"point":gun.aim_point})
+	records.append({"origin":origin,"direction":direction,"aimed":aimed,"spread":spread,"point":gun.aim_point,"unrecoiled":gun.unrecoiled_aim_point})
 func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
@@ -84,7 +84,7 @@ func run() -> void:
 	var bounded := true
 	for shot in records:
 		exact = exact and shot.aimed and shot.spread == 0 and absf((shot.point-shot.origin).normalized().cross(shot.direction)) < .00001
-		bounded = bounded and shot.point.distance_to(gun.aim_override) <= gun.tuning.sway_radius*1.23
+		bounded = bounded and shot.unrecoiled.distance_to(gun.aim_override) <= gun.tuning.sway_radius*1.23
 	check(exact and records.size() > 8,"aimed bullets pass through the visible swaying aim point without random spread")
 	check(bounded and first_point.distance_to(gun.aim_point) > 1,"aim point sways smoothly around the mouse within the configured amplitude")
 	check(absf(gun.movement_multiplier-.3) < .001,"aim slowdown takes priority over hip burst slowdown")
@@ -180,7 +180,7 @@ func run() -> void:
 	release_inputs()
 	await dispatch("core_weapon_tuner")
 	var overlay := lab.shooting_overlay
-	check(overlay.visible and overlay.rows.size() == CoreShootingSettings.PARAMS.size() and overlay.tabs.get_tab_count() == 6,"F4 exposes shooting, recoil, sound and zonal damage in six tabs, also on pause")
+	check(overlay.visible and overlay.rows.size() == CoreShootingSettings.PARAMS.size() and overlay.tabs.get_tab_count() == 8,"F4 exposes shooting, recoil, sound, zonal damage and ammunition in eight tabs, also on pause")
 	overlay.tabs.current_tab = 2
 	overlay.rows.ads_move_multiplier.slider.value = .25
 	check(gun.tuning.ads_move_multiplier == .25 and overlay.rows.ads_move_multiplier.number.value == .25,"weapon sliders update the runtime settings live")

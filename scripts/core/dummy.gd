@@ -10,6 +10,7 @@ const LIMBS := ["left_arm","right_arm","left_leg","right_leg"]
 const PART_NAMES := {"head":"ГОЛОВА","torso":"КОРПУС","left_arm":"ЛЕВАЯ РУКА","right_arm":"ПРАВАЯ РУКА","left_leg":"ЛЕВАЯ НОГА","right_leg":"ПРАВАЯ НОГА"}
 signal posture_changed
 
+var blast_ragdoll: CoreCharacterRagdoll
 var damage_tuning: CoreShootingSettings = CoreShootingSettings.new()
 var health := MAX_HEALTH
 var max_health := MAX_HEALTH
@@ -48,6 +49,7 @@ func set_current_health(value: float) -> void:
 	var was_alive := health > 0
 	health = clampf(value,0,max_health)
 	if not was_alive and health > 0:
+		if blast_ragdoll: blast_ragdoll.cancel()
 		if is_knocked_down(): collision_mask = knockdown_saved_mask
 		knockdown_left = 0
 		knockdown_saved_mask = 0
@@ -72,6 +74,9 @@ func set_invulnerable(value: bool) -> void:
 
 func set_test_frozen(value: bool) -> void:
 	test_frozen = value
+	if blast_ragdoll and blast_ragdoll.active:
+		blast_ragdoll.frozen = value
+		blast_ragdoll.rig.set_simulation_enabled(not value and not blast_ragdoll.recovering and not blast_ragdoll.recovery_finished)
 	queue_redraw()
 
 func has_part(part: String) -> bool:
@@ -81,7 +86,7 @@ func is_prone() -> bool:
 	return is_knocked_down() or ("left_leg" in missing_parts and "right_leg" in missing_parts)
 
 func is_knocked_down() -> bool:
-	return knockdown_left > 0
+	return knockdown_left > 0 or (blast_ragdoll != null and blast_ragdoll.active)
 
 func take_slide_hit(amount: float,direction: Vector2,_attack_origin: Vector2) -> bool:
 	if health <= 0 or not is_finite(amount) or amount <= 0: return false
@@ -166,6 +171,9 @@ func damage_multiplier(part: String) -> float:
 	return damage_tuning.torso_damage_multiplier
 
 func part_rect(part: String) -> Rect2:
+	return base_part_rect(part,is_prone())
+
+func base_part_rect(part: String,prone_pose: bool) -> Rect2:
 	var standing := {
 		"head":Rect2(-7,-64,14,14),"torso":Rect2(-9,-50,18,26),
 		"left_arm":Rect2(-16,-39,7,20),"right_arm":Rect2(9,-39,7,20),
@@ -174,7 +182,7 @@ func part_rect(part: String) -> Rect2:
 		"head":Rect2(5,-24,14,14),"torso":Rect2(-22,-20,26,15),
 		"left_arm":Rect2(-3,-6,32,5),"right_arm":Rect2(-3,-14,34,6),
 		"left_leg":Rect2(-46,-12,24,7),"right_leg":Rect2(-46,-20,24,7)}
-	var rect: Rect2 = prone.get(part,Rect2()) if is_prone() else standing.get(part,Rect2())
+	var rect: Rect2 = prone.get(part,Rect2()) if prone_pose else standing.get(part,Rect2())
 	var proportions := body_size/Vector2(32,64)
 	return Rect2(rect.position*proportions,rect.size*proportions)
 
@@ -212,6 +220,18 @@ func take_damage(amount: float,direction := Vector2.RIGHT) -> bool:
 	queue_redraw()
 	return health <= 0
 
+func receive_explosion(amount: float,impulse: Vector2,stun: float,origin: Vector2) -> void:
+	if health <= 0: return
+	last_hit_part = "torso"
+	last_hit_damage = amount
+	last_hit_severed = false
+	if amount > 0: take_damage(amount,impulse.normalized())
+	if health <= 0: return
+	if self is CoreZombie: call("_react_to_damage",origin)
+	if impulse.length_squared() > 0:
+		knock_down(maxf(.15,stun),impulse+Vector2(0,-absf(impulse.x)*.35))
+	if has_method("apply_stun") and stun > 0: call("apply_stun",stun)
+
 func _sever_part(part: String,direction: Vector2) -> void:
 	var was_prone := is_prone()
 	var rect := part_rect(part)
@@ -222,6 +242,7 @@ func _sever_part(part: String,direction: Vector2) -> void:
 		posture_changed.emit()
 
 func reset_target() -> void:
+	if blast_ragdoll: blast_ragdoll.cancel()
 	if is_knocked_down(): collision_mask = knockdown_saved_mask
 	knockdown_left = 0
 	knockdown_saved_mask = 0
@@ -245,6 +266,15 @@ func reset_target() -> void:
 	queue_redraw()
 
 func _physics_process(delta: float) -> void:
+	if blast_ragdoll and blast_ragdoll.active:
+		blast_ragdoll.tick(delta)
+		if not test_frozen:
+			hit_flash = maxf(0,hit_flash-delta)
+			hit_notice_left = maxf(0,hit_notice_left-delta)
+			for piece in detached_parts: _tick_detached_part(piece,delta)
+			detached_parts = detached_parts.filter(func(piece: Dictionary) -> bool: return piece.life > 0)
+		queue_redraw()
+		return
 	if test_frozen: return
 	if is_knocked_down() and not knockdown_moves_in_subclass: _move_knockdown(delta)
 	_tick_knockdown_timer(delta)
@@ -275,6 +305,9 @@ func _tick_detached_part(piece: Dictionary,delta: float) -> void:
 		if piece.velocity.length() < 55: piece.settled = true
 
 func _ready() -> void:
+	blast_ragdoll = CoreCharacterRagdoll.new()
+	blast_ragdoll.actor = self
+	add_child(blast_ragdoll)
 	collision_layer = 4
 	collision_mask = 0
 	body_shape = CollisionShape2D.new()
@@ -309,6 +342,9 @@ func _update_body_shape() -> void:
 	(body_shape.shape as RectangleShape2D).size = rect.size*proportions
 
 func _sync_zones() -> void:
+	if blast_ragdoll and blast_ragdoll.active:
+		for zone in hit_zones.values(): zone.collision_layer = 0
+		return
 	for part in hit_zones:
 		var zone: Area2D = hit_zones[part]
 		var enabled := health > 0 and has_part(part)
@@ -325,28 +361,23 @@ func _part_color(part: String) -> Color:
 	return Color("857e58") if identifier == "02" else Color("6e8270")
 
 func _draw_part(part: String,rect: Rect2,color: Color) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = color.darkened(.4)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
-	draw_style_box(style,rect)
-	if part == "head":
-		draw_rect(Rect2(rect.position,Vector2(rect.size.x,rect.size.y*.33)),Color("3c5049"))
-		draw_line(rect.position+rect.size*Vector2(.22,.48),rect.position+rect.size*Vector2(.8,.48),Color("252e2d"),2)
-	elif part == "torso":
-		draw_line(Vector2(rect.get_center().x,rect.position.y+3),Vector2(rect.get_center().x,rect.end.y-3),color.lightened(.18),1)
-		draw_line(Vector2(rect.position.x,rect.end.y-5),Vector2(rect.end.x,rect.end.y-5),Color("4e4840"),3)
-		var chest := rect.position+rect.size*Vector2(.27,.33)+Vector2(0,sin(idle_clock*2.5)*.4)
-		draw_rect(Rect2(chest,rect.size*Vector2(.22,.22)),Color("92876b"))
-	else:
-		var end_rect := Rect2(rect.position+Vector2(0,rect.size.y*.76),Vector2(rect.size.x,rect.size.y*.24))
-		if rect.size.x > rect.size.y: end_rect = Rect2(rect.position+Vector2(rect.size.x*.84,0),Vector2(rect.size.x*.16,rect.size.y))
-		draw_rect(end_rect,Color("333e3a"))
-		if part.ends_with("arm"):
-			draw_line(rect.position+rect.size*Vector2(0,.5),rect.position+rect.size*Vector2(1,.5),color.lightened(.22),1)
+	preload("res://scripts/core/enemy_appearance.gd").draw_part(self,part,rect,color,idle_clock)
+
+func _draw_detached() -> void:
+	for piece in detached_parts:
+		draw_set_transform(to_local(piece.point),piece.rotation)
+		_draw_part(piece.part,Rect2(-piece.size*.5,piece.size),_part_color(piece.part))
+	draw_set_transform(Vector2.ZERO)
 
 func _draw() -> void:
+	if blast_ragdoll and blast_ragdoll.active:
+		_draw_detached()
+		return
+	_draw_actor_body()
+	_draw_detached()
+	_draw_health_and_zones()
+
+func _draw_actor_body() -> void:
 	var fall_rotation := hit_side*PI*.5*death_progress if not is_prone() else 0.0
 	var fall_offset := Vector2(0,body_size.x*.5*death_progress) if not is_prone() else Vector2.ZERO
 	draw_set_transform(reaction_offset-fall_offset,fall_rotation)
@@ -357,10 +388,8 @@ func _draw() -> void:
 		elif hit_flash > 0 and last_hit_part == part: color = Color("ffcfb6")
 		_draw_part(part,part_rect(part),color)
 	draw_set_transform(Vector2.ZERO)
-	for piece in detached_parts:
-		draw_set_transform(to_local(piece.point),piece.rotation)
-		_draw_part(piece.part,Rect2(-piece.size*.5,piece.size),_part_color(piece.part))
-	draw_set_transform(Vector2.ZERO)
+
+func _draw_health_and_zones() -> void:
 	if debug_zones and health > 0:
 		for part in PARTS:
 			if has_part(part): draw_rect(Rect2(part_rect(part).position+reaction_offset,part_rect(part).size),Color("f0c96a"),false,1)

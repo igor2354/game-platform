@@ -87,7 +87,7 @@ func run() -> void:
 	lab.movement_overlay.toggle()
 	var overlay := lab.movement_overlay
 	overlay.tabs.current_tab = overlay.groups.find("Движение задом")
-	check(overlay.tabs.get_tab_title(overlay.groups.find("Движение задом")) == "Движение задом" and overlay.rows.size() == 57,"F3 exposes a separate backward-movement tab with all three controls")
+	check(overlay.tabs.get_tab_title(overlay.groups.find("Движение задом")) == "Движение задом" and overlay.rows.size() == 64,"F3 exposes a separate backward-movement tab with all three controls")
 	overlay.rows.run_backward_multiplier.slider.value = .5
 	overlay.rows.slow_walk_backward_multiplier.number.value = .6
 	overlay.rows.crouch_backward_multiplier.slider.value = .4

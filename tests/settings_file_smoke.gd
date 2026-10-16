@@ -26,7 +26,7 @@ func snapshot() -> Dictionary:
 	for section in lab._settings_resources(): values[section] = lab._settings_resources()[section].as_dictionary()
 	return values
 func saved_texts() -> Array:
-	return [FileAccess.get_file_as_string(lab.settings_path),FileAccess.get_file_as_string(lab.shooting_settings_path),FileAccess.get_file_as_string(lab.camera_settings_path),FileAccess.get_file_as_string(lab.zombie_settings_path)]
+	return [FileAccess.get_file_as_string(lab.settings_path),FileAccess.get_file_as_string(lab.shooting_settings_path),FileAccess.get_file_as_string(lab.camera_settings_path),FileAccess.get_file_as_string(lab.zombie_settings_path),FileAccess.get_file_as_string(lab.ragdoll_settings_path)]
 func same_json_values(actual: Dictionary,expected: Dictionary) -> bool:
 	if actual.size() != expected.size(): return false
 	for key in expected:
@@ -42,6 +42,7 @@ func new_lab(load_saved: bool) -> void:
 	lab.shooting_settings_path = directory+"/shooting.cfg"
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
+	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
 	root.add_child(lab)
 func reject(data,expected: Dictionary,persisted: Array,message: String) -> void:
 	write_text(bad_path,JSON.stringify(data))
@@ -111,7 +112,7 @@ func run() -> void:
 	lab.settings_dialog.file_selected.emit(preset_path)
 	check(not lab.settings_dialog_open and not paused and FileAccess.file_exists(preset_path),"selecting a save path exports one combined file and resumes the game")
 	var data = JSON.parse_string(FileAccess.get_file_as_string(preset_path))
-	check(data.format == "dead-platform-settings" and data.version == 1 and same_json_values(data.movement,expected.movement) and same_json_values(data.shooting,expected.shooting) and same_json_values(data.camera,expected.camera) and same_json_values(data.zombie,expected.zombie),"export contains all 134 values including seven zombie switches and player max health")
+	check(data.format == "dead-platform-settings" and data.version == 1 and same_json_values(data.movement,expected.movement) and same_json_values(data.shooting,expected.shooting) and same_json_values(data.camera,expected.camera) and same_json_values(data.zombie,expected.zombie) and same_json_values(data.ragdoll,expected.ragdoll),"export contains all 311 values including mannequin physics")
 	check(not FileAccess.file_exists(lab.settings_path) and hero.tuning.run_speed == 420 and gun.shots_fired == shots,"export preserves the active game and does not overwrite local profiles")
 	Input.action_press("core_fire")
 	await frames(4)

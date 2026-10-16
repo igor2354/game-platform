@@ -17,10 +17,11 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 
 [display]
 
-window/size/viewport_width=1440
+window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/mode=3
 window/size/window_width_override=1280
-window/size/window_height_override=800
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
 [filesystem]
@@ -34,6 +35,10 @@ import/blender/enabled=false
 2d_physics/layer_3="EnemyTargets"
 2d_physics/layer_4="OneWayPlatforms"
 2d_physics/layer_5="EnemyHitZones"
+2d_physics/layer_6="Debris"
+2d_physics/layer_7="BreakableSuspensions"
+2d_physics/layer_8="CharacterRagdolls"
+2d_physics/layer_9="Grenades"
 
 [physics]
 

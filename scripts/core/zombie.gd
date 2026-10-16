@@ -1,8 +1,8 @@
 class_name CoreZombie
 extends CoreEnemyDummy
 ## Coordinates of the patrol are relative to the initial position, in world pixels.
-enum State { PATROL, CHASE, WINDUP, RECOVERY, RETURN, DEAD, INVESTIGATE, WAIT, KNOCKED_DOWN }
-const STATE_NAMES := ["ПАТРУЛЬ","ПРЕСЛЕДОВАНИЕ","ЗАМАХ","УДАР","ВОЗВРАТ","МЁРТВ","НА ШУМ","ОЖИДАНИЕ","СБИТ С НОГ"]
+enum State { PATROL, CHASE, WINDUP, RECOVERY, RETURN, DEAD, INVESTIGATE, WAIT, KNOCKED_DOWN, STUNNED }
+const STATE_NAMES := ["ПАТРУЛЬ","ПРЕСЛЕДОВАНИЕ","ЗАМАХ","УДАР","ВОЗВРАТ","МЁРТВ","НА ШУМ","ОЖИДАНИЕ","СБИТ С НОГ","ОШЕЛОМЛЁН"]
 
 @export var tuning: CoreZombieSettings = CoreZombieSettings.new()
 
@@ -24,6 +24,8 @@ var noise_memory_left := 0.0
 var hearing_notice_left := 0.0
 var heard_noise_count := 0
 var last_heard_kind := ""
+var noise_search_started := false
+var noise_search_left := 0.0
 var ground_speed := 0.0
 var shove_left := 0.0
 var shove_duration := .45
@@ -34,8 +36,12 @@ var damage_pursuit := false
 var contact_memory_left := 0.0
 var contact_followup := false
 var visual_target_known := false
+var stun_left := 0.0
+var stun_duration := 0.0
+var stuns_received := 0
 
 func _ready() -> void:
+	add_to_group("dash_stunnable")
 	knockdown_moves_in_subclass = true
 	super._ready()
 	home = global_position
@@ -58,7 +64,7 @@ func take_slide_hit(amount: float,direction: Vector2,attack_origin: Vector2) -> 
 	return killed
 
 func _on_knockdown_started() -> void:
-	state = State.KNOCKED_DOWN
+	state = State.STUNNED if is_stunned() else State.KNOCKED_DOWN
 	state_left = 0
 	ground_speed = 0
 	shove_left = 0
@@ -69,7 +75,35 @@ func _on_knockdown_ended() -> void:
 	ground_speed = 0
 	shove_left = 0
 	if health <= 0: state = State.DEAD
-	else: state = _resume_awareness()
+	else: state = State.STUNNED if is_stunned() else _resume_awareness()
+
+func is_stunned() -> bool:
+	return stun_left > 0 and health > 0
+
+func apply_dash_stun() -> bool:
+	return apply_stun(tuning.dash_stun_duration)
+
+func apply_stun(duration: float) -> bool:
+	# Shared entry point for future stealth actions, explosives and gadgets.
+	if not tuning.stun_enabled or test_frozen or health <= 0 or get_tree().paused or not is_finite(duration) or duration <= 0: return false
+	stun_left = maxf(stun_left,duration)
+	stun_duration = stun_left
+	stuns_received += 1
+	state = State.STUNNED
+	state_left = 0
+	ground_speed = 0
+	if not is_knocked_down(): velocity.x = 0
+	shove_left = 0
+	shove_flash_left = 0
+	_sync_zones()
+	queue_redraw()
+	return true
+
+func _end_stun() -> void:
+	stun_left = 0
+	stun_duration = 0
+	if state == State.STUNNED:
+		state = State.DEAD if health <= 0 else State.KNOCKED_DOWN if is_knocked_down() else _resume_awareness()
 
 func locomotion_speed(base_speed: float) -> float:
 	if not tuning.movement_enabled: return 0.0
@@ -95,6 +129,8 @@ func _react_to_damage(attack_origin: Vector2) -> void:
 	unseen_left = tuning.damage_memory_time
 	visual_target_known = false
 	damage_pursuit = true
+	# Damage remains effective during stun but cannot cancel it or turn the body.
+	if is_stunned(): return
 	state = State.CHASE
 	state_left = 0
 	var side := attack_origin.x-global_position.x
@@ -122,6 +158,7 @@ func vision_origin() -> Vector2:
 	return eye_point()+vision_direction()*tuning.vision_offset_x
 
 func sees_player(radius: float) -> bool:
+	if is_stunned(): return false
 	if not tuning.vision_enabled: return false
 	if not is_instance_valid(target) or target.health <= 0: return false
 	var point := target.global_position-Vector2(0,target.collision_height()*.5)
@@ -139,7 +176,7 @@ func hear_noise(point: Vector2,loudness: float,kind := "step") -> bool:
 	if not tuning.hearing_enabled: return false
 	if health <= 0 or get_tree().paused or not is_instance_valid(target) or target.health <= 0: return false
 	if not is_finite(point.x) or not is_finite(point.y) or not is_finite(loudness) or loudness <= 0: return false
-	var multiplier := tuning.shot_noise_multiplier if kind == "shot" else tuning.movement_noise_multiplier
+	var multiplier := tuning.shot_noise_multiplier if kind in ["shot","explosion"] else tuning.movement_noise_multiplier
 	var radius := tuning.hearing_range*loudness*multiplier
 	if radius <= 0: return false
 	# Hearing is circular and stays at the head even when the cone is offset.
@@ -148,12 +185,14 @@ func hear_noise(point: Vector2,loudness: float,kind := "step") -> bool:
 	if radius <= 0 or origin.distance_to(point) > radius: return false
 	last_heard_position = point
 	last_heard_kind = kind
+	noise_search_started = false
+	noise_search_left = 0
 	noise_memory_left = tuning.noise_memory_time
 	hearing_notice_left = 1.0
 	heard_noise_count += 1
 	# A committed melee attack retains its facing. An already visible target
 	# remains the priority; otherwise investigate the event's actual position.
-	if state not in [State.WINDUP,State.RECOVERY] and not (state == State.CHASE and sees_player(maxf(tuning.detection_range,tuning.forget_range))):
+	if not is_stunned() and state not in [State.WINDUP,State.RECOVERY] and not (state == State.CHASE and sees_player(maxf(tuning.detection_range,tuning.forget_range))):
 		state = State.INVESTIGATE
 	queue_redraw()
 	return true
@@ -163,6 +202,7 @@ func _clear_sight(from: Vector2,to: Vector2) -> bool:
 	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
 func within_melee_reach() -> bool:
+	if is_stunned(): return false
 	if not tuning.combat_enabled: return false
 	if not is_instance_valid(target) or target.health <= 0 or arm_count() == 0: return false
 	var dx := target.global_position.x-global_position.x
@@ -174,7 +214,7 @@ func within_melee_reach() -> bool:
 	return _clear_sight(origin,point)
 
 func _begin_attack() -> void:
-	if not tuning.combat_enabled: return
+	if not tuning.combat_enabled or is_stunned(): return
 	state = State.WINDUP
 	windup_duration = tuning.attack_windup
 	state_left = windup_duration
@@ -183,8 +223,13 @@ func _begin_attack() -> void:
 func _finish_attack() -> void:
 	# Check range, direction, limbs and occlusion again when the strike lands.
 	# The committed facing makes jumping or dashing behind the zombie useful.
-	if within_melee_reach() and target.take_damage(tuning.attack_damage*(1.0 if arm_count() == 2 else .65)):
-		attacks_landed += 1
+	if within_melee_reach():
+		# A close opponent found while investigating a sound remains tangible
+		# even if the chest is below a narrow cone. Refresh only verified reach,
+		# never a target that crossed behind the committed strike or a wall.
+		if contact_followup: _remember_contact(signf(target.global_position.x-global_position.x))
+		if target.take_damage(tuning.attack_damage*(1.0 if arm_count() == 2 else .65)):
+			attacks_landed += 1
 	state = State.RECOVERY
 	recovery_duration = tuning.attack_recovery
 	state_left = recovery_duration
@@ -245,10 +290,13 @@ func _resume_awareness() -> State:
 	return _rest_state()
 
 func _enforce_disabled_mechanics() -> void:
+	if not tuning.stun_enabled or health <= 0: _end_stun()
 	if not tuning.vision_enabled: visual_target_known = false
 	if not tuning.hearing_enabled:
 		noise_memory_left = 0
 		hearing_notice_left = 0
+		noise_search_started = false
+		noise_search_left = 0
 		if state == State.INVESTIGATE: state = _resume_awareness()
 	if not tuning.combat_enabled and (contact_memory_left > 0 or contact_followup):
 		contact_memory_left = 0
@@ -351,7 +399,7 @@ func _remember_contact(side: float) -> void:
 	contact_memory_left = tuning.lose_sight_delay
 	last_seen_position = target.global_position
 	# Contact is an independent source of awareness, not a vision/damage event.
-	if state not in [State.WINDUP,State.RECOVERY,State.KNOCKED_DOWN]:
+	if state not in [State.WINDUP,State.RECOVERY,State.KNOCKED_DOWN,State.STUNNED]:
 		damage_pursuit = false
 		state = State.CHASE
 		if side != 0: facing = side
@@ -361,11 +409,16 @@ func _player_touching_body() -> bool:
 	if health <= 0 or is_knocked_down() or arm_count() == 0 or not is_instance_valid(target) or target.health <= 0: return false
 	if target.dash_left > 0 or target.climbing or self in target.dash_overlap_exceptions: return false
 	if global_position.distance_to(target.global_position) > body_size.length()+target.collision_height()+4: return false
-	# Anatomical shapes include the head and hands beyond the torso collider.
-	# Only actual nearby overlap can reveal a silent player outside the cone.
-	for part in PARTS:
-		if not has_part(part): continue
-		var shape := (hit_zones[part] as Area2D).get_child(0) as CollisionShape2D
+	# The solid collider can stop a crouched capsule where the animated shins
+	# and hands leave a gap. Initial standing awareness needs this solid contact;
+	# an existing engagement also retains contact with extended head/limbs.
+	var contact_shapes: Array[CollisionShape2D] = []
+	if not is_prone(): contact_shapes.append(body_shape)
+	if is_prone() or contact_followup:
+		for part in PARTS:
+			if not has_part(part): continue
+			contact_shapes.append((hit_zones[part] as Area2D).get_child(0) as CollisionShape2D)
+	for shape in contact_shapes:
 		var query := PhysicsShapeQueryParameters2D.new()
 		query.shape = shape.shape
 		query.transform = shape.global_transform
@@ -385,9 +438,10 @@ func _tick_contact_awareness(delta: float) -> void:
 		contact_memory_left = 0
 		contact_followup = false
 		return
-	# A previously identified crawler also feels the player touching its
-	# head/torso/limbs after a jump. An unaware resting crawler stays unaware.
-	if not contact_followup and not (is_prone() and _has_target_memory()): return
+	# A standing zombie feels direct contact even while returning to patrol or
+	# after a stun erased its visual/noise memory. Crouching is quiet, not
+	# intangible. Keep the existing awareness requirement for a resting crawler.
+	if is_prone() and not contact_followup and not _has_target_memory(): return
 	if _player_touching_body():
 		contact_followup = true
 		_remember_contact(signf(target.global_position.x-global_position.x))
@@ -410,6 +464,9 @@ func _try_crawl_step(direction: float,delta: float) -> bool:
 	return true
 
 func _physics_process(delta: float) -> void:
+	if blast_ragdoll and blast_ragdoll.active:
+		super._physics_process(delta)
+		return
 	if test_frozen: return
 	# Keep a fallen enemy available for arena respawn without simulating an
 	# endless fall beneath the playable level. Ordinary lower landings survive.
@@ -421,6 +478,7 @@ func _physics_process(delta: float) -> void:
 			super._physics_process(delta)
 			return
 		if health > 0: take_damage(health)
+		_end_stun()
 		state = State.DEAD
 		state_left = 0
 		ground_speed = 0
@@ -428,6 +486,24 @@ func _physics_process(delta: float) -> void:
 		super._physics_process(delta)
 		return
 	_enforce_disabled_mechanics()
+	if is_stunned():
+		# Only voluntary actions are suspended: falling and an existing physical
+		# knockdown still resolve. No sensor/contact callback can rotate the body.
+		state = State.STUNNED
+		stun_left = maxf(0,stun_left-delta)
+		ground_speed = 0
+		shove_left = 0
+		set_collision_mask_value(2,is_instance_valid(target) and target.dash_left <= 0 and self not in target.dash_overlap_exceptions)
+		if is_knocked_down(): _move_knockdown(delta)
+		else:
+			var grounded := is_on_floor()
+			velocity = Vector2(0,0 if grounded else minf(1100,velocity.y+1900*delta))
+			move_and_slide()
+			if grounded: apply_floor_snap()
+		if is_prone() and is_on_floor(): rotation = Vector2(-_terrain_normal().y,_terrain_normal().x).angle()
+		super._physics_process(delta)
+		if stun_left <= 0: _end_stun()
+		return
 	_tick_visual_memory(delta)
 	_tick_contact_awareness(delta)
 	if is_knocked_down() and health > 0:
@@ -471,7 +547,8 @@ func _physics_process(delta: float) -> void:
 			if (unseen_left <= 0 and contact_memory_left <= 0) or not is_instance_valid(target) or target.health <= 0:
 				damage_pursuit = false
 				visual_target_known = false
-				state = State.WAIT if is_prone() else State.RETURN
+				# Losing contact must not discard a still valid heard location.
+				state = _resume_awareness()
 			else:
 				var distance := last_seen_position.x-global_position.x
 				direction = signf(distance) if absf(distance) > 4 else 0.0
@@ -485,7 +562,22 @@ func _physics_process(delta: float) -> void:
 				var distance := last_heard_position.x-global_position.x
 				direction = signf(distance) if absf(distance) > 8 else 0.0
 				desired_speed = locomotion_speed(tuning.patrol_speed)
-				if (not tuning.vision_enabled or sees_player(tuning.forget_range)) and within_melee_reach():
+				if not within_melee_reach():
+					if direction != 0:
+						facing = direction
+						noise_search_started = false
+						noise_search_left = 0
+					else:
+						# Arrival tolerance stops travel, not perception. Inspect the
+						# bearing even for a tiny offset, then check the other side.
+						noise_search_left = maxf(0,noise_search_left-delta)
+						if noise_search_left <= 0:
+							facing = signf(distance) if not noise_search_started and absf(distance) > .01 else -facing
+							noise_search_started = true
+							noise_search_left = .3
+				if within_melee_reach():
+					contact_followup = true
+					_remember_contact(signf(target.global_position.x-global_position.x))
 					_begin_attack()
 					desired_speed = 0
 					direction = 0
@@ -549,11 +641,15 @@ func _physics_process(delta: float) -> void:
 
 func _on_health_changed(was_alive: bool) -> void:
 	if was_alive and health > 0: return
+	stun_left = 0
+	stun_duration = 0
 	damage_pursuit = false
 	visual_target_known = false
 	contact_memory_left = 0
 	contact_followup = false
 	noise_memory_left = 0
+	noise_search_started = false
+	noise_search_left = 0
 	state_left = 0
 	unseen_left = 0
 	shove_left = 0
@@ -565,6 +661,11 @@ func _on_health_changed(was_alive: bool) -> void:
 	state = State.DEAD if health <= 0 else State.WAIT if is_prone() else State.PATROL
 
 func reset_target() -> void:
+	stun_left = 0
+	stun_duration = 0
+	stuns_received = 0
+	noise_search_started = false
+	noise_search_left = 0
 	damage_pursuit = false
 	visual_target_known = false
 	contact_memory_left = 0
@@ -599,8 +700,11 @@ func reset_target() -> void:
 	queue_redraw()
 
 func part_rect(part: String) -> Rect2:
-	var rect := super.part_rect(part)
-	if is_prone():
+	return animated_part_rect(part,is_prone())
+
+func animated_part_rect(part: String,prone_pose: bool,motion := true) -> Rect2:
+	var rect := base_part_rect(part,prone_pose)
+	if prone_pose:
 		if part.ends_with("arm"):
 			if shove_left > 0: rect.position.y -= 4*(1-shove_left/shove_duration)
 			elif shove_flash_left > 0: rect.position.x += 5
@@ -612,7 +716,8 @@ func part_rect(part: String) -> Rect2:
 		return rect
 	if health <= 0: return rect
 	var proportions := body_size/Vector2(32,64)
-	var moving := absf(velocity.x) > 1
+	var moving := motion and absf(velocity.x) > 1
+	if is_stunned() and part.ends_with("arm"): return rect
 	if part.ends_with("leg") and moving:
 		var step := sin(walk_phase+(PI if part == "right_leg" else 0))
 		rect.position += Vector2(step*4,-maxf(0,step)*3)*proportions
@@ -632,24 +737,28 @@ func _part_color(part: String) -> Color:
 	return Color("626a4c")
 
 func _draw_part(part: String,rect: Rect2,color: Color) -> void:
-	super._draw_part(part,rect,color)
-	if part == "head":
-		draw_circle(rect.position+rect.size*Vector2(.23 if facing < 0 else .77,.5),1.3,Color("f6bf73"))
-		var nose := Vector2(rect.position.x if facing < 0 else rect.end.x,rect.position.y+rect.size.y*.6)
-		draw_line(nose,nose+Vector2(facing*2,0),color,2)
-	elif part == "torso":
-		draw_line(rect.position+rect.size*Vector2(.35,.4),rect.position+rect.size*Vector2(.65,.65),Color("7b4039"),3)
+	preload("res://scripts/core/enemy_appearance.gd").draw_part(self,part,rect,color,idle_clock,true,facing)
 
 func _draw() -> void:
 	super._draw()
+	if blast_ragdoll and blast_ragdoll.active: return
 	var top := -body_size.y if not is_prone() else -34*body_size.y/64
 	var color := Color("ff947b") if state in [State.CHASE,State.WINDUP,State.RECOVERY] else Color("a0bb87")
 	if state == State.INVESTIGATE: color = Color("80cce0")
-	var label_y := top-48
+	if is_stunned(): color = Color("e5ce80")
+	var label_y := top-(61 if is_stunned() else 48)
 	if shove_left > 0 and is_instance_valid(target):
 		label_y = minf(label_y,to_local(target.global_position-Vector2(0,target.collision_height())).y-18)
 	draw_string(ThemeDB.fallback_font,Vector2(-46,label_y),"ЗОМБИ · "+("СБРАСЫВАЕТ" if shove_left > 0 else STATE_NAMES[state]),HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffb582") if shove_left > 0 else color)
-	if shove_left > 0:
+	if is_stunned():
+		draw_rect(Rect2(-22,label_y+9,44,3),Color("493f2a"))
+		draw_rect(Rect2(-22,label_y+9,44*clampf(stun_left/maxf(.001,stun_duration),0,1),3),color)
+		for index in 3:
+			var angle := idle_clock*3+TAU*index/3
+			var point := Vector2(cos(angle)*12,top-37+sin(angle)*3)
+			draw_line(point-Vector2(2,0),point+Vector2(2,0),color,1.5)
+			draw_line(point-Vector2(0,2),point+Vector2(0,2),color,1.5)
+	elif shove_left > 0:
 		draw_rect(Rect2(-22,label_y+9,44,3),Color("59382e"))
 		draw_rect(Rect2(-22,label_y+9,44*clampf(1-shove_left/shove_duration,0,1),3),Color("ffb582"))
 	elif state == State.WINDUP:

@@ -33,7 +33,7 @@ func run() -> void:
 	overlay = lab.zombie_overlay
 	hero.set_physics_process(false)
 	await frames(8)
-	check(overlay.zombie_toggles.size() == 7 and zombie.tuning.as_dictionary().size() == 36,"F6 exposes seven switches with all zombie values")
+	check(overlay.zombie_toggles.size() == 8 and zombie.tuning.as_dictionary().size() == 38,"F6 exposes eight switches with all zombie values")
 	for entry in CoreZombieSettings.SWITCHES:
 		var button := overlay.zombie_toggles[entry[0]] as CheckButton
 		check(button.button_pressed and button.get_parent().get_parent().name == entry[2],"enabled switch belongs to its tab: "+entry[2])
@@ -128,7 +128,7 @@ func run() -> void:
 	var loaded := CoreZombieSettings.new()
 	var saved := zombie.tuning.save_saved(path) == OK and loaded.load_saved(path) == OK
 	for entry in CoreZombieSettings.SWITCHES: saved = saved and not loaded.get(entry[0])
-	check(saved,"all seven disabled switches persist in the zombie profile")
+	check(saved,"all eight disabled switches persist in the zombie profile")
 	overlay.settings_path = path
 	overlay.reset_button.pressed.emit()
 	var enabled := true
@@ -137,7 +137,7 @@ func run() -> void:
 	overlay.load_button.pressed.emit()
 	var disabled := true
 	for entry in CoreZombieSettings.SWITCHES: disabled = disabled and not zombie.tuning.get(entry[0]) and not overlay.zombie_toggles[entry[0]].button_pressed
-	check(disabled,"Load refreshes all seven switches together")
+	check(disabled,"Load refreshes all eight switches together")
 	var hp := zombie.health
 	zombie.take_projectile_hit(50,"left_leg",Vector2.LEFT,hero.global_position)
 	check(zombie.health < hp and not zombie.has_part("left_leg") and not zombie.damage_pursuit,"disabled modules do not block damage or anatomical limb loss")

@@ -3,11 +3,13 @@ extends RefCounted
 const FORMAT := "dead-platform-settings"
 const VERSION := 1
 const MAX_BYTES := 1024*1024
-const SECTIONS := ["movement","shooting","camera","zombie"]
+const SECTIONS := ["movement","shooting","camera","zombie","ragdoll"]
 
 static func write_file(path: String,settings: Dictionary) -> Error:
 	var data := {"format":FORMAT,"version":VERSION}
-	for section in SECTIONS: data[section] = settings[section].as_dictionary()
+	for section in SECTIONS:
+		# Older capture tools still provide the original four resources.
+		data[section] = CoreRagdollSettings.new().as_dictionary() if section == "ragdoll" and not settings.has(section) else settings[section].as_dictionary()
 	var file := FileAccess.open(path,FileAccess.WRITE)
 	if file == null: return FileAccess.get_open_error()
 	file.store_string(JSON.stringify(data,"\t")+"\n")
@@ -39,7 +41,7 @@ static func read_file(path: String,defaults: Dictionary) -> Dictionary:
 	# use project defaults so older presets remain independent of current edits.
 	for section in SECTIONS:
 		# Version 1 files from older builds have no zombie section.
-		var source = data.get(section,{}) if section == "zombie" else data.get(section)
+		var source = data.get(section,{}) if section in ["zombie","ragdoll"] else data.get(section)
 		if not source is Dictionary:
 			return {"error":"В файле отсутствует раздел %s." % section}
 		var candidate: Resource = defaults[section].duplicate()

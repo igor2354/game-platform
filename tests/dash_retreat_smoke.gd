@@ -30,6 +30,7 @@ func encounter(look: float,backward: bool,ads: bool,mode: int,profile: Vector2,a
 	Input.action_press("core_fire")
 	await frames(14)
 	lab._update_camera(true)
+	lab.camera.force_update_scroll()
 	if airborne:
 		Input.action_press("core_jump")
 		await frames(5)

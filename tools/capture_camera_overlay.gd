@@ -15,6 +15,8 @@ func capture() -> void:
 	lab.camera_overlay.rows.zoom.slider.value = 2.5
 	await process_frame
 	await process_frame
+	(lab.camera_overlay.tabs.get_tab_control(0) as ScrollContainer).ensure_control_visible(lab.camera_overlay.rows.vertical_aim_deadzone.number)
+	await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://docs/core/camera_overlay_paused.png")
 	paused = false

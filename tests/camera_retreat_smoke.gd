@@ -69,10 +69,10 @@ func run() -> void:
 			await retreat(direction,1,true,true,profile.x,profile.y)
 	# Turning the visible character must still turn look-ahead.
 	lab.player.weapon.aim_override = lab.player.position+Vector2(700,-36)
-	for i in 4: await tick()
+	for i in 90: await tick()
 	var right_offset := lab.camera.position.x-lab.player.position.x
 	lab.player.weapon.aim_override = lab.player.position+Vector2(-700,-36)
-	for i in 4: await tick()
+	for i in 90: await tick()
 	check(absf((right_offset-(lab.camera.position.x-lab.player.position.x))*lab.camera_settings.zoom-400) < .1,"deliberate weapon/body turn still changes camera look-ahead")
 	release()
 	lab.player.weapon.reset_state()

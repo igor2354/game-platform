@@ -37,6 +37,7 @@ func new_lab() -> void:
 	lab.shooting_settings_path = directory+"/shooting.cfg"
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
+	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
 	root.add_child(lab)
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(directory)
@@ -49,10 +50,10 @@ func run() -> void:
 	var zombie := lab.level.zombie
 	var dev := lab.developer_mode
 	var tools := dev.enemy_tools
-	check(enemies.size() == 4 and enemies.all(func(enemy): return enemy.health == 100 and enemy.maximum_health() == 100 and not enemy.invulnerable and not enemy.test_frozen),"all four opponents start with ordinary health and active simulation")
+	check(enemies.size() == 6 and enemies.all(func(enemy): return enemy.health == 100 and enemy.maximum_health() == 100 and not enemy.invulnerable and not enemy.test_frozen),"all six opponents start with ordinary health and active simulation")
 	dev.set_enabled(true)
-	dev.show_section(4)
-	check(tools.is_visible_in_tree() and tools.target_choice.item_count == 5,"testing includes global controls and a selector for each enemy")
+	dev.show_section(CoreDeveloperMode.Section.TESTING)
+	check(tools.is_visible_in_tree() and tools.target_choice.item_count == enemies.size()+1,"testing includes global controls and a selector for each enemy")
 	tools.health_slider.value = 37.5
 	check(enemies.all(func(enemy): return enemy.health == 37.5),"global current HP slider assigns all opponents")
 	tools.maximum_number.value = 300
@@ -126,7 +127,7 @@ func run() -> void:
 	check(enemies[0].received_hits > hits_before and enemies[0].health == enemies[0].maximum_health(),"real bullets hit a frozen immortal opponent without reducing its HP")
 	check(enemies[0].global_transform == held[0][0],"impacts do not move the frozen enemy body")
 	dev.set_enabled(true)
-	dev.show_section(4)
+	dev.show_section(CoreDeveloperMode.Section.TESTING)
 	tools.freeze_toggle.button_pressed = false
 	hero.reset_to(CoreMovementLevel.SPAWN)
 	await frames(12)
@@ -158,7 +159,7 @@ func run() -> void:
 	dev.set_enabled(false)
 	check(enemies[1].maximum_health() == 220 and paused and not lab._blocks_keyboard(),"closing the window commits the maximum without resuming the world")
 	dev.set_enabled(true)
-	dev.show_section(4)
+	dev.show_section(CoreDeveloperMode.Section.TESTING)
 	choose(0)
 	tools.health_number.value = 0
 	tools.invulnerable_toggle.button_pressed = true

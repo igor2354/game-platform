@@ -44,15 +44,15 @@ func run() -> void:
 	var zombie := lab.level.zombie
 	check(not dev.enabled and not hero.debug_shape,"startup keeps the developer window and hit zones off")
 	paused = true
-	await key(KEY_T)
-	check(hero.global_position == CoreMovementLevel.ZOMBIE_TEST_SPAWN and not dev.enabled and not dev.visible and paused,"physical T teleports on pause without opening developer mode")
+	await key(KEY_F9)
+	check(hero.global_position == CoreMovementLevel.ZOMBIE_TEST_SPAWN and not dev.enabled and not dev.visible and paused,"physical F9 teleports on pause without opening developer mode")
 	await key(KEY_F4)
-	await key(KEY_T)
-	check(dev.enabled and dev.current_section == 1 and lab.shooting_overlay.visible and paused,"T does not switch an already open developer section")
+	await key(KEY_F9)
+	check(dev.enabled and dev.current_section == CoreDeveloperMode.Section.PLAYER and dev.current_player_tab == 1 and lab.shooting_overlay.visible and paused,"T does not switch an already open developer section")
 	dev.set_enabled(false)
 	await key(KEY_F1)
 	check(hero.debug_shape and lab.level.enemies.all(func(e): return e.debug_zones) and not dev.enabled,"physical F1 toggles every hit zone without opening the window")
-	check(dev.debug_toggle.button_pressed and not lab.telemetry.visible and not lab.shooting_telemetry.visible,"the independent F1 overlay synchronizes its switch without enabling telemetry")
+	check(dev.debug_toggle.button_pressed and lab.telemetry.visible and lab.shooting_telemetry.visible,"the independent F1 overlay synchronizes its switch without hiding telemetry")
 	for closing in ["button","F2","F3"]:
 		await key(KEY_F3)
 		if closing == "button": dev.close_button.pressed.emit()
@@ -64,7 +64,7 @@ func run() -> void:
 	await key(KEY_F1)
 	check(not hero.debug_shape and lab.level.enemies.all(func(e): return not e.debug_zones) and not dev.debug_toggle.button_pressed,"F1 can turn the independent overlay off with the window closed")
 	await key(KEY_F2)
-	dev.show_section(4)
+	dev.show_section(CoreDeveloperMode.Section.TESTING)
 	dev.debug_toggle.button_pressed = true
 	dev.set_enabled(false)
 	check(hero.debug_shape and dev.debug_toggle.button_pressed,"the checkbox also persists its overlay after closing the window")
@@ -86,21 +86,21 @@ func run() -> void:
 	await key(KEY_F7,true)
 	check(dummy.health == 80,"F7 key repeat does not repeatedly respawn enemies")
 	await key(KEY_F2)
-	dev.show_section(1)
+	dev.show_overlay(1)
 	await key(KEY_F7)
-	check(dummy.health == 100 and dev.enabled and dev.current_section == 1 and lab.shooting_overlay.visible,"F7 preserves the current open developer section")
+	check(dummy.health == 100 and dev.enabled and dev.current_section == CoreDeveloperMode.Section.PLAYER and dev.current_player_tab == 1 and lab.shooting_overlay.visible,"F7 preserves the current open developer section")
 	# Neither scene-changing key should trigger while typing or selecting files.
 	dummy.take_damage(30)
-	dev.show_section(0)
+	dev.show_overlay(0)
 	lab.movement_overlay.tabs.current_tab = 0
 	var field: LineEdit = lab.movement_overlay.rows.run_speed.number.get_line_edit()
 	field.grab_focus()
 	await process_frame
 	position = hero.global_position
 	await key(KEY_F7)
-	await key(KEY_T)
+	await key(KEY_F9)
 	check(dummy.health == 70 and hero.global_position == position,"typing in a balance field blocks both F7 and T")
-	dev.show_section(4)
+	dev.show_overlay(5)
 	field = dev.health_number.get_line_edit()
 	field.grab_focus()
 	await process_frame
@@ -111,7 +111,7 @@ func run() -> void:
 	await process_frame
 	var zones := hero.debug_shape
 	await key(KEY_F7)
-	await key(KEY_T)
+	await key(KEY_F9)
 	await key(KEY_F1)
 	check(dummy.health == 70 and hero.global_position == position and hero.debug_shape == zones and lab.settings_dialog_open,"a modal file dialog blocks respawn, teleport and zone hotkeys")
 	lab._close_settings_dialog()

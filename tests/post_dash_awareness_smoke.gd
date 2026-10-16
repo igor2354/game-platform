@@ -25,7 +25,7 @@ func reset_case(side: float) -> void:
 	release()
 	zombie.tuning.apply_values(lab.zombie_overlay.defaults.as_dictionary())
 	zombie.reset_target()
-	zombie.tuning.apply_values({"vision_angle":60,"patrol_speed":0,"movement_enabled":false,"combat_enabled":false})
+	zombie.tuning.apply_values({"vision_angle":60,"patrol_speed":0,"movement_enabled":false,"combat_enabled":false,"stun_enabled":false})
 	zombie.facing = -side
 	zombie._sync_zones()
 	hero.reset_to(zombie.home-Vector2(side*65,0))
