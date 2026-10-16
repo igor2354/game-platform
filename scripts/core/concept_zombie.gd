@@ -2,6 +2,9 @@ class_name CoreConceptZombie
 extends CoreZombie
 ## Separate illustrated actor; all combat and perception remain CoreZombie's.
 const ART = preload("res://scripts/core/concept_zombie_art.gd")
+const FRAMES = preload("res://scripts/core/concept_zombie_frames.gd")
+var body_sprite: Sprite2D
+var detached_sprites: Array[Sprite2D] = []
 var animation_name := "idle"
 var animation_frame := 0
 var animation_elapsed := 0.0
@@ -17,7 +20,11 @@ var preview_clip := ""
 var preview_frame := 0
 
 func _ready() -> void:
-	ART.prepare_regions()
+	FRAMES.prepare()
+	body_sprite = Sprite2D.new()
+	body_sprite.name = "WholeFrameSprite"
+	body_sprite.show_behind_parent = true
+	add_child(body_sprite)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	super._ready()
 
@@ -84,23 +91,28 @@ func current_pose() -> Dictionary:
 	return ART.pose(preview_clip if not preview_clip.is_empty() else animation_name,preview_frame if not preview_clip.is_empty() else animation_frame)
 
 func animated_part_rect(part: String,prone_pose: bool,motion := true) -> Rect2:
-	var values := current_pose() if motion and prone_pose == is_prone() else ART.pose("prone_idle" if prone_pose else "idle",0)
-	return ART.rect_for(values,part,facing,body_size/Vector2(32,64))
+	var clip := preview_clip if not preview_clip.is_empty() else animation_name
+	var frame := preview_frame if not preview_clip.is_empty() else animation_frame
+	if not motion or prone_pose != is_prone():
+		clip = "prone_idle" if prone_pose else "idle"
+		frame = 0
+	return FRAMES.rect_for(clip,frame,part,facing,body_size/Vector2(32,64))
+
+func _process(_delta: float) -> void:
+	if is_instance_valid(body_sprite): body_sprite.visible = not (blast_ragdoll and blast_ragdoll.active)
+	for sprite in detached_sprites.duplicate():
+		if not detached_parts.any(func(piece): return piece.get("frame_sprite") == sprite):
+			sprite.queue_free()
+			detached_sprites.erase(sprite)
 
 func _draw_actor_body() -> void:
 	var clip := preview_clip if not preview_clip.is_empty() else animation_name
 	var frame := preview_frame if not preview_clip.is_empty() else animation_frame
 	var proportions := body_size/Vector2(32,64)
-	var base := Transform2D(Vector2(facing*proportions.x,0),Vector2(0,proportions.y),reaction_offset)
-	var baked := ART.texture(clip)
-	if missing_parts.is_empty() and hit_flash <= 0 and baked:
-		draw_set_transform_matrix(base)
-		var source := Rect2(Vector2(frame%4,frame/4)*ART.CELL,Vector2.ONE*ART.CELL)
-		draw_texture_rect_region(baked,Rect2(-ART.ANCHOR/ART.BAKE_SCALE,Vector2.ONE*ART.CELL/ART.BAKE_SCALE),source,Color(.75,.77,.79) if health <= 0 else Color.WHITE)
-		draw_set_transform_matrix(Transform2D.IDENTITY)
-	else:
-		var visible := PARTS.filter(func(part): return has_part(part))
-		ART.draw_pose(self,current_pose(),base,visible,last_hit_part if hit_flash > 0 else "",health <= 0)
+	body_sprite.visible = true
+	body_sprite.position = reaction_offset
+	body_sprite.scale = Vector2(facing*proportions.x,proportions.y)/FRAMES.SCALE
+	FRAMES.update_sprite(body_sprite,clip,frame,missing_parts,last_hit_part if hit_flash > 0 else "",health <= 0)
 
 func take_damage(amount: float,direction := Vector2.RIGHT) -> bool:
 	var alive := health > 0
@@ -138,25 +150,40 @@ func _on_knockdown_ended() -> void:
 
 func _sever_part(part: String,direction: Vector2) -> void:
 	var values := current_pose()
+	var frame_clip := preview_clip if not preview_clip.is_empty() else animation_name
+	var frame_index := preview_frame if not preview_clip.is_empty() else animation_frame
 	var rect := part_rect(part)
 	var original_facing := facing
 	var was_low := is_prone()
 	super._sever_part(part,direction)
 	var piece: Dictionary = detached_parts.back()
+	piece["frame_clip"] = frame_clip
+	piece["frame_index"] = frame_index
 	piece["concept_pose"] = values
 	piece["concept_center"] = rect.get_center()
 	piece["concept_facing"] = original_facing
 	if part.ends_with("leg") and not was_low: visual_fall_left = .42
+	queue_redraw()
 
 func _draw_detached() -> void:
 	for piece in detached_parts:
-		if not piece.has("concept_pose"): continue
+		if not piece.has("frame_clip"): continue
+		var sprite: Sprite2D = piece.get("frame_sprite")
+		if not is_instance_valid(sprite):
+			sprite = Sprite2D.new()
+			sprite.name = "DetachedFrameLimb"
+			add_child(sprite)
+			detached_sprites.append(sprite)
+			piece.frame_sprite = sprite
+			FRAMES.update_sprite(sprite,piece.frame_clip,piece.frame_index,[],"",false,piece.part)
 		var proportions := body_size/Vector2(32,64)
 		var mirror := Transform2D(Vector2(piece.concept_facing*proportions.x,0),Vector2(0,proportions.y),Vector2.ZERO)
-		var base := Transform2D(piece.rotation,to_local(piece.point))*Transform2D(0,-piece.concept_center)*mirror
-		ART.draw_pose(self,piece.concept_pose,base,[piece.part])
+		sprite.transform = Transform2D(piece.rotation,to_local(piece.point))*Transform2D(0,-piece.concept_center)*mirror*Transform2D(0,Vector2.ONE/FRAMES.SCALE,0,Vector2.ZERO)
 
 func reset_target() -> void:
+	for sprite in detached_sprites:
+		if is_instance_valid(sprite): sprite.queue_free()
+	detached_sprites.clear()
 	visual_hit_left = 0
 	visual_fall_left = 0
 	visual_getup_left = 0

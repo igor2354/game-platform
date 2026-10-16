@@ -62,7 +62,7 @@
 | HP игрока | Максимум HP, текущие HP, лечение/возврат погибшего героя и бессмертие. Максимум — балансируемый параметр; текущие HP и бессмертие — инструменты текущего запуска. [CORE_DEVELOPER_MODE.md](CORE_DEVELOPER_MODE.md), [player.gd](../scripts/core/player.gd). |
 | Урон врагам | Голова, туловище, обе руки и ноги; множители урона и прочность конечностей. Руки/ноги отстреливаются, враг может остаться жив. [dummy.gd](../scripts/core/dummy.gd), [CORE_ENEMY_DAMAGE.md](CORE_ENEMY_DAMAGE.md). |
 | Зомби | Патруль, ожидание, зрение направленным конусом с учётом склона, круговой слух, исследование шума, преследование/поиск, ближний бой и реакция на попадания сзади. Потеря любой ноги сразу переводит в ползание. Есть сбрасывание стоящего сверху игрока с уроном, контактная осведомлённость и ошеломление от прохода дэшем. [zombie.gd](../scripts/core/zombie.gd), [CORE_ZOMBIE.md](CORE_ZOMBIE.md). |
-| Зомби-солдат по концепту | Отдельный `CoreConceptZombie`, 22 анимации по 16 кадров, запечённые PNG и тот же рисунок частей при отрыве/взрыве. Наследует существующий ИИ и общие настройки; зоны урона следуют кадру. F10 ведёт в отдельную зону. [CORE_CONCEPT_ZOMBIE.md](CORE_CONCEPT_ZOMBIE.md), [concept_zombie.gd](../scripts/core/concept_zombie.gd). |
+| Зомби-солдат по концепту | Отдельный `CoreConceptZombie`, 22 покадровые анимации по 16 цельных рисунков ImageGen; один спрайт, маски урона/отрыва и цельные кадры падения. Невидимый риг сохраняет физику. Наследует существующий ИИ и общие настройки; зоны урона следуют кадру. F10 ведёт в отдельную зону. [CORE_CONCEPT_ZOMBIE.md](CORE_CONCEPT_ZOMBIE.md), [concept_zombie.gd](../scripts/core/concept_zombie.gd). |
 | Ящик и захват | Физический ящик слева от старта, HP и разрушение на 24 мелких постоянных обломка; щепки не блокируют игрока. G-захват, толкание/тяга и обе кисти на предмете. Без захвата игрок не сдвигает целый предмет обычным упором. [physics_crate.gd](../scripts/core/physics_crate.gd), [CORE_PHYSICS_CRATE.md](CORE_PHYSICS_CRATE.md), [CORE_PUSHING.md](CORE_PUSHING.md). |
 | Манекен | Тест рэгдолла из 13 тел и 12 суставов, управляемые напряжение/жёсткость/затухание. Первый выстрел включает физику; восстановление через инструменты/F8. [CORE_RAGDOLL.md](CORE_RAGDOLL.md). |
 | Бочки и топливо | Четыре варианта одной модели: взрывная, топливная, пустая, негорючее содержимое. Физика падения/качения, укладка и перекатывание через G, ударный урон/сбивание. Топливная течёт после 1–2 попаданий, оставляет след/лужи; выстрел зажигает топливо, огонь распространяется и может взорвать бочку. [explosive_barrel.gd](../scripts/core/explosive_barrel.gd), [fuel_field.gd](../scripts/core/fuel_field.gd), [CORE_BARRELS.md](CORE_BARRELS.md). |
@@ -120,20 +120,21 @@ F1 и обычная телеметрия независимы от видимо
 
 ## Последние изменения и статус проверок
 
-Последнее уточнение выполнено 2026-10-17: **руки Z02 перенесены с основания
-шеи на плечевые суставы**. Точки крепления находятся по бокам верхней части
-торса ниже воротника и следуют его повороту во всех 352 позах, включая
-переходы падения/подъёма и восстановление из физики. Все 22 атласа по 16
-кадров перезапечены. Сохранены предыдущие исправления сгиба локтей/коленей,
-постоянной длины сегментов и соединения головы с корпусом.
+Последнее поручение выполнено 2026-10-17: **Z02 переведён с сегментной
+на покадровую анимацию**. Созданы 22 листа ImageGen, всего 352 цельных рисунка.
+Активное отображение — один `Sprite2D`; попадания/отрыв маскируют области
+того же рисунка. При взрыве сохраняется невидимый физический риг,
+визуально проигрываются цельные падение/подъём. ИИ, HP, общие настройки и
+управление сохранены. Источники, промпты, упаковка и ограничения —
 [CORE_CONCEPT_ZOMBIE.md](CORE_CONCEPT_ZOMBIE.md).
 
-В текущей правке фактически выполнены: `concept_zombie_anatomy_smoke.gd`
-**52/52** и `concept_zombie_smoke.gd` **103/103**; всего **155** проверок,
-не полный прогон проекта. Просмотрены атласы и нативные игровые кадры;
-демонстрация и снимок обновлены. Пользовательские CFG не менялись.
-Предыдущие 256 проверок исправления анатомии и 351 проверка добавления
-персонажа не считаются новым прогоном. Windows-билд не собирался.
+В текущей правке фактически выполнены: `concept_zombie_frames_smoke.gd`
+**29/29**, `concept_zombie_smoke.gd` **103/103** и проверки невидимого рига
+`concept_zombie_anatomy_smoke.gd` **52/52**, а также
+`zombie_blast_skin_smoke.gd` **40/40**; всего **224**, не полный прогон.
+В игровом окне проверены цельные кадры, подсветка/отрыв и падение; обновлены
+снимки и демонстрация. Пользовательские CFG не менялись. Предыдущие прогоны
+155/256/351 проверок не считаются новым запуском. Windows-билд не собирался.
 
 Предыдущее исправление ближнего взрыва сохранено: `player_in_primary` обходит
 минимальную дистанцию рэгдолла только для игрока в основном радиусе.
@@ -149,7 +150,7 @@ F1 и обычная телеметрия независимы от видимо
 | Движение | `core_movement_smoke.gd`, `standing_walk_smoke.gd`, `sprint_limit_smoke.gd`, `acceleration_smoke.gd`, `backward_movement_smoke.gd`, `slide_smoke.gd`, `slide_knockdown_times_smoke.gd`, `dash_slopes_smoke.gd`, `air_dash_toggle_smoke.gd` |
 | Позы и камера | `core_hybrid_smoke.gd`, `ads_pose_smoke.gd`, `slide_facing_smoke.gd`, `sprint_dash_smoke.gd`, `dash_retreat_smoke.gd`, `camera_retreat_smoke.gd`, `camera_turn_smoke.gd`, `vertical_aim_smoke.gd`, `character_blur_smoke.gd`; варианты `*_mouse_smoke.gd` требуют окна |
 | Оружие | `shooting_smoke.gd`, `single_fire_smoke.gd`, `reload_smoke.gd`, `ammo_audio_smoke.gd`, `movement_spread_smoke.gd`, `unified_recoil_smoke.gd` |
-| Зомби | `concept_zombie_anatomy_smoke.gd`, `concept_zombie_smoke.gd`, `zombie_smoke.gd`, `zombie_slopes_smoke.gd`, `zombie_ledge_smoke.gd`, `zombie_slope_vision_smoke.gd`, `zombie_close_noise_smoke.gd`, `post_dash_awareness_smoke.gd`, `post_shove_melee_smoke.gd`, `crawler_jump_awareness_smoke.gd`, `zombie_stun_contact_smoke.gd` |
+| Зомби | `concept_zombie_frames_smoke.gd`, `concept_zombie_anatomy_smoke.gd`, `concept_zombie_smoke.gd`, `zombie_smoke.gd`, `zombie_slopes_smoke.gd`, `zombie_ledge_smoke.gd`, `zombie_slope_vision_smoke.gd`, `zombie_close_noise_smoke.gd`, `post_dash_awareness_smoke.gd`, `post_shove_melee_smoke.gd`, `crawler_jump_awareness_smoke.gd`, `zombie_stun_contact_smoke.gd` |
 | Предметы | `pushing_smoke.gd`, `crate_health_smoke.gd`, `debris_contact_smoke.gd`, `barrel_types_smoke.gd`, `barrel_grab_smoke.gd`, `barrel_fuel_edges_smoke.gd` |
 | Взрывы и рэгдолл | `explosion_smoke.gd`, `grenade_smoke.gd`, `grenade_physics_smoke.gd`, `primary_blast_knockdown_smoke.gd`, `blast_ragdoll_smoke.gd`, `player_blast_skin_smoke.gd`, `zombie_blast_skin_smoke.gd`, `explosion_telemetry_smoke.gd` |
 | Подвесы | `suspended_objects_smoke.gd`, `net_ground_tear_smoke.gd`, `net_rest_smoke.gd`; некоторые `hanging_*` используют прежние изолированные фикстуры |

@@ -335,6 +335,8 @@ func _exit_tree() -> void:
 func _draw() -> void:
 	if not active or not is_instance_valid(rig) or actor is CoreMovementPlayer: return
 	var point := to_local(rig.parts.head.global_position)+Vector2(-35,-20)
+	if is_instance_valid(zombie_skin) and zombie_skin.has_method("health_anchor"):
+		point = to_local(zombie_skin.call("health_anchor"))+Vector2(-35,-20)
 	if actor is CoreZombie:
 		var status := "МЁРТВ" if actor.health <= 0 else "ОПИРАЕТСЯ НА РУКИ" if recovering and recovery_target.prone else "ПОДНИМАЕТСЯ" if recovering else "СБИТ С НОГ"
 		draw_string(ThemeDB.fallback_font,point+Vector2(-10,-16),"ЗОМБИ · "+status,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("a0bb87"))
