@@ -34,6 +34,8 @@ func click(button: Button) -> void:
 func run() -> void:
 	app = FRONTEND.new()
 	app.load_user_settings = false
+	app.test_settings_directory = OS.get_environment("TEMP").path_join("campaign-flow-%d" % OS.get_process_id())
+	DirAccess.make_dir_recursive_absolute(app.test_settings_directory)
 	root.add_child(app)
 	await frames(3)
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/frontend.tscn","application boots into the main menu")

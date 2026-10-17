@@ -16,6 +16,7 @@ var deform_owner: Node2D
 var upper_length := 0.0
 var lower_length := 0.0
 var requested_hand := Vector2.ZERO
+var minimum_reach := 0.0
 
 func _ready() -> void:
 	foreground = Foreground.new()
@@ -39,7 +40,7 @@ func pose(origin: Vector2,grip: Vector2,bend: float,background: bool) -> void:
 	var upper := upper_length if upper_length > 0 else maxf(17,distance*.5+.2)
 	var lower := lower_length if lower_length > 0 else upper
 	if upper_length > 0:
-		distance = clampf(distance,absf(upper-lower)+.01,upper+lower-.01)
+		distance = clampf(distance,maxf(minimum_reach,absf(upper-lower)+.01),upper+lower-.01)
 		direction = direction.normalized()*distance
 		hand = shoulder+direction
 	var along := (upper*upper-lower*lower+distance*distance)/(2*distance)

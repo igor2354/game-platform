@@ -20,6 +20,7 @@ var layers_arranged := false
 var reload_layers := false
 var push_layers := false
 var grenade_layers := false
+var front_arms_layers := false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	blur_material = ShaderMaterial.new()
@@ -36,7 +37,9 @@ func _ready() -> void:
 	add_child(reload_magazine)
 func arrange_layers() -> void:
 	# CanvasGroup composites only matching Z layers. Tree order supplies depth.
-	if layers_arranged and reload_layers == player.weapon.reloading and push_layers == (player.pushing or player.climbing) and grenade_layers == (player.grenades != null and player.grenades.busy()): return
+	var front_arms := player.body.uses_down_aim_pose() or (player.climbing and not player.ladder_side_view)
+	if layers_arranged and front_arms_layers == front_arms and reload_layers == player.weapon.reloading and push_layers == (player.pushing or player.climbing) and grenade_layers == (player.grenades != null and player.grenades.busy()): return
+	front_arms_layers = front_arms
 	reload_layers = player.weapon.reloading
 	push_layers = player.pushing or player.climbing
 	grenade_layers = player.grenades != null and player.grenades.busy()
@@ -56,6 +59,8 @@ func arrange_layers() -> void:
 	move_child(far_hand,5)
 	move_child(near_hand,6)
 	move_child(gun_stock,0)
+	if front_arms:
+		move_child(player.body.far_arm,player.body.near_arm.get_index()-1)
 	if push_layers or grenade_layers:
 		# Sling the gun behind the torso while both complete arms brace the box.
 		move_child(gun,0)

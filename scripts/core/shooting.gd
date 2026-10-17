@@ -77,6 +77,8 @@ var reload_sounds: Dictionary = {}
 var dry_clicks := 0
 var _visual_pose_key: int = 0
 var _visual_pose_cache: Dictionary = {}
+var _aim_solution_key: int = 0
+var _solved_direction := Vector2.INF
 
 func muzzle_distance() -> float:
 	if equipped_weapon_id.is_empty(): return 34.0
@@ -283,6 +285,14 @@ func look_facing() -> float:
 	# Gaze is independent of movement facing, including dash and vertical aim.
 	# All consumers use the same sample from _update_aim in this physics tick.
 	return aim_facing
+func requires_standing_for_down_aim() -> bool:
+	# Long firearms need a standing barrel corridor. The pistol can stay kneeling.
+	if equipped_weapon_id == "m1911" or not tuning.weapon_enabled: return false
+	if reloading or player.climbing or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
+	if player.grenades and player.grenades.busy(): return false
+	var direction := (cursor_point()-player.global_position-Vector2(0,-42)).normalized()
+	return direction.y > .78
+
 func update_state(delta: float,input_allowed: bool) -> void:
 	# Aim is sampled below, after recoil, reload and ADS have advanced.
 	apply_tuning(false)
@@ -396,6 +406,11 @@ func _update_aim() -> void:
 	if aim_override == Vector2.INF and is_instance_valid(aim_cursor) and aim_cursor.active:
 		target = aim_cursor._bounded_point(target)
 	aim_point = target
+	var previous_facing := player.facing
+	var solution_key := hash([target,player.global_position,player.facing,_pose_inputs(),aim_facing]) if not equipped_weapon_id.is_empty() and not player.character_id.is_empty() else 0
+	if solution_key != 0 and solution_key == _aim_solution_key and aim_direction == _solved_direction:
+		if aiming or firing: player.facing = look_facing()
+		return
 	var offset := target-pivot()
 	aim_direction = offset.normalized() if offset.length_squared() > 1 else Vector2(player.facing,0)
 	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
@@ -408,7 +423,20 @@ func _update_aim() -> void:
 				if next == aim_direction: break
 				aim_direction = next
 	if aiming or firing: player.facing = look_facing()
+	# Facing may be updated by this solve itself. Cache the resulting state,
+	# otherwise the first unchanged draw/cursor query needlessly solves again.
+	if solution_key != 0 and player.facing != previous_facing:
+		solution_key = hash([target,player.global_position,player.facing,_pose_inputs(),aim_facing])
+	_aim_solution_key = solution_key
+	_solved_direction = aim_direction
 func finish_tick() -> void:
+	# A ceiling may prevent standing. Never fire or ADS through that constraint.
+	if player.crouching and requires_standing_for_down_aim():
+		aiming = false
+		ads_blend = 0
+		firing = false
+		burst_time = 0
+		return
 	# Dash and ladder entry take priority over shooting in the same frame.
 	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or player.pushing or player.climbing or player.dash_left > 0 or player.slide_left > 0:
 		_tick_movement_spread(player.get_physics_process_delta_time())
@@ -429,6 +457,7 @@ func finish_tick() -> void:
 		# A small remainder is carried by update_state while held below.
 	queue_redraw()
 func _fire() -> void:
+	if player.crouching and requires_standing_for_down_aim(): return
 	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active): return
 	if player.pushing or player.barrel_knockdown_left > 0 or not tuning.weapon_enabled or (not aiming and not tuning.hip_enabled) or reloading or (tuning.magazine_enabled and magazine_ammo <= 0) or player.health <= 0: return
 	var rounds_before := magazine_ammo
@@ -611,16 +640,20 @@ func _on_impact(point: Vector2,target_hit: bool,killed := false,direction := Vec
 				hit_audio.play()
 				hit_sounds_played += 1
 	queue_redraw()
+func _pose_inputs() -> Array:
+	var anchors := player.body.weapon_mount_points()
+	return [equipped_weapon_id,player.character_id,player.uses_painted_cels(),player.body.facing,
+		player.body.shoulder("near"),player.body.shoulder("far"),anchors,player.body.uses_down_aim_pose(),ads_blend,recoil_back,
+		player.sprint_pose_active(),player.sprint_dash_pose_active(),player.slide_left > 0,
+		player.barrel_knockdown_left > 0,reloading,reload_progress(),reload_facing,reload_start_direction,player.collision_height(),
+		player.crouching and requires_standing_for_down_aim()]
+
 func visual_pose() -> Dictionary:
 	if equipped_weapon_id.is_empty() or player.character_id.is_empty(): return _calculate_visual_pose()
 	# Arms, muzzle queries and three draw layers request the same pose repeatedly.
 	# Key actual geometry/state rather than a frame number: paused developer edits,
 	# same-tick recoil and anatomy changes must immediately invalidate the result.
-	var anchors := player.body.weapon_mount_points()
-	var key := hash([equipped_weapon_id,player.character_id,player.uses_painted_cels(),player.body.facing,
-		player.body.shoulder("near"),player.body.shoulder("far"),anchors,aim_direction,ads_blend,recoil_back,
-		player.sprint_pose_active(),player.sprint_dash_pose_active(),player.slide_left > 0,
-		player.barrel_knockdown_left > 0,reloading,reload_progress(),reload_facing,reload_start_direction,player.collision_height()])
+	var key := hash([_pose_inputs(),aim_direction])
 	if key != _visual_pose_key or _visual_pose_cache.is_empty():
 		_visual_pose_key = key
 		_visual_pose_cache = _calculate_visual_pose()
@@ -628,11 +661,13 @@ func visual_pose() -> Dictionary:
 
 func _calculate_visual_pose() -> Dictionary:
 	if reloading: return _reload_pose(reload_progress())
-	var base := local_pivot()
+	# Fit the final down-aim pose once, including recoil. Fitting the base and
+	# then fitting that fitted mount again doubled the expensive corridor search.
+	var base := preload("res://scripts/campaign/weapon_mount.gd").desired_pivot(player,aim_direction,smoothstep(0,1,ads_blend)) if player.body.uses_down_aim_pose() else local_pivot()
 	# Carry the gun with the body during sprint, sprint dash and slide. A
 	# cursor behind the slide must not twist the gripping arms backwards.
 	# Reticle and camera gaze remain independent throughout these actions.
-	var carrying := player.sprint_pose_active() or player.sprint_dash_pose_active() or player.slide_left > 0 or player.barrel_knockdown_left > 0
+	var carrying := player.sprint_pose_active() or player.sprint_dash_pose_active() or player.slide_left > 0 or player.barrel_knockdown_left > 0 or (player.crouching and requires_standing_for_down_aim())
 	var visual_direction := Vector2(player.body.facing,.25).normalized() if carrying else aim_direction
 	var normal := Vector2(-visual_direction.y,visual_direction.x)*player.body.facing if player.body else Vector2(-visual_direction.y,visual_direction.x)*player.facing
 	var recoil := -visual_direction*recoil_back
