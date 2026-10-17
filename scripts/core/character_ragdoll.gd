@@ -90,6 +90,9 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		player_skin.rig = rig
 		player_skin.player = actor
 		player_skin.facing = pose.facing
+		player_skin.painted_head_stage = pose.get("painted_head_stage",0)
+		# Keep the exact painted phase as the physical mesh's bind pose.
+		player_skin.painted_cel_pose = pose.duplicate(true)
 		rig.add_child(player_skin)
 	elif actor is CoreZombie:
 		zombie_skin = actor.call("create_ragdoll_skin") if actor.has_method("create_ragdoll_skin") else ZOMBIE_SKIN.new()
@@ -140,7 +143,7 @@ func tick(delta: float) -> void:
 				part.hide()
 				part.collision_layer = 0
 				part.collision_mask = 0
-	if (recovering or recovery_finished) and (actor.health <= 0 or (not recovery_target.prone and (not actor.has_part("left_leg") or not actor.has_part("right_leg")))):
+	if (recovering or recovery_finished) and (actor.health <= 0 or (actor is CoreEnemyDummy and not recovery_target.get("prone",false) and (not actor.has_part("left_leg") or not actor.has_part("right_leg")))):
 		_interrupt_recovery()
 		# Let gravity resolve the changed support before starting a new crawl
 		# recovery; never re-enter the old standing transition in this tick.
@@ -173,6 +176,8 @@ func _try_recover() -> void:
 	var ground := get_world_2d().direct_space_state.intersect_ray(ray)
 	if ground.is_empty(): return
 	var size: Vector2 = Vector2(28,height) if actor is CoreMovementPlayer else actor.body_size
+	# Harry's target is a full standing pose, even if the hit began crouched.
+	if actor is CoreMovementPlayer and actor.uses_smooth_recovery(): size.y = CoreMovementPlayer.HEIGHT
 	if actor is CoreEnemyDummy:
 		var legless: bool = not actor.has_part("left_leg") and not actor.has_part("right_leg")
 		if actor is CoreZombie: legless = not actor.has_part("left_leg") or not actor.has_part("right_leg")
@@ -189,7 +194,7 @@ func _try_recover() -> void:
 		var feet: Vector2 = ground.position+Vector2(offset,-.5)
 		query.transform = Transform2D(0,feet-Vector2(0,shape.height*.5))
 		if get_world_2d().direct_space_state.intersect_shape(query,1).is_empty():
-			if actor is CoreZombie and not recovery_finished:
+			if (actor is CoreZombie or (actor is CoreMovementPlayer and actor.uses_smooth_recovery())) and not recovery_finished:
 				_begin_recovery(feet)
 				return
 			actor.global_position = feet
@@ -200,6 +205,12 @@ func _try_recover() -> void:
 				actor.shove_left = 0
 				actor._try_stand()
 				actor.mode = "idle"
+				if actor.uses_smooth_recovery():
+					var direction: float = actor.body.facing
+					actor.body.reset_visual()
+					actor.body.facing = direction
+					actor.body._show_frame()
+					actor.body.update_arms()
 			else:
 				actor.knockdown_left = 0
 				actor._update_body_shape()
@@ -211,11 +222,12 @@ func _begin_recovery(feet: Vector2) -> void:
 	recovering = true
 	recovery_elapsed = 0
 	recovery_feet = feet
-	var legless: bool = not actor.has_part("left_leg") or not actor.has_part("right_leg")
+	var legless: bool = actor is CoreEnemyDummy and (not actor.has_part("left_leg") or not actor.has_part("right_leg"))
 	recovery_duration = .35 if legless else .65
-	actor.reaction_offset = Vector2.ZERO
+	if actor is CoreEnemyDummy: actor.reaction_offset = Vector2.ZERO
 	var rects := {}
-	for anatomy_key in CoreEnemyDummy.PARTS: rects[anatomy_key] = actor.animated_part_rect(anatomy_key,legless,false)
+	if actor is CoreEnemyDummy:
+		for anatomy_key in CoreEnemyDummy.PARTS: rects[anatomy_key] = actor.animated_part_rect(anatomy_key,legless,false)
 	recovery_target = actor.call("ragdoll_recovery_pose",legless) if actor.has_method("ragdoll_recovery_pose") else ZOMBIE_SKIN.capture_pose(actor,rects)
 	recovery_source = {"parts":{},"points":{},"offset":pelvis_offset}
 	for key in rig.parts:
@@ -335,8 +347,6 @@ func _exit_tree() -> void:
 func _draw() -> void:
 	if not active or not is_instance_valid(rig) or actor is CoreMovementPlayer: return
 	var point := to_local(rig.parts.head.global_position)+Vector2(-35,-20)
-	if is_instance_valid(zombie_skin) and zombie_skin.has_method("health_anchor"):
-		point = to_local(zombie_skin.call("health_anchor"))+Vector2(-35,-20)
 	if actor is CoreZombie:
 		var status := "МЁРТВ" if actor.health <= 0 else "ОПИРАЕТСЯ НА РУКИ" if recovering and recovery_target.prone else "ПОДНИМАЕТСЯ" if recovering else "СБИТ С НОГ"
 		draw_string(ThemeDB.fallback_font,point+Vector2(-10,-16),"ЗОМБИ · "+status,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("a0bb87"))

@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-17",
+  "mode": "built-in image_gen",
+  "reference": "harry-reference.jpg",
+  "initial": {
+    "asset": "resources/campaign/harry_deform.png",
+    "original": "C:/Users/serui/.codex/generated_images/01a146c1-4afb-75f2-95b0-90e1ac9936e6/exec-5ee0aa5a-cda3-4c36-accd-f2cd9ab1eac6.png",
+    "prompt": "Use case: stylized-concept. Asset type: production texture atlas for a deformable 2D skeletal character, NOT an animation screenshot. Reference image is Harry's identity and clothes. Create ONE clean transparent 3-column by 2-row atlas, exactly six separate centered pieces, generous clear spacing, no part may overlap a cell. TOP LEFT: Harry's olive long-coat torso facing RIGHT in exact side profile, from collar to mid-thigh coat hem, chest pouches, scarf collar, backpack and bedroll; NO head and NO arms, keep shoulder opening and waist fully painted behind possible overlap. TOP MIDDLE: ONE COMPLETE continuous sleeve from rounded shoulder at top through straight elbow to gloved hand at bottom, arm fully extended vertically downward, wrist straight, glove in a loose weapon-grip pose, no cuts or gaps; match coat fabric and raven sleeve patch. TOP RIGHT: ONE COMPLETE continuous trouser leg from hip at top through nearly straight knee to ankle at bottom, olive drab pants only, no boot, neutral straight vertical rest pose, no cuts or gaps. BOTTOM LEFT: isolated Harry HEAD with helmet and pale stripe and tan scarf neck, strict RIGHT side profile, neutral level gaze. BOTTOM MIDDLE: SAME HEAD drawn for aiming, chin slightly tucked and eye concentrated, same helmet size and same base-of-neck anchor, independently painted facial/clothing shapes. BOTTOM RIGHT: SAME HEAD looking slightly upward, same identity, scale, helmet and scarf anchor. All pieces match the reference's realistic hand-painted dark military survival game art. Not a 3D render, not pixel art. Actual alpha transparency. No captions, no text, no frames, no whole assembled person, no weapons, no extra limbs. Most important: whole arm and whole leg remain continuous uncut drawings so a weighted mesh can bend at elbow/knee without visible segment seams."
+  },
+  "final": {
+    "asset": "resources/campaign/harry_deform_v2.png",
+    "original": "C:/Users/serui/.codex/generated_images/01a146c1-4afb-75f2-95b0-90e1ac9936e6/exec-b3db3893-793c-4ae6-90f1-f60262160436.png",
+    "prompt": "EDIT TARGET: the attached Harry 2D sprite atlas. Preserve the exact 1536x1024 atlas composition, alpha transparency, positions and silhouettes of all six pieces. Change ONLY the upper left coat sprite: its large dark empty armhole must be filled with continuous matching olive military coat fabric with subtle natural folds, no black opening or visible oval rim. The separately painted sleeve will be layered above this area during animation, so the torso must have a fully clothed seamless shoulder/chest underneath it. Preserve backpack, belts, pouches, coat hem, scarf, all other three heads, arm and trouser leg exactly. Absolutely no background, no text, no extra parts. Keep a true transparent alpha background, preserve all empty spaces."
+  },
+  "processing": "PNG copied unchanged with alpha. Godot selects UV regions in memory; no raster postprocessing.",
+  "scope": "Harry only; 2D weighted mesh and three painted head poses. Boots reuse character_parts.png."
+}

@@ -13,6 +13,20 @@ const RADIUS := 14.0
 const WORLD_MASK := 1 | 4 | 8
 const ENEMY_MASK := 4
 @export var tuning: CoreMovementSettings
+@export var character_id := "" # Empty preserves the original polygon hero.
+@export var sofia_cel_variant := false # Selected polygon Sofia only; prologue keeps its prior skin.
+
+func uses_deformed_skin() -> bool:
+	return character_id == "harry" and is_instance_valid(visuals) and visuals.settings.deform_skin_enabled
+
+func ragdoll_recovery_pose(_prone := false) -> Dictionary:
+	return body.ragdoll_pose(true)
+
+func uses_painted_cels() -> bool:
+	return sofia_cel_variant and character_id == "sofia" and is_instance_valid(visuals) and visuals.settings.sofia_cels_enabled
+
+func uses_smooth_recovery() -> bool:
+	return uses_deformed_skin() or uses_painted_cels()
 var ladders: Array[Rect2] = []
 var facing := 1.0
 var mode := "idle"

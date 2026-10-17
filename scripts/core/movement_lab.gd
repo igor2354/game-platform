@@ -5,6 +5,7 @@ const SettingsFile := preload("res://scripts/core/settings_file.gd")
 const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd")
 
 @export var load_user_settings := true
+@export var campaign_mode := false
 @export var settings_path := CoreMovementSettings.SAVE_PATH
 @export var shooting_settings_path := CoreShootingSettings.SAVE_PATH
 @export var camera_settings_path := CoreCameraSettings.SAVE_PATH
@@ -107,7 +108,7 @@ func _ready() -> void:
 	player.weapon.camera_impulse.connect(_camera_impulse)
 	player.weapon.shot_fired.connect(_shot_noise)
 	player.noise_emitted.connect(_broadcast_noise)
-	player.reset_to(CoreMovementLevel.SPAWN)
+	player.reset_to(level.player_spawn())
 	camera.make_current()
 	camera.process_mode = Node.PROCESS_MODE_ALWAYS
 	_update_camera(true)
@@ -614,7 +615,7 @@ func _recover() -> void:
 		grenade.set_physics_process(false)
 		grenade.queue_free()
 	respawns += 1
-	player.reset_to(CoreMovementLevel.SPAWN)
+	player.reset_to(level.player_spawn())
 	level.physics_crate.reset_crate()
 	level.ragdoll_mannequin.reset_mannequin()
 	_reset_explosives()
@@ -643,8 +644,8 @@ func camera_target(look_direction := NAN) -> Vector2:
 	var target := anchor+Vector2(camera_settings.offset_x+look*camera_settings.look_ahead,camera_settings.offset_y)/camera_settings.zoom
 	if camera_settings.limit_to_level:
 		var half_width := get_viewport_rect().size.x*.5/camera_settings.zoom
-		var minimum := minf(half_width,(CoreMovementLevel.WIDTH-CoreMovementLevel.LEFT_BOUND)*.5)
-		target.x = clampf(target.x,CoreMovementLevel.LEFT_BOUND+minimum,CoreMovementLevel.WIDTH-minimum)
+		var minimum := minf(half_width,(level.right_bound()-CoreMovementLevel.LEFT_BOUND)*.5)
+		target.x = clampf(target.x,CoreMovementLevel.LEFT_BOUND+minimum,level.right_bound()-minimum)
 	return target
 
 func _advance_camera_look(delta: float,snap: bool) -> void:

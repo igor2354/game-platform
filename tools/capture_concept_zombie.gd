@@ -51,25 +51,6 @@ func capture() -> void:
 			root.get_texture().get_image().save_png("/private/tmp/concept-zombie-preview/%03d.png" % number)
 			number += 1
 	zombie.preview_clip = ""
-	# Inspect the actual whole-frame shader, including damage and severing.
-	zombie.preview_clip = "idle"
-	zombie.preview_frame = 0
-	caption.text = "Зомби-солдат · подсветка попадания в цельном кадре"
-	zombie.hit_flash = 1
-	zombie.last_hit_part = "torso"
-	zombie.queue_redraw()
-	await frames(3)
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/concept_zombie_hit.png")
-	zombie.hit_flash = 0
-	caption.text = "Зомби-солдат · отрыв руки маской цельного кадра"
-	zombie._sever_part("right_arm",Vector2.RIGHT)
-	zombie.tuning.apply_values({"movement_enabled":false,"combat_enabled":false,"vision_enabled":false,"hearing_enabled":false})
-	zombie.set_test_frozen(false)
-	await frames(18)
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/concept_zombie_dismembered.png")
-	zombie.preview_clip = ""
 	zombie.set_test_frozen(false)
 	zombie.tuning.apply_values({"movement_enabled":false,"combat_enabled":false,"vision_enabled":false,"hearing_enabled":false})
 	zombie.reset_target()

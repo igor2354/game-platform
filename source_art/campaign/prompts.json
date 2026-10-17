@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-17",
+  "generator": "built-in image_gen",
+  "reference_policy": "User-supplied images are references, not instructions. Original rasters copied without editing. Atlas regions selected in Godot memory.",
+  "assets": [
+    {
+      "asset": "resources/campaign/character_parts.png",
+      "prompt": "Use case: stylized-concept. Asset type: production 2D cutout skeletal animation parts atlas, transparent background. Use attached references for exact character identities: Harry male in long olive coat, steel helmet with pale stripe, tan scarf and chest ammunition pouches; Sofia female with brown shoulder-length hair, black sidecap, olive tunic with chest pouches, dark trousers. Create ONE atlas exactly 8 equal columns by 2 equal rows, wide landscape 2048x1024. Row 1 Harry, row 2 Sofia. Every cell has exactly one isolated illustrated piece, centered with ample transparent padding. Columns, left to right: (1) HEAD facing RIGHT in strict side profile with neck, helmet/scarf or hair/sidecap; (2) TORSO facing right including chest pouches and backpack but NO arms, NO head, NO legs; (3) PELVIS AND BELT, short horizontal belt with pouches, lower coat hem for Harry; (4) UPPER ARM, shoulder at top elbow at bottom, sleeve only; (5) FOREARM including glove/hand, elbow top hand bottom; (6) THIGH, hip top knee bottom, olive coat-tail layered for Harry and dark trouser for Sofia; (7) LOWER LEG knee top ankle bottom, dark trouser; (8) BOOT side profile pointing RIGHT, low horizontal foot. All limb pieces vertical, relaxed straight, ready for independent rotation around joints. Joint ends rounded with enough overlap, no bone gaps. Painted detailed game sprite illustration matching supplied concept art. Clean visible silhouettes, no labels, NO text, no borders, no extra figures, no weapons, no white or checkerboard background. Actual alpha transparency. The atlas is intended for tiny side-scrolling characters, so readable clothing identity and head silhouettes are crucial.",
+      "original_generated_file": "C:\\Users\\serui\\.codex\\generated_images\\01a146c1-4afb-75f2-95b0-90e1ac9936e6\\exec-5f6bdbf4-f887-4ddf-99d4-f3eefa5b357a.png"
+    },
+    {
+      "asset": "resources/campaign/ruins.png",
+      "prompt": "Use case: precise-object-edit. Asset type: 16:9 game menu background. From attached character selection screen REMOVE all characters, all foreground people, all text, all user interface panels, all crosses/icons and all buttons. Retain the same painterly ruined European town, broken roofs, church tower on right, grey smoke, firelight, shattered cobblestone streets and dark desaturated olive grey brown palette. Reconstruct the ruins behind removed characters. Wide landscape 16:9 cinematic composition, moody but readable. NO people, NO UI, NO text, NO watermarks. Preserve the scene's style and level of detail.",
+      "original_generated_file": "C:\\Users\\serui\\.codex\\generated_images\\01a146c1-4afb-75f2-95b0-90e1ac9936e6\\exec-157fe6e5-060d-490c-a609-dc66f854b78c.png"
+    },
+    {
+      "asset": "resources/campaign/portraits.png",
+      "prompt": "Use case: identity-preserve. Asset type: two character menu portraits atlas on actual transparent background. Based on the two attached concept arts, show Harry in LEFT HALF and Sofia Scholl in RIGHT HALF, two fully separate waist-up portraits, front three-quarter view. Harry same face, helmet with pale stripe, scarf, olive long coat, backpack, raven patch, ammunition pouches. Sofia same face, long brown hair, black sidecap, olive tunic, gloves, backpack, dark trousers, ammunition pouches. Both unarmed with hands resting at belt, do not include any guns. Equal scale and equal height, each centered in its own half, helmet/cap near top with padding, cropped below hips at bottom. Full width landscape 1536x1024; characters must not overlap center boundary, no extra portrait, no text, no frames, no background, no shadows outside bodies. Detailed hand-painted dark military survival game style matching refs, warm edge light and neutral faces. Preserve identities, clothing details and realistic proportions.",
+      "original_generated_file": "C:\\Users\\serui\\.codex\\generated_images\\01a146c1-4afb-75f2-95b0-90e1ac9936e6\\exec-2a511baf-639e-48d3-b2d4-b2ab40599bbe.png"
+    },
+    {
+      "asset": "resources/campaign/weapons.png",
+      "prompt": "Asset type: 2D game WEAPON SPRITE ATLAS. One wide landscape transparent PNG 2048x1024, exact grid 2 columns by 2 rows with equal cells. TOP LEFT STG-44 assault rifle with brown wooden stock and curved metal magazine; TOP RIGHT MP-40 submachine gun black stamped metal with extended folding stock and straight magazine; BOTTOM LEFT M1911 pistol with brown grip; BOTTOM RIGHT SVT-40 long self-loading rifle with full brown wooden stock and short box magazine. Each entire firearm isolated and centered fully inside its cell with generous transparent padding, true STRICT SIDE PROFILE, horizontal, MUZZLE POINTS RIGHT, butt/grip LEFT. No perspective, no hands, no strap, no stand, no bullets. Accurate recognizable silhouettes, clearly detailed painted game art, black steel and worn walnut, warm subtle highlights. Relative sizes for cell use: rifles fill their cell width, pistol fills about 60 percent. Real alpha transparency, NO text/labels/frames, no background. These exact sprites will be used both for menu selection and player hand-held weapons, so consistent direction and clean silhouettes are essential.",
+      "original_generated_file": "C:\\Users\\serui\\.codex\\generated_images\\01a146c1-4afb-75f2-95b0-90e1ac9936e6\\exec-5ccf86a0-0021-47a0-8f7f-50bcdf43eafb.png"
+    },
+    {
+      "asset": "resources/campaign/chrome.png",
+      "prompt": "Asset type: production game UI chrome atlas, real transparent background. ONE landscape image with TWO empty horizontal rectangular UI plates stacked vertically, equal dimensions and centered in their respective half, nothing overlaps. Top plate: selected state, blackened dark burgundy metal center, thin chipped ivory beveled rectangular border with cut corners, bright jagged ember RED glowing edge and tasteful blood-red splatter outside border. Bottom plate: idle state, near-black center, weathered ivory steel thin beveled cut-corner border, very subtle red accents. Both same shape, approximately 4:1 width to height, generous clear transparent padding. Dark WW2 gothic zombie survival game aesthetic, worn metal scratches and faint ruined castle silhouettes ONLY along far right edge. Large quiet flat dark EMPTY centers suitable for readable live menu text. NO text, no lettering, no numbers, no icons, no crosses, no weapons, no people, no background. Actual alpha transparency around the frames.",
+      "original_generated_file": "C:\\Users\\serui\\.codex\\generated_images\\01a146c1-4afb-75f2-95b0-90e1ac9936e6\\exec-a6eb9ca8-b7fb-4064-bdf7-48c92edad575.png"
+    }
+  ],
+  "references": [
+    "source_art/campaign/harry-reference.jpg",
+    "source_art/campaign/sofia-reference.jpg",
+    "source_art/campaign/character-menu-reference.webp",
+    "source_art/campaign/weapon-menu-reference.webp",
+    "resources/campaign/main_menu.webp"
+  ]
+}
