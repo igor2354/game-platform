@@ -40,6 +40,8 @@ func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
 		points[side+"_hand"] = shoulder+direction*distance
 		points[side+"_elbow"] = shoulder+direction*along+Vector2(-direction.y,direction.x)*height*body.facing
 var ladders: Array[Rect2] = []
+var side_ladders: Array[Rect2] = []
+var ladder_side_view := false
 var facing := 1.0
 var mode := "idle"
 var climbing := false
@@ -190,6 +192,7 @@ func reset_to(point: Vector2) -> void:
 	collision_mask = WORLD_MASK
 	climbing = false
 	ladder = Rect2()
+	ladder_side_view = false
 	ladder_lock = 0
 	coyote = 0
 	jump_buffer = 0
@@ -239,6 +242,7 @@ func _try_stand() -> bool:
 	return true
 
 func _update_crouch(requested: bool) -> void:
+	if weapon.requires_standing_for_down_aim(): requested = false
 	var can_crouch := tuning.crouch_enabled and requested and not climbing and dash_left <= 0 and (is_on_floor() or crouching)
 	if not can_crouch and _try_stand(): return
 	# A forced crouch under a ceiling also accepts safe live height edits.
@@ -956,6 +960,7 @@ func _enter_ladder(candidate: Rect2) -> void:
 	air_move_speed = tuning.run_speed
 	climbing = true
 	ladder = candidate
+	ladder_side_view = candidate in side_ladders
 	velocity = Vector2.ZERO
 	ground_acceleration = 0
 	ground_speed = 0
@@ -965,6 +970,7 @@ func _enter_ladder(candidate: Rect2) -> void:
 
 func _leave_ladder() -> void:
 	climbing = false
+	ladder_side_view = false
 	set_collision_mask_value(4,true)
 	ladder_lock = tuning.ladder_regrab_delay
 

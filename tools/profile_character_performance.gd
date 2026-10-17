@@ -75,15 +75,26 @@ func run() -> void:
 			hero.weapon.cancel_reload()
 		hero.set_physics_process(false)
 		hero.body.state = "idle"
-		for task in ["aim","pose","skin"]:
+		for task in ["aim","pose","skin","skin_cycle","aim_down"]:
 			var figure := hero.body.find_child("SofiaCelFigure",true,false)
 			if task == "skin" and not is_instance_valid(figure): continue
+			if task == "skin_cycle":
+				if character != "sofia": continue
+				hero.body.state = "run"
+				hero.body.down_aim_blend = 0
+			if task == "aim_down":
+				if character != "sofia": continue
+				hero.body.state = "idle"
+				hero.crouching = false
+				hero.body.down_aim_blend = 1
 			var started := Time.get_ticks_usec()
 			for i in 40:
-				hero.weapon.aim_direction = Vector2.RIGHT.rotated(i*.031)
-				if task == "aim": hero.weapon.aim_override = hero.position+hero.weapon.aim_direction*400; hero.weapon._update_aim()
+				hero.weapon.aim_direction = Vector2.RIGHT.rotated(PI*.5+(i-20)*.001 if task == "aim_down" else i*.031)
+				if task in ["aim","aim_down"]: hero.weapon.aim_override = hero.position+hero.weapon.aim_direction*400; hero.weapon._update_aim()
 				elif task == "pose": hero.weapon.visual_pose()
-				else: figure.update_pose(hero.body.ragdoll_pose())
+				else:
+					if task == "skin_cycle": hero.body.phase = (i%24+.1)/24.0; hero.body.update_arms()
+					figure.update_pose(hero.body.ragdoll_pose())
 			print("COST ",character," ",task," mean_ms=",(Time.get_ticks_usec()-started)/40000.0)
 		await app.return_to_menu()
 	app.queue_free()

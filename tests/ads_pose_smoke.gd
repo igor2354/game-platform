@@ -30,6 +30,13 @@ func attached() -> bool:
 func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
+	var directory := OS.get_environment("TEMP").path_join("ads-pose-%d" % OS.get_process_id())
+	DirAccess.make_dir_recursive_absolute(directory)
+	lab.settings_path = directory.path_join("movement.cfg")
+	lab.shooting_settings_path = directory.path_join("shooting.cfg")
+	lab.camera_settings_path = directory.path_join("camera.cfg")
+	lab.zombie_settings_path = directory.path_join("zombie.cfg")
+	lab.ragdoll_settings_path = directory.path_join("ragdoll.cfg")
 	root.add_child(lab)
 	hero = lab.player
 	gun = hero.weapon

@@ -78,15 +78,15 @@ func run() -> void:
 	hero.body.facing = 1
 	var cels := {}
 	var bind_ok := true
-	for index in 12:
-		hero.body.phase = (index+.1)/12.0
+	for index in 24:
+		hero.body.phase = (index+.1)/24.0
 		hero.body.update_arms()
 		figure.update_pose(hero.body.ragdoll_pose())
 		cels[hash(figure.meshes.body.uv)] = true
 		var vertices: PackedVector2Array = figure.deformed_vertices("body")
 		for i in vertices.size(): bind_ok = bind_ok and vertices[i].distance_to(figure.rest_vertices.body[i]) < .002
 		check(shape_valid(figure),"authored painted phase stays finite: "+str(index))
-	check(cels.size() == 12 and bind_ok,"twelve whole-body drawings retain their painted shape without mannequin deformation")
+	check(cels.size() == 24 and bind_ok,"twenty-four whole-body drawings retain their painted shape without mannequin deformation")
 	for state in ["jump","crouch","slide","climb","push","pull","dash"]:
 		hero.body.state = state
 		if state != "climb": hero.body.update_arms()

@@ -68,6 +68,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	RenderingServer.set_default_clear_color(Color("1c252d"))
 	player.ladders = level.ladders
+	player.side_ladders = level.side_ladders
 	# Keep the editor resource unchanged; overlays edit a runtime copy.
 	var defaults := player.tuning.duplicate() as CoreMovementSettings
 	defaults.apply_values(defaults.as_dictionary())
@@ -528,7 +529,7 @@ func _open_settings_dialog(exporting: bool) -> void:
 	settings_dialog.get_ok_button().text = "Сохранить" if exporting else "Открыть"
 	settings_dialog.get_cancel_button().text = "Отмена"
 	settings_dialog.title = "Экспорт всех настроек" if exporting else "Импорт всех настроек"
-	settings_dialog.current_file = "dead-platform-settings.json" if exporting else ""
+	settings_dialog.current_file = "ubershrike-settings.json" if exporting else ""
 	settings_dialog.popup_centered_clamped(Vector2i(860,560))
 	settings_dialog.get_ok_button().text = "Сохранить" if exporting else "Открыть"
 

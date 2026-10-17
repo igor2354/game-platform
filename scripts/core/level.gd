@@ -26,6 +26,7 @@ var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,
 var platforms: Array[Rect2] = [Rect2(1340,540,420,20),Rect2(1780,540,460,20),Rect2(1780,350,460,20)]
 var obstacles: Array[Rect2] = [Rect2(640,690,90,70)]
 var ladders: Array[Rect2] = [Rect2(1428,540,36,220),Rect2(2000,350,36,410)]
+var side_ladders: Array[Rect2] = [Rect2(1650,540,36,220),Rect2(2180,350,36,410)]
 var enemies: Array[CoreEnemyDummy] = []
 var zombie: CoreZombie
 var concept_zombie: CoreConceptZombie
@@ -42,6 +43,8 @@ var slopes: Array[PackedVector2Array] = [
 	PackedVector2Array([Vector2(4060,760),Vector2(4320,760-260*tan(deg_to_rad(35))),Vector2(4420,760-260*tan(deg_to_rad(35))),Vector2(4680,760),Vector2(4680,860),Vector2(4060,860)])]
 
 func _ready() -> void:
+	# Keep the original two entries and their landings; add profile ladders nearby.
+	if not prologue_mode: ladders.append_array(side_ladders)
 	if prologue_mode:
 		floors.append(PROLOGUE_FLOOR)
 		_solid(Rect2(11960,0,40,1200),false)
@@ -150,6 +153,12 @@ func _draw() -> void:
 	for i in 2: draw_line(BARREL_RAMP[i],BARREL_RAMP[i+1],Color("81c6a7"),3)
 	for rect in ladders:
 		var color := Color("b4af83")
+		if rect in side_ladders:
+			var center := rect.get_center().x+14
+			draw_line(Vector2(center,rect.position.y-72),Vector2(center,rect.end.y),Color("88aeb9"),4)
+			for y in range(int(rect.position.y)-60,int(rect.end.y),24):
+				draw_line(Vector2(center-7,y+3),Vector2(center+11,y-3),Color("88aeb9"),3)
+			continue
 		# Rails above the landing let a human-sized climber keep a handhold.
 		draw_line(rect.position-Vector2(0,72),Vector2(rect.position.x,rect.end.y),color,3)
 		draw_line(Vector2(rect.end.x,rect.position.y-72),rect.end,color,3)

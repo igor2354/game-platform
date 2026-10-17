@@ -39,14 +39,14 @@ func run() -> void:
 		hero.body.state = state
 		var pictures := {}
 		var intact := true
-		for i in 12:
-			hero.body.phase = (i+.1)/12.0
+		for i in 24:
+			hero.body.phase = (i+.1)/24.0
 			hero.body.update_arms()
 			figure.update_pose(hero.body.ragdoll_pose())
 			pictures[hash(figure.meshes.body.uv)] = true
 			var vertices: PackedVector2Array = figure.deformed_vertices("body")
 			for j in vertices.size(): intact = intact and vertices[j].distance_to(figure.rest_vertices.body[j]) < .003
-		check(pictures.size() == 12 and intact,"twelve intact whole-body pictures, no mannequin deformation: "+state)
+		check(pictures.size() == 24 and intact,"twenty-four intact whole-body pictures, no mannequin deformation: "+state)
 	for state in ["idle","walk","run","sprint","crouch","crouch_walk","jump","dash","dash_back","slide","climb","push","pull","barrel_tip","barrel_roll"]:
 		hero.body.state = state
 		var meta := DATA.selection(hero)

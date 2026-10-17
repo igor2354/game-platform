@@ -1,58 +1,12 @@
 extends RefCounted
 ## Whole-body cels. Coordinates describe the artwork, never the old mannequin.
-const WALK = preload("res://resources/campaign/sofia_walk_v3.png")
-const RUN = preload("res://resources/campaign/sofia_run_v3.png")
 const ACTIONS = preload("res://resources/campaign/sofia_actions_v3.png")
 const ARMS = preload("res://resources/campaign/sofia_arms_v3.png")
 const SECONDARY = preload("res://resources/campaign/sofia_secondary_v3.png")
+const CYCLES = preload("res://scripts/campaign/sofia_cycle_data.gd")
+const BACK_CLIMB = preload("res://scripts/campaign/sofia_back_climb_data.gd")
 const UPPER_ARM := 10.8
 const FOREARM := 10.2
-const WALK_BOXES = [Rect2(74,16,234,402),Rect2(368,16,234,402),Rect2(659,16,222,402),Rect2(959,16,225,402),Rect2(59,425,243,402),Rect2(368,425,234,402),Rect2(674,425,249,405),Rect2(989,425,234,405),Rect2(77,839,225,399),Rect2(404,839,144,399),Rect2(680,839,237,399),Rect2(989,839,237,399)]
-const RUN_BOXES = [Rect2(56,11,318,350),Rect2(488,11,192,350),Rect2(845,11,225,350),Rect2(1223,11,237,350),Rect2(62,371,315,314),Rect2(464,371,291,323),Rect2(827,374,282,326),Rect2(1238,374,201,326),Rect2(80,704,222,320),Rect2(440,704,240,308),Rect2(830,707,324,293),Rect2(1226,704,300,320)]
-const WALK_ANCHORS = [[178,224,166,112],[480,224,470,112],[780,224,774,112],[1083,224,1076,112],[175,635,179,520],[481,635,478,520],[785,635,777,520],[1090,635,1090,520],[174,1044,176,932],[478,1044,477,934],[784,1044,776,934],[1091,1044,1091,934]]
-const RUN_ANCHORS = [[228,188,242,102],[607,188,624,101],[990,188,1007,100],[1373,190,1395,100],[211,550,230,458],[596,550,616,460],[976,553,997,463],[1360,553,1380,463],[204,881,225,792],[588,881,607,790],[971,884,993,795],[1353,881,1375,792]]
-const RUN_SOCKETS = [Vector2(225,96),Vector2(607,100),Vector2(998,99),Vector2(1377,89),Vector2(214,449),Vector2(605,454),Vector2(989,462),Vector2(1367,460),Vector2(206,785),Vector2(591,786),Vector2(985,787),Vector2(1374,773)]
-const RUN_LEGS = [
-	[289,257,335,337,363,349,158,250,72,268,66,286],
-	[625,267,615,337,668,349,573,248,503,246,505,267],
-	[952,259,875,329,894,348,1010,240,960,327,986,347],
-	[1305,274,1240,322,1265,340,1428,215,1408,300,1441,316],
-	[293,602,341,657,367,673,162,613,76,622,70,643],
-	[669,618,724,663,747,677,539,618,482,655,504,670],
-	[1043,617,1080,670,1101,684,911,623,842,635,840,655],
-	[1367,622,1373,679,1421,690,1301,625,1250,590,1255,613],
-	[272,896,245,980,273,997,160,951,100,999,113,1014],
-	[630,899,615,977,642,992,535,944,453,984,474,1005],
-	[1040,960,1110,994,1141,990,909,960,846,968,849,987],
-	[1426,947,1486,998,1515,1014,1293,947,1246,965,1254,984]]
-# Per cel: hip, shoulder, near knee/ankle/toe, far knee/ankle/toe.
-# Walk is annotated on a 320 x 420 cell, run on a 384 x 342 cell.
-const WALK_POINTS = [
-	[178,224,172,114,230,307,267,391,297,407,136,308,87,391,115,407],
-	[179,225,173,115,226,308,247,391,278,408,132,306,69,392,96,408],
-	[178,226,172,116,220,309,217,392,247,408,150,297,102,365,120,382],
-	[179,225,173,115,205,308,204,391,234,408,173,287,133,350,149,367],
-	[178,224,173,114,174,306,180,392,210,408,207,285,197,344,216,360],
-	[179,225,174,115,150,307,129,392,160,408,222,302,240,376,270,393],
-	[178,224,173,114,137,307,86,391,116,407,231,307,268,391,298,407],
-	[178,225,173,115,133,306,68,390,95,407,226,308,248,391,278,407],
-	[178,226,172,116,153,296,102,365,120,383,219,308,217,392,248,408],
-	[178,225,173,115,174,287,133,350,149,368,205,308,205,392,235,408],
-	[178,224,173,114,207,285,197,344,216,360,174,306,180,392,210,408],
-	[178,225,174,115,222,302,240,377,270,394,151,307,129,392,160,408]]
-const RUN_POINTS = [
-	[242,183,242,98,295,256,332,325,359,338,157,254,69,267,64,282],
-	[242,181,242,96,250,265,227,326,255,339,191,249,111,240,112,258],
-	[242,180,242,95,202,261,118,316,125,331,236,238,191,313,205,329],
-	[242,183,242,98,175,268,122,316,143,330,289,203,270,291,298,308],
-	[242,183,242,98,169,251,78,268,84,284,296,266,348,301,363,319],
-	[242,181,242,96,194,247,110,277,120,293,293,264,340,319,363,333],
-	[242,183,242,98,157,254,69,267,64,282,295,256,332,325,359,338],
-	[242,181,242,96,191,249,111,240,112,258,250,265,227,326,255,339],
-	[242,180,242,95,236,238,191,313,205,329,202,261,118,316,125,331],
-	[242,183,242,98,289,203,270,291,298,308,175,268,122,316,143,330],
-	[242,183,242,98,296,266,348,301,363,319,169,251,78,268,84,284],
-	[242,181,242,96,293,264,340,319,363,333,194,247,110,277,120,293]]
 # Action coordinates are on the complete 1254-square source canvas, with
 # individually authored regions because the slide is wider than a grid cell.
 const ACTION_BOXES = [Rect2(65,10,205,445),Rect2(380,125,195,330),Rect2(635,135,250,320),Rect2(927,140,313,315),Rect2(65,555,200,320),Rect2(380,460,210,350),Rect2(670,460,200,395),Rect2(975,570,250,310),Rect2(15,900,335,325),Rect2(345,1000,380,230),Rect2(700,835,195,395),Rect2(925,895,300,335)]
@@ -95,14 +49,22 @@ static func selection(player: CoreMovementPlayer,standing := false) -> Dictionar
 	var state := "idle" if standing else player.body.state
 	var clip := "actions"
 	var index := 0
-	if state in ["crouch_walk","climb","push","pull","barrel_roll"]:
+	if not standing and player.body.uses_down_aim_pose():
+		clip = "down"
+		index = clampi(ceili(player.body.down_aim_blend*4)-1,0,3)+(4 if state == "crouch" else 0)
+	elif state == "crouch_walk":
+		clip = "crouch_walk"
+		index = posmod(floori(player.body.phase*CYCLES.frame_count(clip)),CYCLES.frame_count(clip))
+	elif state == "climb" and not player.ladder_side_view:
+		clip = "climb_back"
+		index = posmod(floori(player.body.phase*8),8)
+	elif state in ["climb","push","pull","barrel_roll"]:
 		clip = "secondary"
-		index = posmod(floori(player.body.phase*4),4)+(0 if state == "crouch_walk" else 4 if state == "climb" else 8)
+		index = posmod(floori(player.body.phase*4),4)+(4 if state == "climb" else 8)
 	elif state in ["walk","run","sprint"]:
 		clip = "walk" if state == "walk" else "run"
-		index = posmod(floori(player.body.phase*12),12)
-	elif state in ["crouch","crouch_walk"]:
-		index = 1 if state == "crouch" else 2+posmod(floori(player.body.phase*4),2)
+		index = posmod(floori(player.body.phase*CYCLES.frame_count(clip)),CYCLES.frame_count(clip))
+	elif state == "crouch": index = 1
 	elif state == "jump": index = 4 if player.body.frame == 0 else 5 if player.body.frame < 4 else 6 if player.body.frame < 7 else 7
 	elif state in ["dash","dash_back"]: index = 8
 	elif state == "slide": index = 9
@@ -111,49 +73,29 @@ static func selection(player: CoreMovementPlayer,standing := false) -> Dictionar
 	return {"drawn_clip":clip,"drawn_frame":index,"body_cel":index,"head_cel":0,"cel_indices":[index,index],"cel_y_scale":1.0,"cel_bob":0.0,"cel_stride":1.0}
 
 static func texture(meta: Dictionary) -> Texture2D:
-	return WALK if meta.drawn_clip == "walk" else RUN if meta.drawn_clip == "run" else SECONDARY if meta.drawn_clip == "secondary" else ACTIONS
+	if meta.drawn_clip == "climb_back": return BACK_CLIMB.TEXTURE
+	if meta.drawn_clip in CYCLES.clips: return CYCLES.texture(meta.drawn_clip)
+	return SECONDARY if meta.drawn_clip == "secondary" else ACTIONS
 
 static func source(meta: Dictionary) -> Dictionary:
 	var clip: String = meta.drawn_clip
 	var index: int = meta.drawn_frame
-	var data: Array = WALK_POINTS[index] if clip == "walk" else RUN_POINTS[index] if clip == "run" else SECONDARY_POINTS[index] if clip == "secondary" else ACTION_POINTS[index]
+	if clip == "climb_back": return BACK_CLIMB.source(index)
+	if clip in CYCLES.clips: return CYCLES.source(clip,index)
+	var data: Array = SECONDARY_POINTS[index] if clip == "secondary" else ACTION_POINTS[index]
 	var result := {"hip":Vector2(data[0],data[1]),"shoulder":Vector2(data[2],data[3])}
 	var keys := ["right_knee","right_ankle","right_tip","left_knee","left_ankle","left_tip"]
 	for i in keys.size(): result[keys[i]] = Vector2(data[4+i*2],data[5+i*2])
-	var sheet := texture(meta)
-	var cell_size := sheet.get_size()/Vector2(4,3)
-	var virtual_cell := Vector2(320,420) if clip == "walk" else Vector2(384,342)
-	var action_like := clip in ["actions","secondary"]
-	var pixel_ratio := cell_size/virtual_cell if not action_like else sheet.get_size()/Vector2(1254,1254)
-	var offset := Vector2(index%4,index/4)*cell_size if not action_like else Vector2.ZERO
-	var origin: Vector2 = Vector2(data[0],414 if clip == "walk" else 340) if not action_like else Vector2(data[0],450 if index < 4 else 870 if index < 8 else 1220)
-	if clip == "secondary": origin.y = 416 if index < 4 else 845 if index < 8 else 1195
-	# Preserve the airborne height already drawn, rather than grounding each cel.
-	if clip == "actions" and index in [5,6]: origin.y = 870
+	var pixel_ratio := texture(meta).get_size()/Vector2(1254,1254)
 	result.neck = result.shoulder+Vector2(13,-27)
 	result.head = result.shoulder+Vector2(28,-57)
-	result.root = origin
-	result.scale = (.162 if clip == "walk" else .190 if clip == "run" else .151)/pixel_ratio.x
-	var action_box: Rect2 = SECONDARY_BOXES[index] if clip == "secondary" else ACTION_BOXES[index]
-	result.box = Rect2(Vector2(index%4,index/4)*cell_size,cell_size) if not action_like else Rect2(action_box.position*pixel_ratio,action_box.size*pixel_ratio)
+	result.root = Vector2(data[0],450 if index < 4 else 870 if index < 8 else 1220)
+	if clip == "secondary": result.root.y = 416 if index < 4 else 845 if index < 8 else 1195
+	var box: Rect2 = SECONDARY_BOXES[index] if clip == "secondary" else ACTION_BOXES[index]
+	result.box = Rect2(box.position*pixel_ratio,box.size*pixel_ratio)
 	for key in result.keys():
-		if result[key] is Vector2: result[key] = result[key]*pixel_ratio+offset
-	if not action_like:
-		var real_ratio := sheet.get_size()/(Vector2(1254,1254) if clip == "walk" else Vector2(1536,1024))
-		var anchors: Array = WALK_ANCHORS[index] if clip == "walk" else RUN_ANCHORS[index]
-		var real_box: Rect2 = WALK_BOXES[index] if clip == "walk" else RUN_BOXES[index]
-		result.box = Rect2(real_box.position*real_ratio,real_box.size*real_ratio).intersection(Rect2(Vector2.ZERO,sheet.get_size()))
-		result.hip = Vector2(anchors[0],anchors[1])*real_ratio
-		if clip == "run":
-			for i in keys.size(): result[keys[i]] = Vector2(RUN_LEGS[index][i*2],RUN_LEGS[index][i*2+1])*real_ratio
-		result.shoulder = Vector2(anchors[2],anchors[3])*real_ratio
-		result.neck = result.shoulder+Vector2(13,-22)*real_ratio
-		result.head = result.shoulder+Vector2(35,-49)*real_ratio
-		if clip == "run": result.shoulder = RUN_SOCKETS[index]*real_ratio
-		var ground := real_box.end.y-4
-		if clip == "run": ground += [0,0,15,20,30,8,0,0,15,20,30,8][index]
-		result.root = Vector2(anchors[0],ground)*real_ratio
-		result.scale = (.162 if clip == "walk" else .190*[1.0,1.07,1.12][index/4])/real_ratio.x
+		if result[key] is Vector2: result[key] = result[key]*pixel_ratio
+	result.scale = .151/pixel_ratio.x
 	return result
 
 static var _baselines: Dictionary = {}
@@ -181,11 +123,11 @@ static func _build_baseline(meta: Dictionary) -> Dictionary:
 	joints.neck = neck
 	joints.waist = hip
 	for side in ["left","right"]:
-		var h := hip+Vector2(-.7 if side == "left" else .7,0)
+		var h: Vector2 = point.call(side+"_hip") if src.has(side+"_hip") else hip+Vector2(-.7 if side == "left" else .7,0)
 		var knee: Vector2 = point.call(side+"_knee")
 		var ankle: Vector2 = point.call(side+"_ankle")
 		var tip: Vector2 = point.call(side+"_tip")
-		var shoulder: Vector2 = point.call("shoulder")+Vector2(1.3 if side == "left" else 0,0)
+		var shoulder: Vector2 = point.call(side+"_shoulder") if src.has(side+"_shoulder") else point.call("shoulder")+Vector2(1.3 if side == "left" else 0,0)
 		var elbow := shoulder+Vector2(0,UPPER_ARM)
 		var hand := elbow+Vector2(FOREARM,0)
 		for entry in [["_thigh",h,knee,5.0],["_shin",knee,ankle,4.0],["_foot",ankle,tip,3.0],["_upper_arm",shoulder,elbow,4.0],["_forearm",elbow,hand,3.0]]:
@@ -217,6 +159,13 @@ static func capture(player: CoreMovementPlayer,standing := false) -> Dictionary:
 	for side in ["left","right"]:
 		pose.anatomical_limits[side+"_knee"] = Vector2(-.12,2.65) if facing > 0 else Vector2(-2.65,.12)
 		pose.anatomical_limits[side+"_elbow"] = Vector2(-2.75,.12) if facing > 0 else Vector2(-.12,2.75)
+		if meta.drawn_clip in ["down","climb_back"]:
+			# A three-quarter stance projects outward elbows/knees differently
+			# from a sagittal walk. Preserve its authored bend when physics starts.
+			var knee := angle_difference(pose.parts[side+"_thigh"].rotation,pose.parts[side+"_shin"].rotation)
+			var elbow := angle_difference(pose.parts[side+"_upper_arm"].rotation,pose.parts[side+"_forearm"].rotation)
+			pose.anatomical_limits[side+"_knee"] = Vector2(-.12,maxf(2.65,knee+.04)) if knee >= 0 else Vector2(minf(-2.65,knee-.04),.12)
+			pose.anatomical_limits[side+"_elbow"] = Vector2(-.12,maxf(2.75,elbow+.04)) if elbow >= 0 else Vector2(minf(-2.75,elbow-.04),.12)
 	pose.facing = facing
 	if not standing:
 		pose.parts.head.rotation = player.weapon.ads_blend*.06*facing*player.visuals.settings.sofia_cel_correction

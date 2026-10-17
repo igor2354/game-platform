@@ -4,7 +4,7 @@ var lab: CoreMovementLab
 var gun: CoreShootingController
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/unified-recoil-%d" % OS.get_process_id()
+var directory := OS.get_environment("TEMP").path_join("unified-recoil-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1

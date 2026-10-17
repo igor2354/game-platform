@@ -1,0 +1,75 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 610.62 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU
+
+BEGIN stg44 side
+PROGRESS 20 shots=0 body=0.0
+PROGRESS 40 shots=0 body=0.0
+PROGRESS 60 shots=0 body=0.0
+LIVE stg44 side median_ms=16.696 p95_ms=17.995 physics_ms=11.501 shots=0
+MOUNT requests=1176 searches=79 scores=13681 search_ms_per_frame=0.3958
+BEGIN stg44 down
+PROGRESS 20 shots=0 body=1.0
+PROGRESS 40 shots=0 body=1.0
+PROGRESS 60 shots=0 body=1.0
+LIVE stg44 down median_ms=16.827 p95_ms=28.023 physics_ms=9.762 shots=0
+MOUNT requests=1074 searches=141 scores=23433 search_ms_per_frame=3.04481666666667
+BEGIN stg44 fire
+PROGRESS 20 shots=4 body=1.0
+PROGRESS 40 shots=7 body=1.0
+PROGRESS 60 shots=15 body=1.0
+LIVE stg44 fire median_ms=16.936 p95_ms=231.685 physics_ms=24.495 shots=15
+MOUNT requests=2626 searches=823 scores=133312 search_ms_per_frame=20.5084333333333
+BEGIN mp40 side
+PROGRESS 20 shots=0 body=0.0
+PROGRESS 40 shots=0 body=0.0
+PROGRESS 60 shots=0 body=0.0
+LIVE mp40 side median_ms=16.655 p95_ms=17.361 physics_ms=38.846 shots=0
+MOUNT requests=596 searches=0 scores=546 search_ms_per_frame=0.0
+BEGIN mp40 down
+PROGRESS 20 shots=0 body=1.0
+PROGRESS 40 shots=0 body=1.0
+PROGRESS 60 shots=0 body=1.0
+LIVE mp40 down median_ms=24.266 p95_ms=86.111 physics_ms=4.859 shots=0
+MOUNT requests=1656 searches=831 scores=133629 search_ms_per_frame=19.1341833333333
+BEGIN mp40 fire
+PROGRESS 20 shots=22 body=1.0
+PROGRESS 40 shots=46 body=1.0
+PROGRESS 60 shots=70 body=1.0
+LIVE mp40 fire median_ms=231.224 p95_ms=277.689 physics_ms=45.61 shots=70
+MOUNT requests=9222 searches=7581 scores=1213549 search_ms_per_frame=182.020283333333
+BEGIN m1911 side
+PROGRESS 20 shots=0 body=0.0
+PROGRESS 40 shots=0 body=0.0
+PROGRESS 60 shots=0 body=0.0
+LIVE m1911 side median_ms=16.583 p95_ms=25.021 physics_ms=37.991 shots=0
+MOUNT requests=598 searches=0 scores=542 search_ms_per_frame=0.0
+BEGIN m1911 down
+PROGRESS 20 shots=0 body=1.0
+PROGRESS 40 shots=0 body=1.0
+PROGRESS 60 shots=0 body=1.0
+LIVE m1911 down median_ms=16.781 p95_ms=22.933 physics_ms=35.282 shots=0
+MOUNT requests=614 searches=165 scores=26803 search_ms_per_frame=3.47381666666667
+BEGIN m1911 fire
+PROGRESS 20 shots=2 body=1.0
+PROGRESS 40 shots=4 body=1.0
+PROGRESS 60 shots=5 body=1.0
+LIVE m1911 fire median_ms=16.74 p95_ms=31.521 physics_ms=20.247 shots=5
+MOUNT requests=1328 searches=244 scores=40020 search_ms_per_frame=5.61595
+BEGIN svt side
+PROGRESS 20 shots=0 body=0.0
+PROGRESS 40 shots=0 body=0.0
+PROGRESS 60 shots=0 body=0.0
+LIVE svt side median_ms=16.688 p95_ms=19.346 physics_ms=16.837 shots=0
+MOUNT requests=618 searches=296 scores=47616 search_ms_per_frame=1.46606666666667
+BEGIN svt down
+PROGRESS 20 shots=0 body=1.0
+PROGRESS 40 shots=0 body=1.0
+PROGRESS 60 shots=0 body=1.0
+LIVE svt down median_ms=156.691 p95_ms=211.22 physics_ms=34.049 shots=0
+MOUNT requests=7676 searches=3792 scores=609588 search_ms_per_frame=110.1802
+BEGIN svt fire
+PROGRESS 20 shots=8 body=1.0
+PROGRESS 40 shots=16 body=1.0
+PROGRESS 60 shots=24 body=1.0
+LIVE svt fire median_ms=181.694 p95_ms=291.282 physics_ms=42.65 shots=24
+MOUNT requests=10078 searches=5218 scores=838527 search_ms_per_frame=150.971216666667

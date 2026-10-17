@@ -41,6 +41,18 @@ var push_last_position := Vector2.ZERO
 var far_arm: CoreHybridArm
 var near_arm: CoreHybridArm
 var deform_frame_data: Dictionary = {}
+var down_aim_blend := 0.0
+
+func down_aim_wanted() -> bool:
+	if not player.uses_painted_cels() or not state in ["idle","crouch"]: return false
+	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
+	if player.weapon.reloading or player.climbing or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
+	if player.grenades and player.grenades.busy(): return false
+	return player.weapon.aim_direction.y > (.78 if down_aim_blend > 0 else .86)
+
+func uses_down_aim_pose() -> bool:
+	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
+	return player.uses_painted_cels() and state in ["idle","crouch"] and down_aim_blend > 0
 
 func _ready() -> void:
 	if not player: player = get_parent() as CoreMovementPlayer
@@ -61,6 +73,7 @@ func _ready() -> void:
 	reset_visual()
 
 func reset_visual() -> void:
+	down_aim_blend = 0
 	phase = 0
 	previous_mode = "idle"
 	landing_left = 0
@@ -142,6 +155,7 @@ func advance(delta: float) -> void:
 		state = "idle"
 		frame = 0
 	previous_mode = player.mode
+	down_aim_blend = move_toward(down_aim_blend,1.0 if down_aim_wanted() else 0.0,delta/.16)
 	_update_deform_pose(delta)
 	_show_frame()
 	update_arms()
@@ -214,6 +228,8 @@ func update_arms() -> void:
 	for arm in [far_arm,near_arm]:
 		arm.upper_length = 10.8 if player.uses_painted_cels() else 14.5 if not player.character_id.is_empty() else 0.0
 		arm.lower_length = 10.2 if player.uses_painted_cels() else 13.5 if not player.character_id.is_empty() else 0.0
+		# At most 112 degrees of flexion: the elbow never folds back on itself.
+		arm.minimum_reach = 11.75 if uses_down_aim_pose() else 0.0
 	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
 	if player.grenades and player.grenades.busy():
 		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
@@ -225,6 +241,8 @@ func update_arms() -> void:
 		for side in ["far","near"]:
 			var arm := far_arm if side == "far" else near_arm
 			var desired_height := 33.0 if side == "far" else 45.0
+			if player.uses_painted_cels() and not player.ladder_side_view:
+				desired_height = -shoulder(side).y+(-12 if side == "far" else 12)
 			var rungs_start := player.ladder.position.y+12
 			var cell := (player.global_position.y-desired_height-rungs_start)/24
 			var fraction := fposmod(cell,1)
@@ -234,11 +252,28 @@ func update_arms() -> void:
 			var last_rung := rungs_start+floorf((player.ladder.end.y-1-rungs_start)/24)*24
 			rung = clampf(rung,rungs_start-72,last_rung)
 			var hand := Vector2(-14 if side == "far" else 14,rung-player.global_position.y)
+			if player.ladder_side_view: hand.x = 14
+			if player.uses_painted_cels() and not player.ladder_side_view:
+				# Choose a reachable rung before IK. Clamping the arm alone leaves
+				# its painted glove floating between the character and the ladder.
+				var socket := shoulder(side)
+				var reach_y := sqrt(maxf(0,pow(arm.upper_length+arm.lower_length-.05,2)-pow(hand.x-socket.x,2)))
+				var low := rungs_start+ceilf((player.global_position.y+socket.y-reach_y-rungs_start)/24)*24
+				var high := rungs_start+floorf((player.global_position.y+socket.y+reach_y-rungs_start)/24)*24
+				hand.y = clampf(rung,low,high)-player.global_position.y
 			arm.pose(shoulder(side),hand,-1 if side == "far" else 1,side == "far")
 	else:
 		var gun_pose := player.weapon.visual_pose()
-		far_arm.pose(shoulder("far"),gun_pose.front_grip,facing,true)
-		near_arm.pose(shoulder("near"),gun_pose.rear_grip,facing,false)
+		var far_shoulder := shoulder("far")
+		var near_shoulder := shoulder("near")
+		var far_bend := facing
+		var near_bend := facing
+		if uses_down_aim_pose():
+			# Separate shoulder sockets and outward elbows in the three-quarter view.
+			far_bend = -facing
+			near_bend = facing
+		far_arm.pose(far_shoulder,gun_pose.front_grip,far_bend,true)
+		near_arm.pose(near_shoulder,gun_pose.rear_grip,near_bend,false)
 
 func weapon_mount_points() -> Array:
 	# The mount needs three torso anchors, not thirteen ragdoll parts and all joints.
