@@ -1,7 +1,7 @@
 extends SceneTree
 const FRONTEND = preload("res://scripts/campaign/frontend.gd")
 const CATALOG = preload("res://scripts/campaign/catalog.gd")
-const CEL_POSES = preload("res://scripts/campaign/sofia_cel_poses.gd")
+const CEL_POSES = preload("res://scripts/campaign/sofia_drawn_data.gd")
 var app: Node
 var lab: CoreMovementLab
 var hero: CoreMovementPlayer
@@ -63,7 +63,7 @@ func run() -> void:
 	var figure: Node2D = hero.body.find_child("SofiaCelFigure",true,false)
 	check(not lab.campaign_mode and not lab.level.prologue_mode and hero.sofia_cel_variant and hero.uses_painted_cels(),"only the polygon Sofia uses the new cel-based skin")
 	check(lab.level.enemies.size() == 6 and lab.level.floors.size() == 2 and lab.level.player_spawn() == Vector2(160,760),"all original polygon geometry, enemies and spawn remain")
-	check(figure.skeleton.get_bone_count() == 13 and figure.meshes.size() == 6,"painted layers use the thirteen-bone physical-compatible skeleton")
+	check(figure.skeleton.get_bone_count() == 13 and figure.meshes.size() == 3,"whole painted body and arms use the thirteen-bone physical-compatible skeleton")
 	var weights_ok := true
 	for mesh in figure.meshes.values():
 		for index in mesh.polygon.size():
@@ -78,15 +78,15 @@ func run() -> void:
 	hero.body.facing = 1
 	var cels := {}
 	var bind_ok := true
-	for index in 8:
-		hero.body.phase = index/8.0
+	for index in 12:
+		hero.body.phase = (index+.1)/12.0
 		hero.body.update_arms()
 		figure.update_pose(hero.body.ragdoll_pose())
-		cels[hash(figure.meshes.right_leg.uv)] = true
-		var vertices: PackedVector2Array = figure.deformed_vertices("right_leg")
-		for i in vertices.size(): bind_ok = bind_ok and vertices[i].distance_to(figure.meshes.right_leg.polygon[i]) < .002
+		cels[hash(figure.meshes.body.uv)] = true
+		var vertices: PackedVector2Array = figure.deformed_vertices("body")
+		for i in vertices.size(): bind_ok = bind_ok and vertices[i].distance_to(figure.rest_vertices.body[i]) < .002
 		check(shape_valid(figure),"authored painted phase stays finite: "+str(index))
-	check(cels.size() == 8 and bind_ok,"eight different drawings retain their painted shape without double deformation")
+	check(cels.size() == 12 and bind_ok,"twelve whole-body drawings retain their painted shape without mannequin deformation")
 	for state in ["jump","crouch","slide","climb","push","pull","dash"]:
 		hero.body.state = state
 		if state != "climb": hero.body.update_arms()

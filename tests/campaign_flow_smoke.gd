@@ -63,7 +63,7 @@ func run() -> void:
 			check(lab.player.character_id == id and not lab.player.body.sprite.visible and lab.player.body.near_arm.character_id == id,"selected character uses the new body and articulated sleeves: "+id)
 			check(lab.player.weapon.equipped_weapon_id == weapon.id and lab.player.weapon.capacity() == int(weapon.values.magazine_capacity),"equipped model and magazine match the selected weapon: "+weapon.id)
 			check(lab.player.weapon.tuning.fire_mode == weapon.values.fire_mode and lab.player.weapon.tuning.rounds_per_minute == weapon.values.rounds_per_minute and lab.player.weapon.reserve_ammo == weapon.values.starting_reserve,"selected fire mode, rate and reserve are functional: "+weapon.id)
-			check(ART.weapon(CATALOG.index_for(weapon.id)).get_size().x > 100 and lab.player.weapon.muzzle_distance() > 10,"weapon image and muzzle geometry are valid: "+weapon.id)
+			check(ART.weapon(CATALOG.index_for(weapon.id)).get_size().x > 100 and is_equal_approx(lab.player.weapon.muzzle_distance(),weapon.length*(1.0-weapon.grip)),"weapon image and muzzle geometry match the selected model: "+weapon.id)
 			var before := lab.player.weapon.shots_fired
 			lab.player.weapon._fire()
 			await frames(1)

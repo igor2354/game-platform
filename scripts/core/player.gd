@@ -27,6 +27,18 @@ func uses_painted_cels() -> bool:
 
 func uses_smooth_recovery() -> bool:
 	return uses_deformed_skin() or uses_painted_cels()
+
+func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
+	if not uses_painted_cels(): return
+	for side in ["left","right"]:
+		var shoulder: Vector2 = points[side+"_shoulder"]
+		var direction: Vector2 = points[side+"_hand"]-shoulder
+		var distance := clampf(direction.length(),.61,20.99)
+		direction = direction.normalized() if direction.length_squared() > .001 else Vector2(body.facing,0)
+		var along := (10.8*10.8-10.2*10.2+distance*distance)/(2*distance)
+		var height := sqrt(maxf(0,10.8*10.8-along*along))
+		points[side+"_hand"] = shoulder+direction*distance
+		points[side+"_elbow"] = shoulder+direction*along+Vector2(-direction.y,direction.x)*height*body.facing
 var ladders: Array[Rect2] = []
 var facing := 1.0
 var mode := "idle"

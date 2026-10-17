@@ -135,7 +135,8 @@ func advance(delta: float) -> void:
 	elif player.mode in ["walk","run","sprint"]:
 		state = player.mode
 		var travel := player.velocity.length()*signf(player.velocity.x)*facing
-		phase = fposmod(phase+travel*delta/(128.0 if state == "sprint" else 64.0 if state == "walk" else RUN_STRIDE),1)
+		var stride := (200.0 if state == "sprint" else 80.0 if state == "walk" else 160.0) if player.uses_painted_cels() else (128.0 if state == "sprint" else 64.0 if state == "walk" else RUN_STRIDE)
+		phase = fposmod(phase+travel*delta/stride,1)
 		frame = floori(phase*8)
 	else:
 		state = "idle"
@@ -191,7 +192,7 @@ func _update_deform_pose(delta: float,snap := false) -> void:
 	else: deform_frame_data = _blend_data(deform_frame_data,target,1-exp(-delta/duration))
 
 func shoulder(side: String) -> Vector2:
-	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_cel_poses.gd").shoulder(player,side)
+	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").shoulder(player,side)
 	var values: Array = (deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame])[side]
 	var point := Vector2(float(values[0]),float(values[1]))
 	if player.uses_deformed_skin(): point += Vector2(-2,0) if side == "near" else Vector2(-2,1)
@@ -210,6 +211,9 @@ func ads_anchor() -> Vector2:
 
 func update_arms() -> void:
 	if not near_arm: return
+	for arm in [far_arm,near_arm]:
+		arm.upper_length = 10.8 if player.uses_painted_cels() else 14.5 if not player.character_id.is_empty() else 0.0
+		arm.lower_length = 10.2 if player.uses_painted_cels() else 13.5 if not player.character_id.is_empty() else 0.0
 	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
 	if player.grenades and player.grenades.busy():
 		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
@@ -236,8 +240,24 @@ func update_arms() -> void:
 		far_arm.pose(shoulder("far"),gun_pose.front_grip,facing,true)
 		near_arm.pose(shoulder("near"),gun_pose.rear_grip,facing,false)
 
+func weapon_mount_points() -> Array:
+	# The mount needs three torso anchors, not thirteen ragdoll parts and all joints.
+	if player.uses_painted_cels():
+		var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
+		var pose: Dictionary = drawn._baseline_readonly(drawn.selection(player))
+		var mirror := Vector2(facing,1)
+		return [pose.parts.head.position*mirror,pose.joints.neck*mirror,pose.joints.waist*mirror]
+	var data: Dictionary = deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame]
+	var skeleton: Dictionary = data.skeleton
+	var mirror := Vector2(facing,_pose_height_scale())
+	var neck := Vector2(skeleton.neck[0],skeleton.neck[1])
+	var head := Vector2(skeleton.head[0],skeleton.head[1])
+	var blend := float(head_aim_stage())/(ADS_STAGES-1)
+	head = neck+(head-neck).rotated(blend*PI/15)+Vector2(2,4)*blend
+	return [head*mirror,neck*mirror,Vector2(data.hip[0],data.hip[1])*mirror]
+
 func ragdoll_pose(standing := false) -> Dictionary:
-	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_cel_poses.gd").capture(player,standing)
+	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").capture(player,standing)
 	# Use the exact baked frame and articulated arms at the instant of impact.
 	# A sprint, crouch or airborne hit must not reset the body to a T-pose.
 	var data: Dictionary = POSES.DATA.idle[0] if standing else deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame]

@@ -4,7 +4,8 @@ extends CanvasGroup
 const BLUR_SHADER := preload("res://shaders/core_character_blur.gdshader")
 class Gun extends Node2D:
 	var controller: CoreShootingController
-	func _draw() -> void: controller.draw_weapon(self)
+	var back := false
+	func _draw() -> void: controller.draw_weapon(self,-1 if back else 1)
 class ReloadMagazine extends Node2D:
 	var controller: CoreShootingController
 	func _draw() -> void: controller.draw_reload_magazine(self)
@@ -12,6 +13,7 @@ var player: CoreMovementPlayer
 var settings := CoreCameraSettings.new()
 var blur_material: ShaderMaterial
 var gun: Gun
+var gun_stock: Gun
 var reload_magazine: ReloadMagazine
 var blur_offset := Vector2.ZERO
 var layers_arranged := false
@@ -25,14 +27,18 @@ func _ready() -> void:
 	gun = Gun.new()
 	gun.controller = player.weapon
 	add_child(gun)
+	gun_stock = Gun.new()
+	gun_stock.back = true
+	gun_stock.controller = player.weapon
+	add_child(gun_stock)
 	reload_magazine = ReloadMagazine.new()
 	reload_magazine.controller = player.weapon
 	add_child(reload_magazine)
 func arrange_layers() -> void:
 	# CanvasGroup composites only matching Z layers. Tree order supplies depth.
-	if layers_arranged and reload_layers == player.weapon.reloading and push_layers == player.pushing and grenade_layers == (player.grenades != null and player.grenades.busy()): return
+	if layers_arranged and reload_layers == player.weapon.reloading and push_layers == (player.pushing or player.climbing) and grenade_layers == (player.grenades != null and player.grenades.busy()): return
 	reload_layers = player.weapon.reloading
-	push_layers = player.pushing
+	push_layers = player.pushing or player.climbing
 	grenade_layers = player.grenades != null and player.grenades.busy()
 	layers_arranged = true
 	var far_hand := player.body.far_arm.foreground
@@ -49,6 +55,7 @@ func arrange_layers() -> void:
 	move_child(player.body.near_arm,4)
 	move_child(far_hand,5)
 	move_child(near_hand,6)
+	move_child(gun_stock,0)
 	if push_layers or grenade_layers:
 		# Sling the gun behind the torso while both complete arms brace the box.
 		move_child(gun,0)
@@ -68,5 +75,6 @@ func update_effect() -> void:
 	material = blur_material if length > 0 else null
 	blur_material.set_shader_parameter("blur_pixels",blur_offset)
 	gun.queue_redraw()
+	gun_stock.queue_redraw()
 	reload_magazine.queue_redraw()
 func _process(_delta: float) -> void: update_effect()
