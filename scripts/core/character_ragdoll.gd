@@ -37,6 +37,8 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		for part in rig.parts.values(): part.linear_velocity += impulse
 		return
 	var pose: Dictionary = capture_pose() if initial_pose.is_empty() else initial_pose
+	if actor is CoreMovementPlayer and not actor.character_id.is_empty() and not actor.weapon.equipped_weapon_id.is_empty():
+		pose.weapon_pose = actor.weapon.visual_pose().duplicate(true)
 	recovering = false
 	recovery_finished = false
 	active = true
@@ -124,6 +126,13 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 	for part in rig.parts.values():
 		part.linear_velocity = impulse
 		part.angular_velocity = clampf(impulse.x/100,-5,5)
+	if pose.has("weapon_pose"):
+		var held_weapon := preload("res://scripts/campaign/ragdoll_weapon.gd").new()
+		held_weapon.name = "HeldWeapon"
+		held_weapon.player = actor
+		held_weapon.rig = rig
+		held_weapon.source = pose.weapon_pose
+		rig.add_child(held_weapon)
 	queue_redraw()
 func anatomy(key: String) -> String:
 	if "arm" in key or "forearm" in key: return "left_arm" if key.begins_with("left") else "right_arm"

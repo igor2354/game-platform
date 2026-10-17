@@ -11,7 +11,7 @@ func _ready() -> void:
 		deform_figure.player = player
 		add_child(deform_figure)
 	elif player.sofia_cel_variant and player.character_id == "sofia":
-		deform_figure = preload("res://scripts/campaign/sofia_cel_figure.gd").new()
+		deform_figure = preload("res://scripts/campaign/sofia_drawn_figure.gd").new()
 		deform_figure.name = "SofiaCelFigure"
 		deform_figure.player = player
 		add_child(deform_figure)

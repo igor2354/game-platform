@@ -23,7 +23,7 @@ func _ready() -> void:
 		add_child(deform_figure)
 		_update_deform_pose()
 	elif player.sofia_cel_variant and player.character_id == "sofia":
-		deform_figure = preload("res://scripts/campaign/sofia_cel_figure.gd").new()
+		deform_figure = preload("res://scripts/campaign/sofia_drawn_figure.gd").new()
 		deform_figure.name = "SofiaCelFigure"
 		deform_figure.player = player
 		deform_figure.physical = true
@@ -109,6 +109,7 @@ func _head() -> void:
 	_polygon([Vector2(-6,-3),Vector2(6.5,-3),Vector2(6.5,-1.2),Vector2(-6,-1.2)],Color("516974"))
 
 func _draw_campaign_weapon() -> void:
+	if rig.has_node("HeldWeapon"): return
 	var torso: RigidBody2D = rig.parts.torso
 	var local := global_transform.affine_inverse()*torso.global_transform
 	player.weapon.draw_rifle(self,local*Vector2(-facing*3,4),local.basis_xform(Vector2.UP),local.basis_xform(Vector2.RIGHT*facing))

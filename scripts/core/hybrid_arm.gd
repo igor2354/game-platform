@@ -13,6 +13,9 @@ var foreground: Node2D
 var hand_in_front := false
 var character_id := ""
 var deform_owner: Node2D
+var upper_length := 0.0
+var lower_length := 0.0
+var requested_hand := Vector2.ZERO
 
 func _ready() -> void:
 	foreground = Foreground.new()
@@ -29,12 +32,17 @@ func set_hand_in_front(value: bool) -> void:
 func pose(origin: Vector2,grip: Vector2,bend: float,background: bool) -> void:
 	shoulder = origin
 	hand = grip
+	requested_hand = grip
 	far = background
 	var direction := hand-shoulder
 	var distance := maxf(.001,direction.length())
-	var upper := maxf(17,distance*.5+.2)
-	var lower := upper
-	var along := distance*.5
+	var upper := upper_length if upper_length > 0 else maxf(17,distance*.5+.2)
+	var lower := lower_length if lower_length > 0 else upper
+	if upper_length > 0:
+		distance = clampf(distance,absf(upper-lower)+.01,upper+lower-.01)
+		direction = direction.normalized()*distance
+		hand = shoulder+direction
+	var along := (upper*upper-lower*lower+distance*distance)/(2*distance)
 	var height := sqrt(maxf(0,upper*upper-along*along))
 	elbow = shoulder+direction.normalized()*along+Vector2(-direction.y,direction.x).normalized()*height*bend
 	queue_redraw()

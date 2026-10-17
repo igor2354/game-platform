@@ -75,6 +75,8 @@ var reloads_completed := 0
 var reload_audio: AudioStreamPlayer
 var reload_sounds: Dictionary = {}
 var dry_clicks := 0
+var _visual_pose_key: int = 0
+var _visual_pose_cache: Dictionary = {}
 
 func muzzle_distance() -> float:
 	if equipped_weapon_id.is_empty(): return 34.0
@@ -148,7 +150,7 @@ func reset_state() -> void:
 	queue_redraw()
 
 func capacity() -> int: return clampi(tuning.magazine_capacity,1,150)
-func apply_tuning() -> void:
+func apply_tuning(update_aim := true) -> void:
 	if not tuning.movement_spread_enabled: movement_spread = 0
 	else: movement_spread = minf(movement_spread,maxf(tuning.movement_spread_forward,tuning.movement_spread_backward))
 	if not tuning.weapon_enabled or not tuning.magazine_enabled:
@@ -174,7 +176,7 @@ func apply_tuning() -> void:
 		magazine_ammo = capacity()
 	# Developer controls also work while paused, without advancing recoil time.
 	if is_node_ready():
-		_update_aim()
+		if update_aim: _update_aim()
 		if get_tree().paused and player.body: player.body.update_arms()
 		queue_redraw()
 
@@ -266,9 +268,13 @@ func _tick_movement_spread(delta: float) -> void:
 	movement_spread = target if response <= 0 else lerpf(movement_spread,target,1-exp(-delta/response))
 	if absf(movement_spread-target) < .001: movement_spread = target
 func pivot() -> Vector2:
+	if player.body and not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+		return player.global_position+visual_pose().breech
 	return player.global_position+local_pivot()
 func local_pivot() -> Vector2:
 	if not player.body: return HIP_PIVOT
+	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+		return preload("res://scripts/campaign/weapon_mount.gd").mounted_pivot(player,aim_direction,smoothstep(0,1,ads_blend))
 	var hip := Vector2(0,-player.collision_height()/3.0) if player.crouching else HIP_PIVOT
 	# Mount the stock at the shoulder; the baked head leans down to the sights.
 	var raised := player.body.ads_anchor()
@@ -278,7 +284,8 @@ func look_facing() -> float:
 	# All consumers use the same sample from _update_aim in this physics tick.
 	return aim_facing
 func update_state(delta: float,input_allowed: bool) -> void:
-	apply_tuning()
+	# Aim is sampled below, after recoil, reload and ADS have advanced.
+	apply_tuning(false)
 	_tick_reload(delta)
 	sway_clock += delta
 	cooldown = cooldown-delta if firing else maxf(0,cooldown-delta)
@@ -391,6 +398,15 @@ func _update_aim() -> void:
 	aim_point = target
 	var offset := target-pivot()
 	aim_direction = offset.normalized() if offset.length_squared() > 1 else Vector2(player.facing,0)
+	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+		# Moving the rigid mount changes the aiming origin. Solve that origin
+		# together with the bearing so the projectile exits the drawn barrel.
+		for iteration in 4:
+			offset = target-pivot()
+			if offset.length_squared() > 1:
+				var next := offset.normalized()
+				if next == aim_direction: break
+				aim_direction = next
 	if aiming or firing: player.facing = look_facing()
 func finish_tick() -> void:
 	# Dash and ladder entry take priority over shooting in the same frame.
@@ -596,6 +612,21 @@ func _on_impact(point: Vector2,target_hit: bool,killed := false,direction := Vec
 				hit_sounds_played += 1
 	queue_redraw()
 func visual_pose() -> Dictionary:
+	if equipped_weapon_id.is_empty() or player.character_id.is_empty(): return _calculate_visual_pose()
+	# Arms, muzzle queries and three draw layers request the same pose repeatedly.
+	# Key actual geometry/state rather than a frame number: paused developer edits,
+	# same-tick recoil and anatomy changes must immediately invalidate the result.
+	var anchors := player.body.weapon_mount_points()
+	var key := hash([equipped_weapon_id,player.character_id,player.uses_painted_cels(),player.body.facing,
+		player.body.shoulder("near"),player.body.shoulder("far"),anchors,aim_direction,ads_blend,recoil_back,
+		player.sprint_pose_active(),player.sprint_dash_pose_active(),player.slide_left > 0,
+		player.barrel_knockdown_left > 0,reloading,reload_progress(),reload_facing,reload_start_direction,player.collision_height()])
+	if key != _visual_pose_key or _visual_pose_cache.is_empty():
+		_visual_pose_key = key
+		_visual_pose_cache = _calculate_visual_pose()
+	return _visual_pose_cache.duplicate()
+
+func _calculate_visual_pose() -> Dictionary:
 	if reloading: return _reload_pose(reload_progress())
 	var base := local_pivot()
 	# Carry the gun with the body during sprint, sprint dash and slide. A
@@ -610,8 +641,9 @@ func visual_pose() -> Dictionary:
 	if not equipped_weapon_id.is_empty():
 		var catalog = preload("res://scripts/campaign/catalog.gd")
 		var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
-		result.rear_grip = breech+normal*3
-		result.front_grip = breech+visual_direction*data.length*(data.front-data.grip)+normal*2
+		result.rear_grip = breech+visual_direction*catalog.rear_grip(data).x+normal*catalog.rear_grip(data).y
+		result.front_grip = breech+visual_direction*catalog.front_grip(data).x+normal*catalog.front_grip(data).y
+		if not player.character_id.is_empty(): result = preload("res://scripts/campaign/weapon_mount.gd").fit(player,result)
 	return result
 
 func _reload_pose(progress: float) -> Dictionary:
@@ -629,6 +661,18 @@ func _reload_pose(progress: float) -> Dictionary:
 	if progress >= .70 and progress < .78: breech -= normal*.8*sin(smoothstep(.70,.78,progress)*PI)
 	var magazine_point := breech+direction*10+normal*5
 	var front := breech+direction*20+normal*3
+	var rear := breech+direction*3+normal*5
+	var bolt := breech+direction*7-normal*4
+	if not equipped_weapon_id.is_empty():
+		var catalog = preload("res://scripts/campaign/catalog.gd")
+		var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
+		var mag_local: Vector2 = catalog.magazine_local(data)
+		var rear_local: Vector2 = catalog.rear_grip(data)
+		var front_local: Vector2 = catalog.front_grip(data)
+		magazine_point = breech+direction*mag_local.x+normal*mag_local.y
+		front = breech+direction*front_local.x+normal*front_local.y
+		rear = breech+direction*rear_local.x+normal*rear_local.y
+		bolt = breech+direction*(2 if equipped_weapon_id == "m1911" else 6)-normal*1.5
 	var pouch := Vector2(-reload_facing*4,-player.collision_height()*.45)
 	var support := front
 	var magazine_visible := true
@@ -644,12 +688,14 @@ func _reload_pose(progress: float) -> Dictionary:
 		magazine_point = (pouch-normal*2).lerp(magazine_point,smoothstep(.52,.70,progress))
 		support = magazine_point+normal*2
 	elif progress < .80:
-		support = (magazine_point+normal*2).lerp(breech+direction*7-normal*4,smoothstep(.73,.80,progress))
+		support = (magazine_point+normal*2).lerp(bolt,smoothstep(.73,.80,progress))
 	elif progress < .90:
 		bolt_offset = -5*sin(smoothstep(.80,.90,progress)*PI)
-		support = breech+direction*(7+bolt_offset)-normal*4
-	else: support = (breech+direction*7-normal*4).lerp(front,smoothstep(.90,1,progress))
-	return {"breech":breech,"direction":direction,"normal":normal,"rear_grip":breech+direction*3+normal*5,"front_grip":support,"magazine_point":magazine_point,"magazine_visible":magazine_visible,"bolt_offset":bolt_offset}
+		support = bolt+direction*bolt_offset
+	else: support = bolt.lerp(front,smoothstep(.90,1,progress))
+	var result := {"breech":breech,"direction":direction,"normal":normal,"rear_grip":rear,"front_grip":support,"magazine_point":magazine_point,"magazine_visible":magazine_visible,"bolt_offset":bolt_offset}
+	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty(): result = preload("res://scripts/campaign/weapon_mount.gd").fit(player,result,true)
+	return result
 
 func _draw_magazine(canvas: Node2D,point: Vector2,normal: Vector2,color := Color("485961")) -> void:
 	canvas.draw_circle(point,4.6,Color("25323b",color.a))
@@ -660,12 +706,13 @@ func _draw_magazine(canvas: Node2D,point: Vector2,normal: Vector2,color := Color
 
 func draw_reload_magazine(canvas: Node2D) -> void:
 	if not reloading: return
-	if not equipped_weapon_id.is_empty(): return
 	var pose := visual_pose()
 	if pose.magazine_visible:
-		_draw_magazine(canvas,pose.magazine_point,pose.normal)
+		if equipped_weapon_id.is_empty(): _draw_magazine(canvas,pose.magazine_point,pose.normal)
+		else: preload("res://scripts/campaign/catalog.gd").draw_magazine(canvas,equipped_weapon_id,pose.magazine_point,pose.direction,pose.normal)
 
-func draw_weapon(canvas: Node2D) -> void:
+func draw_weapon(canvas: Node2D,layer := 0) -> void:
+	if layer < 0 and (equipped_weapon_id.is_empty() or player.character_id.is_empty()): return
 	var pose := visual_pose()
 	var breech: Vector2 = pose.breech
 	var visual_direction: Vector2 = pose.direction
@@ -688,14 +735,14 @@ func draw_weapon(canvas: Node2D) -> void:
 		canvas.draw_line(Vector2(-6,-48),Vector2(5,-27),Color("34434d"),2,true)
 	# During reload the drum has its own background layer. A fitted drum also
 	# sits behind the receiver, so insertion/completion never draws it on top.
-	draw_rifle(canvas,breech,visual_direction,normal,pose.get("bolt_offset",0.0),not reloading)
-	if flash_left > 0 and not player.climbing:
+	draw_rifle(canvas,breech,visual_direction,normal,pose.get("bolt_offset",0.0),not reloading,layer if not player.character_id.is_empty() else 0)
+	if layer >= 0 and flash_left > 0 and not player.climbing:
 		var muzzle := breech+visual_direction*(muzzle_distance()+3)
 		canvas.draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
 
-func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal: Vector2,bolt := 0.0,magazine := true) -> void:
+func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal: Vector2,bolt := 0.0,magazine := true,layer := 0) -> void:
 	if not equipped_weapon_id.is_empty():
-		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal)
+		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal,layer,magazine)
 		return
 	# Shared silhouette for the equipped gun and the gun slung on a fallen hero.
 	if magazine:
@@ -733,7 +780,8 @@ func _draw() -> void:
 	for effect in effects:
 		var point := to_local(effect.point)
 		if effect.get("kind","") == "magazine":
-			_draw_magazine(self,point,Vector2.DOWN.rotated(effect.rotation),Color(.28,.35,.38,minf(1,effect.life/.3)))
+			if equipped_weapon_id.is_empty(): _draw_magazine(self,point,Vector2.DOWN.rotated(effect.rotation),Color(.28,.35,.38,minf(1,effect.life/.3)))
+			else: preload("res://scripts/campaign/catalog.gd").draw_magazine(self,equipped_weapon_id,point,Vector2.RIGHT.rotated(effect.rotation),Vector2.DOWN.rotated(effect.rotation))
 			continue
 		if effect.get("kind","") == "casing":
 			var casing_direction := Vector2.RIGHT.rotated(effect.rotation)

@@ -4,7 +4,7 @@ var hero: CoreMovementPlayer
 var gun: CoreShootingController
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/reload-test-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("reload-test-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -36,14 +36,19 @@ func setup(capacity := 10,reserve := 30) -> void:
 func run() -> void:
 	root.size = Vector2i(1440,900)
 	root.gui_embed_subwindows = true
-	DirAccess.make_dir_recursive_absolute(directory)
+	if DirAccess.make_dir_recursive_absolute(directory) != OK:
+		push_error("FAIL cannot create isolated reload-test directory")
+		quit(1)
+		return
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	lab.settings_path = directory+"/movement.cfg"
 	lab.shooting_settings_path = directory+"/shooting.cfg"
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
+	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
 	root.add_child(lab)
+	check(lab._overlays().all(func(overlay): return overlay.settings_path.begins_with(directory+"/")),"all actual save paths are isolated before imports")
 	hero = lab.player
 	gun = hero.weapon
 	await frames(8)
