@@ -4,6 +4,7 @@ extends Node2D
 signal shot_fired(origin: Vector2,direction: Vector2,aimed: bool,spread_degrees: float)
 signal camera_impulse(direction: Vector2,kick: float,shake: float)
 var tuning: CoreShootingSettings = CoreShootingSettings.new()
+var equipped_weapon_id := ""
 var camera_settings: CoreCameraSettings = CoreCameraSettings.new()
 var player: CoreMovementPlayer
 var input_blocker: Callable
@@ -74,6 +75,12 @@ var reloads_completed := 0
 var reload_audio: AudioStreamPlayer
 var reload_sounds: Dictionary = {}
 var dry_clicks := 0
+
+func muzzle_distance() -> float:
+	if equipped_weapon_id.is_empty(): return 34.0
+	var catalog = preload("res://scripts/campaign/catalog.gd")
+	var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
+	return data.length*(1.0-data.grip)
 
 func _ready() -> void:
 	player = get_parent() as CoreMovementPlayer
@@ -412,7 +419,7 @@ func _fire() -> void:
 	if tuning.magazine_enabled: magazine_ammo -= 1
 	last_shot_spread = spread_degrees()
 	last_shot_direction = aim_direction.rotated(deg_to_rad(rng.randf_range(-last_shot_spread,last_shot_spread))) if last_shot_spread > 0 else aim_direction
-	var muzzle := pivot()+aim_direction*34
+	var muzzle := pivot()+aim_direction*muzzle_distance()
 	var query := PhysicsRayQueryParameters2D.create(pivot(),muzzle,CoreProjectile.BULLET_MASK,[player.get_rid()])
 	query.collide_with_areas = true
 	query.hit_from_inside = true
@@ -599,7 +606,13 @@ func visual_pose() -> Dictionary:
 	var normal := Vector2(-visual_direction.y,visual_direction.x)*player.body.facing if player.body else Vector2(-visual_direction.y,visual_direction.x)*player.facing
 	var recoil := -visual_direction*recoil_back
 	var breech := base+recoil
-	return {"breech":breech,"direction":visual_direction,"normal":normal,"rear_grip":breech+visual_direction*3+normal*5,"front_grip":breech+visual_direction*20+normal*3}
+	var result := {"breech":breech,"direction":visual_direction,"normal":normal,"rear_grip":breech+visual_direction*3+normal*5,"front_grip":breech+visual_direction*20+normal*3}
+	if not equipped_weapon_id.is_empty():
+		var catalog = preload("res://scripts/campaign/catalog.gd")
+		var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
+		result.rear_grip = breech+normal*3
+		result.front_grip = breech+visual_direction*data.length*(data.front-data.grip)+normal*2
+	return result
 
 func _reload_pose(progress: float) -> Dictionary:
 	# Lift the muzzle clear of the manipulating hand, with the stock held
@@ -647,6 +660,7 @@ func _draw_magazine(canvas: Node2D,point: Vector2,normal: Vector2,color := Color
 
 func draw_reload_magazine(canvas: Node2D) -> void:
 	if not reloading: return
+	if not equipped_weapon_id.is_empty(): return
 	var pose := visual_pose()
 	if pose.magazine_visible:
 		_draw_magazine(canvas,pose.magazine_point,pose.normal)
@@ -676,10 +690,13 @@ func draw_weapon(canvas: Node2D) -> void:
 	# sits behind the receiver, so insertion/completion never draws it on top.
 	draw_rifle(canvas,breech,visual_direction,normal,pose.get("bolt_offset",0.0),not reloading)
 	if flash_left > 0 and not player.climbing:
-		var muzzle := breech+visual_direction*37
+		var muzzle := breech+visual_direction*(muzzle_distance()+3)
 		canvas.draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
 
 func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal: Vector2,bolt := 0.0,magazine := true) -> void:
+	if not equipped_weapon_id.is_empty():
+		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal)
+		return
 	# Shared silhouette for the equipped gun and the gun slung on a fallen hero.
 	if magazine:
 		_draw_magazine(canvas,breech+visual_direction*10+normal*5,normal)

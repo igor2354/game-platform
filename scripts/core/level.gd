@@ -1,6 +1,16 @@
 class_name CoreMovementLevel
 extends Node2D
 
+@export var prologue_mode := false
+const PROLOGUE_START := Vector2(12400,760)
+const PROLOGUE_FLOOR := Rect2(12000,760,12000,100)
+
+func player_spawn() -> Vector2:
+	return PROLOGUE_START if prologue_mode else SPAWN
+
+func right_bound() -> float:
+	return PROLOGUE_FLOOR.end.x if prologue_mode else WIDTH
+
 const WIDTH := 5900.0
 const LEFT_BOUND := -6500.0
 const CONCEPT_ZOMBIE_TEST_SPAWN := Vector2(-6240,760)
@@ -32,6 +42,10 @@ var slopes: Array[PackedVector2Array] = [
 	PackedVector2Array([Vector2(4060,760),Vector2(4320,760-260*tan(deg_to_rad(35))),Vector2(4420,760-260*tan(deg_to_rad(35))),Vector2(4680,760),Vector2(4680,860),Vector2(4060,860)])]
 
 func _ready() -> void:
+	if prologue_mode:
+		floors.append(PROLOGUE_FLOOR)
+		_solid(Rect2(11960,0,40,1200),false)
+		_solid(Rect2(24000,0,40,1200),false)
 	for rect in floors+obstacles: _solid(rect,false)
 	for rect in platforms: _solid(rect,true)
 	_solid(HANGING_BEAM,false)

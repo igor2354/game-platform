@@ -1,6 +1,5 @@
 extends SceneTree
 const ART = preload("res://scripts/core/concept_zombie_art.gd")
-const FRAMES = preload("res://scripts/core/concept_zombie_frames.gd")
 var lab: CoreMovementLab
 var zombie: CoreConceptZombie
 var checks := 0
@@ -34,13 +33,13 @@ func run() -> void:
 		check(contact.position.x > 10 and contact.position.distance_to(follow_through.position) < 1,"melee contact coincides with windup completion: "+prefix)
 	zombie.set_test_frozen(true)
 	for clip in ART.CLIPS:
-		var texture := FRAMES.texture(clip)
+		var texture := ART.texture(clip)
 		var valid := texture != null and texture.get_size() == Vector2(1024,1024)
 		if valid:
 			var image := texture.get_image()
 			for frame in 16:
 				valid = valid and image.get_region(Rect2i(Vector2i(frame%4,frame/4)*256,Vector2i(256,256))).get_used_rect().has_area()
-		check(valid,"all sixteen whole painted transparent frames exist: "+clip)
+		check(valid,"all sixteen baked transparent frames exist: "+clip)
 		for facing in [-1.0,1.0]:
 			zombie.facing = facing
 			zombie.preview_clip = clip
@@ -50,7 +49,7 @@ func run() -> void:
 				zombie._sync_zones()
 				for part in CoreEnemyDummy.PARTS:
 					var shape: CollisionShape2D = zombie.hit_zones[part].get_child(0)
-					var rect := FRAMES.rect_for(clip,frame,part,facing,zombie.body_size/Vector2(32,64))
+					var rect := ART.rect_for(ART.pose(clip,frame),part,facing,zombie.body_size/Vector2(32,64))
 					matched = matched and rect.has_area() and shape.position.is_equal_approx(rect.get_center()+zombie.reaction_offset) and shape.shape.size.is_equal_approx(rect.size)
 			check(matched,"hit regions match all sixteen poses, facing %.0f: %s" % [facing,clip])
 	zombie.preview_clip = ""
@@ -86,7 +85,6 @@ func run() -> void:
 		query.collide_with_areas = true
 		var hit := lab.get_world_2d().direct_space_state.intersect_ray(query)
 		if not hit.is_empty(): CoreProjectile.resolve_impact(hit,10,Vector2(-direction,0),Callable(),lab.player.global_position,true,lab.player)
-		if hit.is_empty() or zombie.health != 80 or zombie.last_hit_part != "head": print("HEAD QUERY ",direction," hit ",hit.get("collider")," part ",zombie.last_hit_part," HP ",zombie.health," rect ",zombie.part_rect("head"))
 		check(not hit.is_empty() and zombie.health == 80 and zombie.last_hit_part == "head","real projectile queries hit the animated head, facing %.0f" % direction)
 	zombie.reset_target()
 	await frames(3)

@@ -48,7 +48,7 @@ func run() -> void:
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
 	for values in defaults.values(): total += values.size()
-	check(total == 311 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 311 balance values remain in the four-section workspace")
+	check(total == 317 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 317 balance values remain in the four-section workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")
 	check(dev.player_tabs.get_tab_count() == 4 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье","Player groups movement, shooting, camera and health")
@@ -140,7 +140,7 @@ func run() -> void:
 	dev.zombie_button.pressed.emit()
 	check(hero.global_position == CoreMovementLevel.ZOMBIE_TEST_SPAWN,"the testing button moves the hero to the zombie arena")
 	dev.reset_button.pressed.emit()
-	check(hero.global_position == CoreMovementLevel.SPAWN,"the testing reset returns the hero to the start")
+	check(hero.global_position == lab.level.player_spawn(),"the testing reset returns the hero to the start")
 	for edit in [[1,0,"rounds_per_minute","1200"],[2,0,"zoom","1.5"],[3,2,"chase_speed","125"],[5,0,"max_health","180"]]:
 		dev.show_overlay(edit[0])
 		var overlay := lab._ui_overlays()[edit[0]]

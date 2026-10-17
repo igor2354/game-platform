@@ -8,9 +8,41 @@ const BOOT := Color("34434d")
 var rig: Node2D
 var player: CoreMovementPlayer
 var facing := 1.0
+var deform_figure: Node2D
+var painted_head_stage := 0
+var painted_cel_pose: Dictionary = {}
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	if player.character_id == "harry":
+		deform_figure = preload("res://scripts/campaign/deform_figure.gd").new()
+		deform_figure.name = "DeformFigure"
+		deform_figure.player = player
+		deform_figure.physical = true
+		deform_figure.head_stage = painted_head_stage
+		add_child(deform_figure)
+		_update_deform_pose()
+	elif player.sofia_cel_variant and player.character_id == "sofia":
+		deform_figure = preload("res://scripts/campaign/sofia_cel_figure.gd").new()
+		deform_figure.name = "SofiaCelFigure"
+		deform_figure.player = player
+		deform_figure.physical = true
+		deform_figure.source_pose = painted_cel_pose
+		add_child(deform_figure)
+		_update_deform_pose()
+
+func _update_deform_pose() -> void:
+	if not is_instance_valid(deform_figure): return
+	var parts := {}
+	for key in rig.parts:
+		var body: RigidBody2D = rig.parts[key]
+		var pose := global_transform.affine_inverse()*body.global_transform
+		parts[key] = {"position":pose.origin,"rotation":pose.get_rotation(),"dimensions":body.dimensions}
+	deform_figure.update_pose({"parts":parts,"facing":facing})
 
 func _process(_delta: float) -> void:
-	if not get_tree().paused: queue_redraw()
+	_update_deform_pose()
+	queue_redraw()
 
 func _part(key: String,mirror := false) -> Vector2:
 	var body: RigidBody2D = rig.parts[key]
@@ -76,8 +108,26 @@ func _head() -> void:
 	_ellipse(Vector2(0,-3.3),Vector2(5.2,4),Color("768d91"))
 	_polygon([Vector2(-6,-3),Vector2(6.5,-3),Vector2(6.5,-1.2),Vector2(-6,-1.2)],Color("516974"))
 
+func _draw_campaign_weapon() -> void:
+	var torso: RigidBody2D = rig.parts.torso
+	var local := global_transform.affine_inverse()*torso.global_transform
+	player.weapon.draw_rifle(self,local*Vector2(-facing*3,4),local.basis_xform(Vector2.UP),local.basis_xform(Vector2.RIGHT*facing))
+
 func _draw() -> void:
 	if not is_instance_valid(rig): return
+	if player.uses_deformed_skin() or player.uses_painted_cels():
+		_draw_campaign_weapon()
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+		return
+	if not player.character_id.is_empty():
+		var art = preload("res://scripts/campaign/art.gd")
+		for key in ["left_upper_arm","left_forearm","left_thigh","left_shin","left_foot","right_thigh","right_shin","right_foot","pelvis","torso","head","right_upper_arm","right_forearm"]:
+			var part: RigidBody2D = rig.parts[key]
+			art.draw_piece(self,player.character_id,key,global_transform.affine_inverse()*part.global_transform,part.dimensions,facing,Color(.73,.76,.72) if key.begins_with("left") else Color.WHITE)
+		_part("torso")
+		_draw_campaign_weapon()
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+		return
 	# Back to front: slung rifle, far limbs, legs, clothing, helmet, near arm.
 	_part("torso")
 	# Keep the sling close to the spine, inside the body's contact width;

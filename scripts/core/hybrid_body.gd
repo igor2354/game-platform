@@ -40,6 +40,7 @@ var landing_left := 0.0
 var push_last_position := Vector2.ZERO
 var far_arm: CoreHybridArm
 var near_arm: CoreHybridArm
+var deform_frame_data: Dictionary = {}
 
 func _ready() -> void:
 	if not player: player = get_parent() as CoreMovementPlayer
@@ -51,6 +52,12 @@ func _ready() -> void:
 	add_child(sprite)
 	far_arm = CoreHybridArm.new()
 	near_arm = CoreHybridArm.new()
+	if not player.character_id.is_empty():
+		var skin := preload("res://scripts/campaign/player_skin.gd").new()
+		skin.player = player
+		add_child(skin)
+		far_arm.character_id = player.character_id
+		near_arm.character_id = player.character_id
 	reset_visual()
 
 func reset_visual() -> void:
@@ -60,6 +67,7 @@ func reset_visual() -> void:
 	state = "idle"
 	frame = 0
 	facing = 1
+	_update_deform_pose(0,true)
 	_show_frame()
 	update_arms()
 
@@ -133,10 +141,12 @@ func advance(delta: float) -> void:
 		state = "idle"
 		frame = 0
 	previous_mode = player.mode
+	_update_deform_pose(delta)
 	_show_frame()
 	update_arms()
 
 func _show_frame() -> void:
+	sprite.visible = player.character_id.is_empty()
 	var ads_stage := head_aim_stage()
 	sprite.texture = ADS_TEXTURES[state] if ads_stage > 0 else TEXTURES[state]
 	sprite.hframes = 1 if state in ["idle","crouch"] else 8
@@ -156,9 +166,36 @@ func head_aim_stage() -> int:
 func _pose_height_scale() -> float:
 	return player.collision_height()/(32.0 if state == "slide" else 42.0 if state in ["crouch","crouch_walk"] else CoreMovementPlayer.HEIGHT)
 
+func _blend_data(a: Variant,b: Variant,amount: float) -> Variant:
+	if a is Dictionary:
+		var result := {}
+		for key in a: result[key] = _blend_data(a[key],b[key],amount)
+		return result
+	if a is Array:
+		var result: Array = []
+		for index in a.size(): result.append(_blend_data(a[index],b[index],amount))
+		return result
+	return lerpf(float(a),float(b),amount)
+
+func _update_deform_pose(delta: float,snap := false) -> void:
+	if not player.uses_deformed_skin():
+		deform_frame_data.clear()
+		return
+	var target: Dictionary = POSES.DATA[state][frame]
+	if state in ["walk","run","sprint","crouch_walk","climb","push","pull","barrel_roll"]:
+		var coordinate := fposmod(phase,1)*8
+		var start := floori(coordinate)%8
+		target = _blend_data(POSES.DATA[state][start],POSES.DATA[state][(start+1)%8],fposmod(coordinate,1))
+	var duration := player.visuals.settings.deform_pose_smoothing
+	if snap or deform_frame_data.is_empty() or duration <= 0: deform_frame_data = target.duplicate(true)
+	else: deform_frame_data = _blend_data(deform_frame_data,target,1-exp(-delta/duration))
+
 func shoulder(side: String) -> Vector2:
-	var values: Array = POSES.DATA[state][frame][side]
-	return Vector2(float(values[0])*facing,float(values[1])*_pose_height_scale())
+	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_cel_poses.gd").shoulder(player,side)
+	var values: Array = (deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame])[side]
+	var point := Vector2(float(values[0]),float(values[1]))
+	if player.uses_deformed_skin(): point += Vector2(-2,0) if side == "near" else Vector2(-2,1)
+	return point*Vector2(facing,_pose_height_scale())
 
 func eye_anchor() -> Vector2:
 	# The painted eye starts at (+2,-11) relative to the near shoulder.
@@ -199,17 +236,18 @@ func update_arms() -> void:
 		far_arm.pose(shoulder("far"),gun_pose.front_grip,facing,true)
 		near_arm.pose(shoulder("near"),gun_pose.rear_grip,facing,false)
 
-func ragdoll_pose() -> Dictionary:
+func ragdoll_pose(standing := false) -> Dictionary:
+	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_cel_poses.gd").capture(player,standing)
 	# Use the exact baked frame and articulated arms at the instant of impact.
 	# A sprint, crouch or airborne hit must not reset the body to a T-pose.
-	var data: Dictionary = POSES.DATA[state][frame]
+	var data: Dictionary = POSES.DATA.idle[0] if standing else deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame]
 	var skeleton: Dictionary = data.skeleton
-	var y_scale := _pose_height_scale()
+	var y_scale := 1.0 if standing else _pose_height_scale()
 	var mirror := Vector2(facing,y_scale)
 	var hip := Vector2(data.hip[0],data.hip[1])*mirror
 	var neck := Vector2(skeleton.neck[0],skeleton.neck[1])
 	var head := Vector2(skeleton.head[0],skeleton.head[1])
-	var blend := float(head_aim_stage())/(ADS_STAGES-1)
+	var blend := 0.0 if standing else float(head_aim_stage())/(ADS_STAGES-1)
 	head = neck+(head-neck).rotated(blend*PI/15)+Vector2(2,4)*blend
 	head *= mirror
 	neck *= mirror
@@ -222,10 +260,14 @@ func ragdoll_pose() -> Dictionary:
 	for entry in [["left",far_arm],["right",near_arm]]:
 		var side: String = entry[0]
 		var arm: CoreHybridArm = entry[1]
-		_pose_segment(parts,side+"_upper_arm",arm.shoulder,arm.elbow,6.8)
-		_pose_segment(parts,side+"_forearm",arm.elbow,arm.hand,5.2)
-		joints[side+"_shoulder"] = arm.shoulder
-		joints[side+"_elbow"] = arm.elbow
+		var shoulder_point := Vector2(data["far" if side == "left" else "near"][0],data["far" if side == "left" else "near"][1])*mirror if standing else arm.shoulder
+		if standing and player.uses_deformed_skin(): shoulder_point += (Vector2(-2,1) if side == "left" else Vector2(-2,0))*mirror
+		var elbow_point := shoulder_point+Vector2(-3,15)*mirror if standing else arm.elbow
+		var hand_point := shoulder_point+Vector2(15,10)*mirror if standing else arm.hand
+		_pose_segment(parts,side+"_upper_arm",shoulder_point,elbow_point,6.8)
+		_pose_segment(parts,side+"_forearm",elbow_point,hand_point,5.2)
+		joints[side+"_shoulder"] = shoulder_point
+		joints[side+"_elbow"] = elbow_point
 		var leg: Dictionary = skeleton.legs["far" if side == "left" else "near"]
 		var h := Vector2(leg.hip[0],leg.hip[1])*mirror
 		var knee := Vector2(leg.knee[0],leg.knee[1])*mirror
@@ -237,7 +279,8 @@ func ragdoll_pose() -> Dictionary:
 		joints[side+"_hip"] = h
 		joints[side+"_knee"] = knee
 		joints[side+"_ankle"] = ankle
-	return {"parts":parts,"joints":joints,"facing":facing,"pelvis_offset":-hip.y}
+	var painted_head := 0 if standing else 1 if player.weapon.ads_blend > .55 else 2 if player.weapon.aim_direction.y < -.55 else 0
+	return {"parts":parts,"joints":joints,"facing":facing,"pelvis_offset":-hip.y,"painted_head_stage":painted_head}
 
 func _pose_segment(parts: Dictionary,key: String,a: Vector2,b: Vector2,width: float) -> void:
 	parts[key] = {"position":(a+b)*.5,"rotation":Vector2.DOWN.angle_to(b-a),"dimensions":Vector2(width,maxf(2,a.distance_to(b)))}
