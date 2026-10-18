@@ -1,0 +1,93 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS two original ladders and two nearby profile ladders
+PASS original landings and ladder entries preserved
+PASS live ascent chooses ladder orientation: 0
+PASS rear artwork on frontal ladders, original side artwork preserved: 0
+PASS climb holds on release: 0
+PASS live descent: 0
+PASS jump exits and restores platform collisions: 0
+PASS top exit reaches the original landing: 0
+PASS bottom exit restores ground movement: 0
+PASS live ascent chooses ladder orientation: 1
+PASS rear artwork on frontal ladders, original side artwork preserved: 1
+PASS climb holds on release: 1
+PASS live descent: 1
+PASS jump exits and restores platform collisions: 1
+PASS top exit reaches the original landing: 1
+PASS bottom exit restores ground movement: 1
+PASS live ascent chooses ladder orientation: 2
+PASS rear artwork on frontal ladders, original side artwork preserved: 2
+PASS climb holds on release: 2
+PASS live descent: 2
+PASS jump exits and restores platform collisions: 2
+PASS top exit reaches the original landing: 2
+PASS bottom exit restores ground movement: 2
+PASS live ascent chooses ladder orientation: 3
+PASS rear artwork on frontal ladders, original side artwork preserved: 3
+PASS climb holds on release: 3
+PASS live descent: 3
+PASS jump exits and restores platform collisions: 3
+PASS top exit reaches the original landing: 3
+PASS bottom exit restores ground movement: 3
+PASS rear shoulders follow the back-view painting: 0
+PASS rear shoulders follow the back-view painting: 1
+PASS rear shoulders follow the back-view painting: 2
+PASS rear shoulders follow the back-view painting: 3
+PASS rear shoulders follow the back-view painting: 4
+PASS rear shoulders follow the back-view painting: 5
+PASS rear shoulders follow the back-view painting: 6
+PASS rear shoulders follow the back-view painting: 7
+PASS eight independent rear climbing cels
+PASS rear-view gloves reach their chosen ladder holds without IK shortening
+PASS both palms stay on rigid weapon in hip/ADS: idle / stg44 / 1.0
+PASS outward elbows, no reversed or excessive folding: idle / stg44 / 1.0
+PASS both complete arms above torso, near arm in front: idle / stg44 / 1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / stg44 / -1.0
+PASS outward elbows, no reversed or excessive folding: idle / stg44 / -1.0
+PASS both complete arms above torso, near arm in front: idle / stg44 / -1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / mp40 / 1.0
+PASS outward elbows, no reversed or excessive folding: idle / mp40 / 1.0
+PASS both complete arms above torso, near arm in front: idle / mp40 / 1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / mp40 / -1.0
+PASS outward elbows, no reversed or excessive folding: idle / mp40 / -1.0
+PASS both complete arms above torso, near arm in front: idle / mp40 / -1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / m1911 / 1.0
+PASS outward elbows, no reversed or excessive folding: idle / m1911 / 1.0
+PASS both complete arms above torso, near arm in front: idle / m1911 / 1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / m1911 / -1.0
+PASS outward elbows, no reversed or excessive folding: idle / m1911 / -1.0
+PASS both complete arms above torso, near arm in front: idle / m1911 / -1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / svt / 1.0
+PASS outward elbows, no reversed or excessive folding: idle / svt / 1.0
+PASS both complete arms above torso, near arm in front: idle / svt / 1.0
+PASS both palms stay on rigid weapon in hip/ADS: idle / svt / -1.0
+PASS outward elbows, no reversed or excessive folding: idle / svt / -1.0
+PASS both complete arms above torso, near arm in front: idle / svt / -1.0
+PASS both palms stay on rigid weapon in hip/ADS: crouch / m1911 / 1.0
+PASS outward elbows, no reversed or excessive folding: crouch / m1911 / 1.0
+PASS both complete arms above torso, near arm in front: crouch / m1911 / 1.0
+PASS both palms stay on rigid weapon in hip/ADS: crouch / m1911 / -1.0
+PASS outward elbows, no reversed or excessive folding: crouch / m1911 / -1.0
+PASS both complete arms above torso, near arm in front: crouch / m1911 / -1.0
+PASS C enters ordinary crouch: stg44
+PASS down aim stands immediately except pistol: stg44
+PASS held C cannot re-enter invalid long-gun kneel: stg44
+PASS downward fire works in permitted stance: stg44
+PASS C enters ordinary crouch: mp40
+PASS down aim stands immediately except pistol: mp40
+PASS held C cannot re-enter invalid long-gun kneel: mp40
+PASS downward fire works in permitted stance: mp40
+PASS C enters ordinary crouch: m1911
+PASS down aim stands immediately except pistol: m1911
+PASS held C cannot re-enter invalid long-gun kneel: m1911
+PASS downward fire works in permitted stance: m1911
+PASS C enters ordinary crouch: svt
+PASS down aim stands immediately except pistol: svt
+PASS held C cannot re-enter invalid long-gun kneel: svt
+PASS downward fire works in permitted stance: svt
+PASS ceiling prevents unsafe standing
+PASS ceiling blocks ADS, shots and ammo consumption
+PASS blocked long gun stays in a safe carrying pose
+PASS standing resumes after headroom clears, with C still held
+SOFIA LADDERS / ARMS: 90/90 passed

@@ -1,6 +1,7 @@
 {
 	"camera": {
 		"camera_enabled": true,
+		"map_enabled": true,
 		"character_blur_length": 12.0,
 		"character_blur_start_speed": 80.0,
 		"character_blur_strength": 0.0,

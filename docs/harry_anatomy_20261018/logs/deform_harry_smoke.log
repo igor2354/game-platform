@@ -1,0 +1,36 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS Harry uses a real thirteen-bone 2D skeleton
+PASS continuous arm and leg images have two-bone mesh deformation
+PASS mesh weights resolve to bones, sum to one and blend across joints
+PASS sleeves retain the existing gun and reload layering
+PASS ADS chooses a separately painted head frame on the same mesh
+PASS upward aiming selects its own painted head frame
+PASS running produces continuous finite mesh poses between the eight authored keys
+PASS mesh remains attached in alternate action ["core_jump"]
+PASS mesh remains attached in alternate action ["core_crouch"]
+PASS mesh remains attached in alternate action ["core_right", "core_sprint"]
+PASS mesh remains attached in alternate action ["core_dash"]
+PASS F5 restores the old renderer without losing deformation settings
+PASS F5 independently enables the skin and its debug mesh
+PASS skin switches immediately while gameplay is paused
+PASS mesh switches back on without unpausing physics
+PASS new settings save to a separate temporary CFG
+PASS deformation parameters round-trip through the camera profile
+PASS new fields export through the shared JSON
+PASS JSON imports deformation controls through five temporary profile paths
+PASS old camera profiles receive deliberate defaults
+PASS physical skeleton inherits the visible mesh pose and artwork, facing 1.0
+PASS ragdoll settles and visibly blends through get-up with HP preserved, facing 1.0
+PASS physical skeleton inherits the visible mesh pose and artwork, facing -1.0
+PASS ragdoll settles and visibly blends through get-up with HP preserved, facing -1.0
+PASS real explosion drives the painted mesh with physics
+PASS a new impact interrupts get-up and resumes real physics
+PASS renderer switches on the physical body while paused
+PASS physical mesh returns while paused
+PASS F8 cancels physics and restores the same deformable character
+PASS standing recovery checks full headroom even when the hit began crouched
+PASS clearing the roof permits a complete get-up
+PASS death interrupts Harry's get-up and preserves the physical body
+PASS the dressed corpse remains physical with a finite mesh
+DEFORM HARRY: 33/33 passed

@@ -90,6 +90,8 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 	var near := player.body.shoulder("near")
 	var far := player.body.shoulder("far")
 	var reach := 20.85 if player.uses_painted_cels() else 27.85
+	if player.uses_deformed_skin():
+		reach = preload("res://scripts/campaign/harry_anatomy.gd").UPPER_ARM+preload("res://scripts/campaign/harry_anatomy.gd").FOREARM-.15
 	var rear := CATALOG.rear_grip(data)
 	var front := CATALOG.front_grip(data)
 	var direction: Vector2 = pose.direction
@@ -103,6 +105,7 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 	var neck: Vector2 = anchors[1]
 	var waist: Vector2 = anchors[2]
 	var head_radius := 5.5 if player.uses_painted_cels() else 10.0
+	if player.uses_deformed_skin(): head_radius = 5.5
 	var desired: Vector2 = pose.breech
 	var down_stance := player.body.uses_down_aim_pose() and not reloading
 	if down_stance and data.id != "m1911":
@@ -181,7 +184,7 @@ static func desired_pivot(player: CoreMovementPlayer,direction: Vector2,blend: f
 	var normal := direction.orthogonal()*-player.body.facing
 	var near := player.body.shoulder("near")
 	var desired: Vector2 = near+direction*data.length*data.grip+normal*lerpf(7,1,blend)
-	if data.id == "m1911": desired = near+direction*(17.5 if player.uses_painted_cels() else 23.0)+normal*lerpf(6,2,blend)
+	if data.id == "m1911": desired = near+direction*(17.5 if player.uses_painted_cels() or player.uses_deformed_skin() else 23.0)+normal*lerpf(6,2,blend)
 	if player.body.uses_down_aim_pose() and not player.weapon.reloading:
 		var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
 		var anatomy: Dictionary = drawn._baseline_readonly(drawn.selection(player))

@@ -11,6 +11,27 @@ func player_spawn() -> Vector2:
 func right_bound() -> float:
 	return PROLOGUE_FLOOR.end.x if prologue_mode else WIDTH
 
+func map_landmarks() -> Array[Dictionary]:
+	if prologue_mode:
+		return [
+			{"id":"S","label":"Начало тестовой платформы","position":PROLOGUE_START,"kind":"start"},
+			{"id":"E","label":"Край текущей платформы · цель пролога ещё не задана","position":Vector2(PROLOGUE_FLOOR.end.x,FLOOR),"kind":"edge"}
+		]
+	return [
+		{"id":"S","label":"Старт","position":SPAWN,"kind":"start"},
+		{"id":"11","label":"Зомби-солдат","position":Vector2(-6350,FLOOR),"kind":"zone"},
+		{"id":"10","label":"Подвесные грузы","position":Vector2(-4800,FLOOR),"kind":"zone"},
+		{"id":"09","label":"Бочки на склоне","position":Vector2(-3320,FLOOR),"kind":"zone"},
+		{"id":"08","label":"Бочки и топливо","position":Vector2(-2200,FLOOR),"kind":"zone"},
+		{"id":"07","label":"Ящик и ragdoll","position":Vector2(-1080,FLOOR),"kind":"zone"},
+		{"id":"01","label":"Ходьба и спринт","position":Vector2(96,FLOOR),"kind":"zone"},
+		{"id":"02","label":"Прыжок и дэш","position":Vector2(805,FLOOR),"kind":"zone"},
+		{"id":"03","label":"Лестницы","position":Vector2(1360,540),"kind":"zone"},
+		{"id":"04","label":"Заглушки врагов","position":Vector2(2400,FLOOR),"kind":"zone"},
+		{"id":"05","label":"Наклонные поверхности","position":Vector2(3230,FLOOR),"kind":"zone"},
+		{"id":"06","label":"Зомби","position":Vector2(4980,FLOOR),"kind":"zone"}
+	]
+
 const WIDTH := 5900.0
 const LEFT_BOUND := -6500.0
 const CONCEPT_ZOMBIE_TEST_SPAWN := Vector2(-6240,760)
@@ -21,6 +42,10 @@ const HANGING_BEAM := Rect2(-4870,270,1260,18)
 const FLOOR := 760.0
 const FALL_LIMIT := 1120.0
 const SPAWN := Vector2(160,760)
+const SPAWN_LEFT_DOOR := Vector2(-80,FLOOR)
+const SPAWN_RIGHT_DOOR := Vector2(400,FLOOR)
+const FAR_LEFT_DOOR := Vector2(LEFT_BOUND+180,FLOOR)
+const FAR_RIGHT_DOOR := Vector2(WIDTH-180,FLOOR)
 const ZOMBIE_TEST_SPAWN := Vector2(4980,760)
 var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,760,WIDTH-1160,100)]
 var platforms: Array[Rect2] = [Rect2(1340,540,420,20),Rect2(1780,540,460,20),Rect2(1780,350,460,20)]
@@ -36,6 +61,7 @@ var explosive_barrels: Array[CoreExplosiveBarrel] = []
 var fuel_field: CoreFuelField
 var hanging_loads: Array[CoreHangingLoad] = []
 var hanging_target: CoreEnemyDummy
+var transition_doors: Array[CoreTransitionDoor] = []
 const BARREL_RAMP := [Vector2(-3320,610),Vector2(-3050,610),Vector2(-2690,760),Vector2(-2690,860),Vector2(-3320,860)]
 # Continuous hills: ramp, flat crest, opposite ramp. Heights give 20° and 35°.
 var slopes: Array[PackedVector2Array] = [
@@ -125,6 +151,20 @@ func _ready() -> void:
 	hanging_target.position = Vector2(hanging_loads[0].position.x,FLOOR)
 	add_child(hanging_target)
 	enemies.append(hanging_target)
+	if not prologue_mode:
+		_add_transition_door("SpawnLeftDoor",SPAWN_LEFT_DOOR,FAR_LEFT_DOOR,"К ЛЕВОМУ КРАЮ")
+		_add_transition_door("SpawnRightDoor",SPAWN_RIGHT_DOOR,FAR_RIGHT_DOOR,"К ПРАВОМУ КРАЮ")
+		_add_transition_door("FarLeftReturnDoor",FAR_LEFT_DOOR,SPAWN_LEFT_DOOR,"К СТАРТУ")
+		_add_transition_door("FarRightReturnDoor",FAR_RIGHT_DOOR,SPAWN_RIGHT_DOOR,"К СТАРТУ")
+
+func _add_transition_door(door_name: String,point: Vector2,destination: Vector2,label: String) -> void:
+	var door := CoreTransitionDoor.new()
+	door.name = door_name
+	door.position = point
+	door.destination_position = destination
+	door.destination_label = label
+	add_child(door)
+	transition_doors.append(door)
 
 func _solid(rect: Rect2,one_way: bool) -> void:
 	var body := StaticBody2D.new()

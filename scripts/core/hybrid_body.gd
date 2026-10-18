@@ -2,6 +2,8 @@ class_name CoreHybridBody
 extends Node2D
 ## Whole-body baked pictures; the arms attach to each picture's shoulders.
 const POSES = preload("res://resources/core/hybrid/poses.gd")
+const HARRY = preload("res://scripts/campaign/harry_anatomy.gd")
+const HARRY_MOTION = preload("res://scripts/campaign/harry_motion.gd")
 const TEXTURES = {
 	"idle":preload("res://resources/core/hybrid/idle.png"),
 	"walk":preload("res://resources/core/hybrid/walk.png"),
@@ -41,6 +43,9 @@ var push_last_position := Vector2.ZERO
 var far_arm: CoreHybridArm
 var near_arm: CoreHybridArm
 var deform_frame_data: Dictionary = {}
+var harry_channels: Dictionary = {}
+var _harry_pose_key := 0
+var _harry_pose: Dictionary = {}
 var down_aim_blend := 0.0
 
 func down_aim_wanted() -> bool:
@@ -182,6 +187,7 @@ func _pose_height_scale() -> float:
 	return player.collision_height()/(32.0 if state == "slide" else 42.0 if state in ["crouch","crouch_walk"] else CoreMovementPlayer.HEIGHT)
 
 func _blend_data(a: Variant,b: Variant,amount: float) -> Variant:
+	if a is Vector2: return (a as Vector2).lerp(b,amount)
 	if a is Dictionary:
 		var result := {}
 		for key in a: result[key] = _blend_data(a[key],b[key],amount)
@@ -196,23 +202,30 @@ func _update_deform_pose(delta: float,snap := false) -> void:
 	if not player.uses_deformed_skin():
 		deform_frame_data.clear()
 		return
-	var target: Dictionary = POSES.DATA[state][frame]
-	if state in ["walk","run","sprint","crouch_walk","climb","push","pull","barrel_roll"]:
-		var coordinate := fposmod(phase,1)*8
-		var start := floori(coordinate)%8
-		target = _blend_data(POSES.DATA[state][start],POSES.DATA[state][(start+1)%8],fposmod(coordinate,1))
+	var target: Dictionary = HARRY_MOTION.channels(state,phase,frame)
 	var duration := player.visuals.settings.deform_pose_smoothing
-	if snap or deform_frame_data.is_empty() or duration <= 0: deform_frame_data = target.duplicate(true)
-	else: deform_frame_data = _blend_data(deform_frame_data,target,1-exp(-delta/duration))
+	if snap or harry_channels.is_empty() or duration <= 0: harry_channels = target.duplicate(true)
+	else: harry_channels = _blend_data(harry_channels,target,1-exp(-delta/duration))
+	deform_frame_data.clear()
+
+func harry_pose(standing := false) -> Dictionary:
+	if standing: return HARRY.pose({},facing)
+	var key := hash([harry_channels,facing])
+	if key != _harry_pose_key or _harry_pose.is_empty():
+		_harry_pose_key = key
+		_harry_pose = HARRY.pose(harry_channels,facing)
+	return _harry_pose
 
 func shoulder(side: String) -> Vector2:
 	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").shoulder(player,side)
+	if player.uses_deformed_skin(): return harry_pose().joints[("left" if side == "far" else "right")+"_shoulder"]
 	var values: Array = (deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame])[side]
 	var point := Vector2(float(values[0]),float(values[1]))
 	if player.uses_deformed_skin(): point += Vector2(-2,0) if side == "near" else Vector2(-2,1)
 	return point*Vector2(facing,_pose_height_scale())
 
 func eye_anchor() -> Vector2:
+	if player.uses_deformed_skin(): return harry_pose().parts.head.position+Vector2(3*facing,-1)
 	# The painted eye starts at (+2,-11) relative to the near shoulder.
 	# Match the bake's neck pivot, translation and rotation for each head stage.
 	var blend := float(head_aim_stage())/(ADS_STAGES-1)
@@ -228,6 +241,9 @@ func update_arms() -> void:
 	for arm in [far_arm,near_arm]:
 		arm.upper_length = 10.8 if player.uses_painted_cels() else 14.5 if not player.character_id.is_empty() else 0.0
 		arm.lower_length = 10.2 if player.uses_painted_cels() else 13.5 if not player.character_id.is_empty() else 0.0
+		if player.uses_deformed_skin():
+			arm.upper_length = HARRY.UPPER_ARM
+			arm.lower_length = HARRY.FOREARM
 		# At most 112 degrees of flexion: the elbow never folds back on itself.
 		arm.minimum_reach = 11.75 if uses_down_aim_pose() else 0.0
 	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
@@ -241,7 +257,7 @@ func update_arms() -> void:
 		for side in ["far","near"]:
 			var arm := far_arm if side == "far" else near_arm
 			var desired_height := 33.0 if side == "far" else 45.0
-			if player.uses_painted_cels() and not player.ladder_side_view:
+			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
 				desired_height = -shoulder(side).y+(-12 if side == "far" else 12)
 			var rungs_start := player.ladder.position.y+12
 			var cell := (player.global_position.y-desired_height-rungs_start)/24
@@ -253,7 +269,7 @@ func update_arms() -> void:
 			rung = clampf(rung,rungs_start-72,last_rung)
 			var hand := Vector2(-14 if side == "far" else 14,rung-player.global_position.y)
 			if player.ladder_side_view: hand.x = 14
-			if player.uses_painted_cels() and not player.ladder_side_view:
+			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
 				# Choose a reachable rung before IK. Clamping the arm alone leaves
 				# its painted glove floating between the character and the ladder.
 				var socket := shoulder(side)
@@ -276,6 +292,9 @@ func update_arms() -> void:
 		near_arm.pose(near_shoulder,gun_pose.rear_grip,near_bend,false)
 
 func weapon_mount_points() -> Array:
+	if player.uses_deformed_skin():
+		var pose := harry_pose()
+		return [pose.parts.head.position,pose.joints.neck,pose.joints.waist]
 	# The mount needs three torso anchors, not thirteen ragdoll parts and all joints.
 	if player.uses_painted_cels():
 		var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
@@ -292,6 +311,7 @@ func weapon_mount_points() -> Array:
 	return [head*mirror,neck*mirror,Vector2(data.hip[0],data.hip[1])*mirror]
 
 func ragdoll_pose(standing := false) -> Dictionary:
+	if player.uses_deformed_skin(): return HARRY.capture(self,standing)
 	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").capture(player,standing)
 	# Use the exact baked frame and articulated arms at the instant of impact.
 	# A sprint, crouch or airborne hit must not reset the body to a T-pose.

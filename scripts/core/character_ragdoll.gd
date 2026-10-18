@@ -282,7 +282,7 @@ func _tick_recovery(delta: float) -> void:
 		var target_pose := Transform2D(to.rotation,recovery_feet+to.position)
 		var pose: Transform2D = from.pose.interpolate_with(target_pose,blend)
 		var dimensions: Vector2 = from.dimensions.lerp(to.dimensions,blend)
-		if key == "head" and recovery_target.get("concept",false):
+		if key == "head" and (recovery_target.get("concept",false) or recovery_target.get("harry_anatomy",false)):
 			# Use the same neck pivot as the physical joint, not an unrelated
 			# interpolation of the head's centre through the lifting torso.
 			var neck_anchor: Vector2 = Transform2D(to.rotation,to.position).affine_inverse()*recovery_target.joints.neck
