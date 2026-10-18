@@ -3,6 +3,7 @@ extends Node2D
 
 const SettingsFile := preload("res://scripts/core/settings_file.gd")
 const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd")
+const TRANSITION_FADE_DURATION := .28
 
 @export var load_user_settings := true
 @export var campaign_mode := false
@@ -44,12 +45,21 @@ var aim_cursor: CoreAimCursor
 var camera_look_direction := 1.0
 var camera_look_velocity := 0.0
 var respawn_enemies_button: Button
+var map_button: Button
+var level_map: CoreLevelMap
+var map_was_paused := false
 var hud_pointer_position := Vector2.ZERO
 var shooting_telemetry: Label
 var explosion_telemetry: Label
 var explosion_debug: Node2D
 var ammo_label: Label
 var ammo_progress: ProgressBar
+var interaction_hint: Label
+var transition_fade: ColorRect
+var transition_active := false
+var transition_phase := ""
+var transition_elapsed := 0.0
+var transition_door: CoreTransitionDoor
 var suppress_mouse_until_release := false
 var camera_kick := Vector2.ZERO
 var camera_shake := 0.0
@@ -160,6 +170,7 @@ func _ready() -> void:
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
 	camera_overlay.hosted = true
+	camera_overlay.settings_changed.connect(_camera_settings_changed)
 	overlay_layer.add_child(camera_overlay)
 	zombie_overlay = CoreMovementOverlay.new()
 	zombie_overlay.settings = zombie_settings
@@ -251,8 +262,11 @@ func _ready() -> void:
 	aim_cursor.weapon = player.weapon
 	player.weapon.aim_cursor = aim_cursor
 	cursor_layer.add_child(aim_cursor)
+	_build_level_map()
+	_camera_settings_changed()
 
 func _blocks_keyboard() -> bool:
+	if level_map and level_map.visible: return true
 	if settings_dialog_open: return true
 	if developer_mode and developer_mode.blocks_keyboard_input(): return true
 	for overlay in _ui_overlays():
@@ -326,6 +340,7 @@ func _blocks_shooting() -> bool:
 		suppress_mouse_until_release = false
 	if _blocks_keyboard(): return true
 	if developer_button.get_global_rect().has_point(hud_pointer_position): return true
+	if map_button and map_button.is_visible_in_tree() and map_button.get_global_rect().has_point(hud_pointer_position): return true
 	if developer_mode.blocks_mouse_input(hud_pointer_position): return true
 	if respawn_enemies_button.is_visible_in_tree() and respawn_enemies_button.get_global_rect().has_point(hud_pointer_position): return true
 	for overlay in _ui_overlays():
@@ -333,7 +348,7 @@ func _blocks_shooting() -> bool:
 	return false
 
 func _setup_input() -> void:
-	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_crouch":[KEY_C],"core_walk":[KEY_CTRL],"core_sprint":[KEY_SHIFT],"core_dash":[KEY_ALT],"core_grab":[KEY_G],"core_reload":[KEY_R],"core_reset":[KEY_F8],"core_pause":[KEY_ESCAPE],"core_debug":[KEY_F1],"core_respawn_enemies":[KEY_F7],"core_developer":[KEY_F2],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_zombie_tuner":[KEY_F6],"core_fire_mode":[KEY_B],"core_grenade":[KEY_T],"core_zombie_test":[KEY_F9],"core_concept_zombie_test":[KEY_F10],"core_fullscreen":[KEY_F11]}
+	var bindings := {"core_left":[KEY_A,KEY_LEFT],"core_right":[KEY_D,KEY_RIGHT],"core_up":[KEY_W,KEY_UP],"core_down":[KEY_S,KEY_DOWN],"core_jump":[KEY_SPACE],"core_crouch":[KEY_C],"core_walk":[KEY_CTRL],"core_sprint":[KEY_SHIFT],"core_dash":[KEY_ALT],"core_grab":[KEY_G],"core_interact":[KEY_E],"core_reload":[KEY_R],"core_reset":[KEY_F8],"core_pause":[KEY_ESCAPE],"core_map":[KEY_M],"core_debug":[KEY_F1],"core_respawn_enemies":[KEY_F7],"core_developer":[KEY_F2],"core_tuner":[KEY_F3],"core_weapon_tuner":[KEY_F4],"core_camera_tuner":[KEY_F5],"core_zombie_tuner":[KEY_F6],"core_fire_mode":[KEY_B],"core_grenade":[KEY_T],"core_zombie_test":[KEY_F9],"core_concept_zombie_test":[KEY_F10],"core_fullscreen":[KEY_F11]}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		InputMap.action_erase_events(action)
@@ -358,7 +373,7 @@ func _build_hud() -> void:
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	panel.offset_bottom = 132
 	hud = _label(layer,Vector2(30,15),"КОР ГЕЙМПЛЕЯ · ПЕРЕДВИЖЕНИЕ И СТРЕЛЬБА",27)
-	_label(layer,Vector2(30,57),"A/D — бег   Ctrl — ходьба   Shift — спринт   Alt — дэш   Пробел — прыжок   W/S — лестница   C — присед/подкат   F8 — старт   Esc — пауза",18)
+	_label(layer,Vector2(30,57),"A/D — бег   Ctrl — ходьба   Shift — спринт   Alt — дэш   Пробел — прыжок   W/S — лестница   C — присед/подкат   M — карта   Esc — пауза",18)
 	ammo_label = _label(layer,Vector2(30,94),"",18)
 	ammo_progress = ProgressBar.new()
 	ammo_progress.position = Vector2(680,100)
@@ -398,9 +413,42 @@ func _build_hud() -> void:
 	respawn_enemies_button.offset_top = 16
 	respawn_enemies_button.offset_bottom = 58
 	respawn_enemies_button.pressed.connect(_respawn_enemies)
+	map_button = Button.new()
+	map_button.text = "Карта уровня · M"
+	map_button.focus_mode = Control.FOCUS_NONE
+	map_button.add_theme_font_size_override("font_size",18)
+	layer.add_child(map_button)
+	map_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	map_button.offset_left = -259
+	map_button.offset_right = -24
+	map_button.offset_top = 68
+	map_button.offset_bottom = 110
+	map_button.pressed.connect(_toggle_level_map)
 	hud_pointer_position = get_viewport().get_mouse_position()
 	shooting_telemetry = _label(layer,Vector2(30,813),"",18)
-	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · R — перезарядка · B — режим огня · T — граната · G — взять/отпустить · F2 — разработчик · F11 — полный экран",18)
+	var interaction_control := "E — дверь · " if not campaign_mode else ""
+	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · " + interaction_control + "R — перезарядка · B — режим огня · T — граната · G — взять/отпустить · F2 — разработчик · F11 — полный экран",18)
+	interaction_hint = Label.new()
+	interaction_hint.position = Vector2(0,712)
+	interaction_hint.size = Vector2(1600,44)
+	interaction_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	interaction_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	interaction_hint.add_theme_font_size_override("font_size",24)
+	interaction_hint.add_theme_color_override("font_color",Color("f3e7c7"))
+	interaction_hint.add_theme_color_override("font_shadow_color",Color("10171c"))
+	interaction_hint.add_theme_constant_override("shadow_offset_x",2)
+	interaction_hint.add_theme_constant_override("shadow_offset_y",2)
+	interaction_hint.visible = false
+	layer.add_child(interaction_hint)
+	var fade_layer := CanvasLayer.new()
+	fade_layer.layer = 40
+	add_child(fade_layer)
+	transition_fade = ColorRect.new()
+	transition_fade.color = Color(0,0,0,0)
+	transition_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	transition_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	transition_fade.visible = false
+	fade_layer.add_child(transition_fade)
 
 func _teleport_zombie() -> void:
 	_teleport_player(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
@@ -425,7 +473,23 @@ func _label(parent: Node,point: Vector2,text: String,size: int) -> Label:
 	return label
 
 func _unhandled_input(event: InputEvent) -> void:
+	if transition_active:
+		get_viewport().set_input_as_handled()
+		return
+	if level_map and level_map.visible:
+		get_viewport().set_input_as_handled()
+		return
 	if _blocks_keyboard(): return
+	if event.is_action_pressed("core_map") and not event.is_echo():
+		_toggle_level_map()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("core_interact") and not event.is_echo() and not get_tree().paused:
+		var door := _nearby_transition_door()
+		if door:
+			_begin_transition(door)
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("core_grenade") and not event.is_echo() and not get_tree().paused:
 		player.grenades.toggle_preparation()
 		get_viewport().set_input_as_handled()
@@ -459,6 +523,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		developer_mode.toggle_debug()
 
 func _input(event: InputEvent) -> void:
+	if transition_active: return
 	if get_tree().paused and event.is_action("core_fire") and player.grenades.preparing():
 		player.grenades.cancel_charge()
 		player.grenades.trigger_held = event.is_pressed()
@@ -475,9 +540,22 @@ func _input(event: InputEvent) -> void:
 		_toggle_fullscreen()
 		get_viewport().set_input_as_handled()
 		return
+	if level_map and level_map.visible:
+		if event.is_action_pressed("core_map") and not event.is_echo():
+			_close_level_map()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("core_pause") and not event.is_echo():
+			_close_level_map()
+		if event is InputEventKey:
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventMouseButton and event.pressed: suppress_mouse_until_release = true
 	if event is InputEventMouseButton and event.pressed:
+		if level_map and level_map.visible: suppress_mouse_until_release = true
 		if developer_button.get_global_rect().has_point(event.position) or developer_mode.blocks_mouse_input(event.position): suppress_mouse_until_release = true
 		if respawn_enemies_button.is_visible_in_tree() and respawn_enemies_button.get_global_rect().has_point(event.position): suppress_mouse_until_release = true
+		if map_button and map_button.is_visible_in_tree() and map_button.get_global_rect().has_point(event.position): suppress_mouse_until_release = true
 		for overlay in _ui_overlays():
 			if overlay.visible and overlay.panel.get_global_rect().has_point(event.position):
 				# Closing or dragging off the panel must not turn that click into fire.
@@ -500,6 +578,43 @@ func _toggle_fullscreen() -> void:
 	else:
 		windowed_mode = Window.MODE_MAXIMIZED if window.mode == Window.MODE_MAXIMIZED else Window.MODE_WINDOWED
 		window.mode = Window.MODE_FULLSCREEN
+
+func _build_level_map() -> void:
+	var map_layer := CanvasLayer.new()
+	map_layer.layer = 35
+	add_child(map_layer)
+	level_map = CoreLevelMap.new()
+	level_map.level = level
+	level_map.player = player
+	level_map.camera = camera
+	level_map.close_requested.connect(_close_level_map)
+	map_layer.add_child(level_map)
+
+func _toggle_level_map() -> void:
+	if not level_map: return
+	if level_map.visible:
+		_close_level_map()
+		return
+	if not camera_settings.map_enabled or transition_active or settings_dialog_open: return
+	if developer_mode and developer_mode.enabled: return
+	for overlay in _ui_overlays():
+		if overlay.visible: return
+	if player.grenades.preparing(): player.grenades.cancel_charge()
+	map_was_paused = get_tree().paused
+	level_map.show()
+	get_tree().paused = true
+
+func _close_level_map() -> void:
+	if not level_map or not level_map.visible: return
+	level_map.hide()
+	get_tree().paused = map_was_paused
+
+func _camera_settings_changed() -> void:
+	if map_button:
+		map_button.disabled = not camera_settings.map_enabled
+		map_button.text = "Карта отключена · F5" if not camera_settings.map_enabled else "Карта уровня · M"
+		map_button.tooltip_text = "Отключить или включить карту: F5 → Визуал → Карта уровня"
+	if not camera_settings.map_enabled: _close_level_map()
 
 func _build_settings_dialog(parent: Node) -> void:
 	settings_dialog = SettingsFileDialog.new()
@@ -576,6 +691,7 @@ func import_settings_file(path: String) -> bool:
 	var resources := _settings_resources()
 	for section in resources: resources[section].apply_values(result.values[section])
 	player.weapon.apply_tuning()
+	_camera_settings_changed()
 	_player_settings_changed()
 	_zombie_settings_changed()
 	var saved := true
@@ -694,6 +810,8 @@ func _update_camera(force_snap := false,delta := 0.0) -> void:
 	camera_was_paused = is_paused
 
 func _process(delta: float) -> void:
+	_update_transition(delta)
+	_update_interaction_hint()
 	if not player.weapon.tuning.recoil_enabled:
 		camera_kick = Vector2.ZERO
 		camera_shake = 0
@@ -719,3 +837,67 @@ func _process(delta: float) -> void:
 	ammo_progress.visible = weapon.reloading
 	ammo_progress.value = weapon.reload_progress()
 	shooting_telemetry.text = "%s · %s · Разброс: ±%.1f° · Скорость: %.0f%% · Выстрелы: %d · Попадания: %d · Убийства: %d" % ["ОДИНОЧНЫЙ" if weapon.tuning.fire_mode == CoreShootingSettings.FireMode.SINGLE else "АВТО","ГРАНАТА" if player.grenades.busy() else "ПРИЦЕЛ" if weapon.aiming else "ОТ БЕДРА",weapon.spread_degrees(),weapon.movement_multiplier*100,weapon.shots_fired,weapon.hits,weapon.kills]
+
+func _nearby_transition_door() -> CoreTransitionDoor:
+	if player.health <= 0 or player.blast_ragdoll.active or player.barrel_knockdown_left > 0 or player.shove_left > 0:
+		return null
+	if not player.is_on_floor() or player.climbing or player.dash_left > 0 or player.slide_left > 0 or player.pushing or player.grenades.busy():
+		return null
+	var nearest: CoreTransitionDoor
+	var nearest_distance := INF
+	for door in level.transition_doors:
+		if not door.player_nearby: continue
+		var distance := player.global_position.distance_to(door.global_position)
+		if distance < nearest_distance:
+			nearest = door
+			nearest_distance = distance
+	return nearest
+
+func _update_interaction_hint() -> void:
+	if not interaction_hint: return
+	var door := _nearby_transition_door() if not get_tree().paused and not transition_active and not _blocks_keyboard() else null
+	interaction_hint.visible = door != null
+	if door: interaction_hint.text = "[ E ]  " + door.destination_label
+
+func _begin_transition(door: CoreTransitionDoor) -> void:
+	transition_door = door
+	transition_active = true
+	transition_phase = "out"
+	transition_elapsed = 0
+	transition_fade.show()
+	_set_transition_alpha(0)
+	player.weapon.queued_single_press = false
+	suppress_mouse_until_release = true
+	get_tree().paused = true
+
+func _update_transition(delta: float) -> void:
+	if not transition_active: return
+	transition_elapsed += delta
+	var progress := clampf(transition_elapsed/TRANSITION_FADE_DURATION,0,1)
+	var eased := progress*progress*(3-2*progress)
+	if transition_phase == "out":
+		_set_transition_alpha(eased)
+		if progress >= 1:
+			player.transition_to(transition_door.destination_position)
+			_clear_projectiles()
+			camera_kick = Vector2.ZERO
+			camera_shake = 0
+			explosion_camera_shake = 0
+			camera.offset = Vector2.ZERO
+			_update_camera(true)
+			transition_phase = "in"
+			transition_elapsed = 0
+	else:
+		_set_transition_alpha(1-eased)
+		if progress >= 1:
+			_set_transition_alpha(0)
+			transition_fade.hide()
+			transition_active = false
+			transition_phase = ""
+			transition_door = null
+			get_tree().paused = false
+
+func _set_transition_alpha(alpha: float) -> void:
+	var shade := transition_fade.color
+	shade.a = alpha
+	transition_fade.color = shade

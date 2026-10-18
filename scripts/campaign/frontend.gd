@@ -140,11 +140,11 @@ func show_page(next: String) -> void:
 
 func _main_menu() -> void:
 	_picture(MAIN,Rect2(Vector2.ZERO,BASE),null,TextureRect.STRETCH_SCALE)
-	var definitions := [["campaign",Rect2(1148,147,389,79),func(): begin_selection(true)],["polygon",Rect2(1152,250,381,77),func(): begin_selection(false)],["settings",Rect2(1152,350,381,76),func(): pass],["quit",Rect2(1159,448,374,74),func(): pass]]
+	var definitions := [["campaign",Rect2(1148,147,389,79),func(): begin_selection(true)],["polygon",Rect2(1152,250,381,77),func(): begin_selection(false)],["settings",Rect2(1152,350,381,76),func(): pass],["quit",Rect2(1159,448,374,74),func(): get_tree().quit()]]
 	for definition in definitions:
 		var button := _button(definition[0],"",definition[1],definition[2])
-		button.tooltip_text = {"campaign":"Компания","polygon":"Полигон","settings":"Настройки — пока недоступно","quit":"Выход — пока недоступно"}[definition[0]]
-		button.disabled = definition[0] in ["settings","quit"]
+		button.tooltip_text = {"campaign":"Компания","polygon":"Полигон","settings":"Настройки — пока недоступно","quit":"Выход"}[definition[0]]
+		button.disabled = definition[0] == "settings"
 		button.add_theme_stylebox_override("normal",StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("disabled",StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("hover",_style(true,.10))

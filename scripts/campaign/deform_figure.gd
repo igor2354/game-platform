@@ -2,6 +2,7 @@ extends Node2D
 ## One weighted 2D skeleton, used by animation and by the actual ragdoll.
 const ATLAS = preload("res://resources/campaign/harry_deform_v2.png")
 const ART = preload("res://scripts/campaign/art.gd")
+const ANATOMY = preload("res://scripts/campaign/harry_anatomy.gd")
 static var painted_regions: Dictionary = {}
 const ORDER = ["pelvis","torso","head","left_upper_arm","left_forearm","right_upper_arm","right_forearm","left_thigh","left_shin","left_foot","right_thigh","right_shin","right_foot"]
 const PARENTS = {"torso":"pelvis","head":"torso","left_upper_arm":"torso","left_forearm":"left_upper_arm","right_upper_arm":"torso","right_forearm":"right_upper_arm","left_thigh":"pelvis","left_shin":"left_thigh","left_foot":"left_shin","right_thigh":"pelvis","right_shin":"right_thigh","right_foot":"right_shin"}
@@ -29,31 +30,46 @@ func _ready() -> void:
 	skeleton = Skeleton2D.new()
 	skeleton.name = "PaintedSkeleton"
 	add_child(skeleton)
-	var origins := {"pelvis":Vector2(0,-32),"torso":Vector2(0,-52),"head":Vector2(0,-58),"left_upper_arm":Vector2(-3,-48),"left_forearm":Vector2(-3,-33),"right_upper_arm":Vector2(5,-48),"right_forearm":Vector2(5,-33),"left_thigh":Vector2(-2,-32),"left_shin":Vector2(-2,-16),"left_foot":Vector2(-.5,-2),"right_thigh":Vector2(2,-32),"right_shin":Vector2(2,-16),"right_foot":Vector2(3.5,-2)}
+	var rest := ANATOMY.pose({})
 	for key in ORDER:
 		var bone := Bone2D.new()
 		bone.name = key
 		bone.set_autocalculate_length_and_angle(false)
 		bone.set_length(10)
 		bone.set_bone_angle(PI/2)
-		var bind := Transform2D(0,origins[key])
+		var bind := Transform2D(rest.parts[key].rotation,rest.parts[key].position)
 		bind_poses[key] = bind
-		bind_lengths[key] = 20.0 if key == "torso" else 16.0 if key.ends_with("thigh") else 12.0 if key.ends_with("shin") else 15.0 if "arm" in key else 14.0 if key == "head" else 4.0 if key.ends_with("foot") else 5.0
+		bind_lengths[key] = rest.parts[key].dimensions.y
 		var parent: Node2D = bones[PARENTS[key]] if PARENTS.has(key) else skeleton
 		parent.add_child(bone)
 		bone.rest = (bind_poses[PARENTS[key]] as Transform2D).affine_inverse()*bind if PARENTS.has(key) else bind
 		bone.transform = bone.rest
 		bones[key] = bone
 	for side in ["left","right"]:
-		var x := -2.0 if side == "left" else 2.0
-		_grid(side+"_leg",Rect2(x-4.6,-33,9.2,30),_region(2),[side+"_thigh",side+"_shin"],.57,14,4)
-		_grid(side+"_foot",Rect2(x-3.5,-9,10,9.6),ART.part("harry","foot"),[side+"_foot"],0,3,3)
+		var hip: Vector2 = rest.joints[side+"_hip"]
+		var leg_height := ANATOMY.THIGH+ANATOMY.SHIN+3
+		var leg_size := proportional_size(_region(2),leg_height)
+		_grid(side+"_leg",Rect2(hip-Vector2(leg_size.x*.5,2.5),leg_size),_region(2),[side+"_thigh",side+"_shin"],(2.5+ANATOMY.THIGH)/leg_height,18,5)
+		var boot := _boot_region()
+		var foot_size := proportional_size(boot,ANATOMY.BOOT_ART_HEIGHT)
+		var ankle: Vector2 = rest.joints[side+"_ankle"]
+		_grid(side+"_foot",Rect2(ankle-Vector2(foot_size.x*.28,foot_size.y-3.5),foot_size),boot,[side+"_foot"],0,3,3)
 	# Coat remains continuous across the waist and overlaps the trouser roots.
-	_grid("coat",Rect2(-12,-53,25,40),_region(0),["torso","pelvis"],.52,15,6)
-	_grid("head",Rect2(-9,-68.5,19,22),_region(3+head_stage),["head"],0,4,4)
+	var coat_size := proportional_size(_region(0),ANATOMY.COAT_ART_HEIGHT)
+	var coat_rect := Rect2(rest.joints.neck-Vector2(coat_size.x*.57,2),coat_size)
+	_grid("coat",coat_rect,_region(0),["torso","pelvis"],(rest.joints.waist.y-coat_rect.position.y)/coat_size.y,20,8)
+	_grid("head",_head_rect(head_stage),_region(3+head_stage),["head"],0,4,4)
 	for side in ["left","right"]:
-		var x := -3.0 if side == "left" else 5.0
-		_grid(side+"_arm",Rect2(x-4.2,-49,8.4,32),_region(1),[side+"_upper_arm",side+"_forearm"],.50,16,4)
+		var shoulder: Vector2 = rest.joints[side+"_shoulder"]
+		var sleeve_height := ANATOMY.UPPER_ARM+ANATOMY.FOREARM+1.5
+		var sleeve_size := proportional_size(_region(1),sleeve_height)
+		var sleeve := _region(1) as AtlasTexture
+		# Measured palm on the unmodified atlas; put the painted glove on the IK hand.
+		var palm_pixel := Vector2(854,610)
+		var palm := shoulder+Vector2(0,ANATOMY.UPPER_ARM+ANATOMY.FOREARM)
+		var sleeve_rect := Rect2(palm-(palm_pixel-sleeve.region.position)*(sleeve_height/sleeve.get_height()),sleeve_size)
+		var joint := (shoulder.y+ANATOMY.UPPER_ARM-sleeve_rect.position.y)/sleeve_height
+		_grid(side+"_arm",sleeve_rect,sleeve,[side+"_upper_arm",side+"_forearm"],joint,18,5)
 	# The far sleeve is behind the coat; the near sleeve is above the gun.
 	move_child(meshes.left_arm,0)
 	mesh_overlay = MeshOverlay.new()
@@ -61,6 +77,33 @@ func _ready() -> void:
 	mesh_overlay.figure = self
 	add_child(mesh_overlay)
 	if not physical: call_deferred("_attach_arms")
+
+func proportional_size(texture: Texture2D,height: float) -> Vector2:
+	return texture.get_size()*(height/texture.get_height())
+
+func _boot_region() -> AtlasTexture:
+	if painted_regions.has(6): return painted_regions[6]
+	var original := ART.part("harry","foot") as AtlasTexture
+	var image := original.atlas.get_image()
+	var bounds := Rect2i(original.region)
+	var low := bounds.end
+	var high := bounds.position
+	for y in range(bounds.position.y,bounds.end.y):
+		for x in range(bounds.position.x,bounds.end.x):
+			if image.get_pixel(x,y).a < .6: continue
+			low = low.min(Vector2i(x,y))
+			high = high.max(Vector2i(x+1,y+1))
+	var result := AtlasTexture.new()
+	result.atlas = original.atlas
+	result.region = Rect2(Rect2i(low,high-low).grow(2).intersection(bounds))
+	result.filter_clip = true
+	painted_regions[6] = result
+	return result
+
+func _head_rect(stage: int) -> Rect2:
+	var size := proportional_size(_region(3+stage),ANATOMY.HEAD_ART_HEIGHT)
+	var neck: Vector2 = ANATOMY.pose({}).joints.neck
+	return Rect2(neck-Vector2(size.x*.45,size.y*.84),size)
 
 func _attach_arms() -> void:
 	for side in ["left","right"]:
@@ -150,8 +193,6 @@ func update_pose(pose: Dictionary) -> void:
 	for key in ORDER:
 		var part: Dictionary = pose.parts[key]
 		var target := Transform2D(part.rotation,part.position)
-		if key not in ["pelvis","head"] and not key.ends_with("foot"):
-			target.origin -= target.y*part.dimensions.y*.5
 		target.x *= facing
 		target.y *= part.dimensions.y/float(bind_lengths[key])
 		(bones[key] as Bone2D).global_transform = global_transform*target
@@ -163,7 +204,15 @@ func update_pose(pose: Dictionary) -> void:
 			var frame_texture := _region(3+head_stage) as AtlasTexture
 			var uv := mesh.uv
 			var rect: Rect2 = geometry.head.rect
-			for i in uv.size(): uv[i] = frame_texture.region.position+(geometry.head.base[i]-rect.position)/rect.size*frame_texture.region.size
+			var next_rect := _head_rect(head_stage)
+			var vertices: PackedVector2Array = geometry.head.base
+			for i in uv.size():
+				var coordinate: Vector2 = (vertices[i]-rect.position)/rect.size
+				uv[i] = frame_texture.region.position+coordinate*frame_texture.region.size
+				vertices[i] = next_rect.position+coordinate*next_rect.size
+			geometry.head.rect = next_rect
+			geometry.head.base = vertices
+			mesh.polygon = vertices
 			mesh.uv = uv
 	for key in ["left_arm","right_arm","left_leg","right_leg"]:
 		_correct_joint(key)

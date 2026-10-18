@@ -1,0 +1,26 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS polygon Sofia uses the authored-cel renderer
+PASS all five actual profile paths are isolated
+PASS source-to-render mapping, both facings: walk, 24 cels, max error 0.000103 world units
+PASS source-to-render mapping, both facings: run, 24 cels, max error 0.000107 world units
+PASS source-to-render mapping, both facings: crouch_walk, 12 cels, max error 0.000100 world units
+PASS source-to-render mapping, both facings: down, 8 cels, max error 0.000090 world units
+PASS source-to-render mapping, both facings: climb_back, 8 cels, max error 0.000095 world units
+PASS source-to-render mapping, both facings: actions, 12 cels, max error 0.000139 world units
+PASS source-to-render mapping, both facings: secondary, 12 cels, max error 0.000131 world units
+SOURCE_MAPPING: cels=100 mirrored_samples=200 max_error_world_units=0.000139
+PASS rendered body is not squeezed by capsule heights 32/42/64 across 15 animation states; max error 0.000097
+PASS ragdoll starts with dimensions from the current authored pose
+RECOVERY_OBSERVATION: torso captured=20.1255 midpoint=20.6018 delta_percent=2.37
+RECOVERY_OBSERVATION: left_thigh captured=15.1751 midpoint=12.5730 delta_percent=-17.15
+RECOVERY_OBSERVATION: left_shin captured=14.5040 midpoint=12.8419 delta_percent=-11.46
+RECOVERY_OBSERVATION: right_thigh captured=15.4102 midpoint=15.0480 delta_percent=-2.35
+RECOVERY_OBSERVATION: right_shin captured=14.5040 midpoint=13.4074 delta_percent=-7.56
+RECOVERY_OBSERVATION: left_upper_arm captured=10.8000 midpoint=10.8000 delta_percent=-0.00
+RECOVERY_OBSERVATION: left_forearm captured=10.2000 midpoint=10.2000 delta_percent=-0.00
+RECOVERY_OBSERVATION: right_upper_arm captured=10.8000 midpoint=10.8000 delta_percent=-0.00
+RECOVERY_OBSERVATION: right_forearm captured=10.2000 midpoint=10.2000 delta_percent=0.00
+PASS disabling the polygon cel option selects the legacy renderer; authored-body guarantees no longer apply
+PASS prologue Sofia still uses the legacy renderer; this audit does not certify its proportions
+SOFIA PROPORTIONS AUDIT: 13/13 passed; recovery observations require separate review

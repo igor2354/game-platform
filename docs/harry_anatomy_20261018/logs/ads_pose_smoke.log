@@ -1,0 +1,33 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS head-lean atlas preserves the movement frames: idle
+PASS head-lean atlas preserves the movement frames: walk
+PASS head-lean atlas preserves the movement frames: run
+PASS head-lean atlas preserves the movement frames: jump
+PASS head-lean atlas preserves the movement frames: crouch
+PASS head-lean atlas preserves the movement frames: crouch_walk
+PASS hip fire keeps its original weapon height
+PASS RMB starts a gradual weapon raise
+PASS pause freezes the raise transition
+PASS settled ADS mounts the weapon at the shoulder
+PASS weapon is lower than the former eye-level mount and the baked head leans to the stock
+PASS horizontal stock rests against the shoulder
+PASS both hands hold the raised weapon
+PASS ADS bullets leave the raised muzzle and pass through the reticle
+PASS left-facing ADS mirrors the cheek position and grips
+PASS aiming vertically keeps a stable facing instead of flipping around the offset muzzle
+PASS shoulder mount and tilted head follow all eight moving body poses
+PASS releasing RMB restores the hip weapon and upright baked head
+PASS aiming animates several baked head-lean stages in crouch, side -1.0
+PASS crouched head leans down and hands retain the shoulder-mounted gun, side -1.0
+PASS crouch movement keeps the aiming head and both grips, side -1.0
+PASS aiming animates several baked head-lean stages in crouch, side 1.0
+PASS crouched head leans down and hands retain the shoulder-mounted gun, side 1.0
+PASS crouch movement keeps the aiming head and both grips, side 1.0
+PASS standing walk uses all eight aimed frames and keeps the head lean and grips
+PASS a complete real jump retains the baked aiming head and both gun grips
+PASS dash cancels the raised aiming pose
+PASS ladder entry restores the slung-weapon pose
+PASS raised muzzle checks high obstacles instead of shooting through them
+PASS R clears the raise transition
+RESULT: 30/30 checks passed

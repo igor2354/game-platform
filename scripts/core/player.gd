@@ -29,6 +29,9 @@ func uses_smooth_recovery() -> bool:
 	return uses_deformed_skin() or uses_painted_cels()
 
 func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
+	if uses_deformed_skin():
+		preload("res://scripts/campaign/harry_anatomy.gd").constrain_recovery(points,body.facing)
+		return
 	if not uses_painted_cels(): return
 	for side in ["left","right"]:
 		var shoulder: Vector2 = points[side+"_shoulder"]
@@ -212,6 +215,39 @@ func reset_to(point: Vector2) -> void:
 
 func dash_available() -> bool:
 	return not grenades.busy() and tuning.dash_enabled and barrel_knockdown_left <= 0 and not pushing and health > 0 and not climbing and slide_left <= 0 and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or (tuning.air_dash_enabled and not air_dash_used))
+
+func transition_to(point: Vector2) -> void:
+	stop_pushing()
+	_clear_dash_exceptions()
+	global_position = point
+	velocity = Vector2.ZERO
+	ground_acceleration = 0
+	ground_speed = 0
+	movement_axis = 0
+	sprinting = false
+	sprint_requested = false
+	walking = false
+	walk_requested = false
+	crouching = false
+	crouch_held = Input.is_action_pressed("core_crouch")
+	if movement_shape:
+		movement_shape.shape = standing_capsule
+		movement_shape.position.y = -HEIGHT*.5
+	climbing = false
+	ladder = Rect2()
+	ladder_side_view = false
+	ladder_lock = 0
+	coyote = 0
+	jump_buffer = 0
+	dash_left = 0
+	dash_from_sprint = false
+	dash_held = Input.is_action_pressed("core_dash")
+	slide_left = 0
+	slide_speed = 0
+	collision_layer = 2
+	collision_mask = WORLD_MASK
+	mode = "idle"
+	queue_redraw()
 
 func collision_height() -> float:
 	return (movement_shape.shape as CapsuleShape2D).height if movement_shape else HEIGHT

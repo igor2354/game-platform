@@ -1,0 +1,63 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS all actual save paths are isolated before imports
+PASS ordinary startup has a finite PPSh drum, finite reserve and visible ammo HUD
+PASS R reloads and F8 replaces the old reset key
+PASS automatic fire consumes exactly one magazine and stops without spending reserve
+PASS holding an empty trigger does not retain shooting slowdown
+PASS empty trigger gives one dry click instead of bullets or repeated automatic clicking
+PASS a physical R key begins reload without resetting or moving the hero
+PASS key repeat cannot restart or lengthen an active reload
+PASS reload transfers the available reserve only, allowing a partly filled magazine
+PASS a depleted reserve cannot create ammunition
+PASS a partial magazine may be reloaded
+PASS round transfer is deferred while the old drum is visibly removed
+PASS partial reload conserves rounds and produces one dropped drum plus three mechanical cues
+PASS a full magazine cannot start another reload
+PASS reload starts while aiming, side -1.0 crouch false
+PASS main hand holds the gun while the support hand changes the magazine and operates the bolt
+PASS reload keeps the muzzle upward and in the held facing, side -1.0 crouch false
+PASS reload drum stays behind torso, weapon and near arm, but in front of far arm, side -1.0 crouch false
+PASS every phase keeps near arm > weapon > drum > far arm, with both hands on their own arm layer
+PASS completion restores normal arms with no leftover foreground hand layer
+PASS reload starts while aiming, side -1.0 crouch true
+PASS main hand holds the gun while the support hand changes the magazine and operates the bolt
+PASS reload keeps the muzzle upward and in the held facing, side -1.0 crouch true
+PASS reload drum stays behind torso, weapon and near arm, but in front of far arm, side -1.0 crouch true
+PASS every phase keeps near arm > weapon > drum > far arm, with both hands on their own arm layer
+PASS completion restores normal arms with no leftover foreground hand layer
+PASS reload starts while aiming, side 1.0 crouch false
+PASS main hand holds the gun while the support hand changes the magazine and operates the bolt
+PASS reload keeps the muzzle upward and in the held facing, side 1.0 crouch false
+PASS reload drum stays behind torso, weapon and near arm, but in front of far arm, side 1.0 crouch false
+PASS every phase keeps near arm > weapon > drum > far arm, with both hands on their own arm layer
+PASS completion restores normal arms with no leftover foreground hand layer
+PASS reload starts while aiming, side 1.0 crouch true
+PASS main hand holds the gun while the support hand changes the magazine and operates the bolt
+PASS reload keeps the muzzle upward and in the held facing, side 1.0 crouch true
+PASS reload drum stays behind torso, weapon and near arm, but in front of far arm, side 1.0 crouch true
+PASS every phase keeps near arm > weapon > drum > far arm, with both hands on their own arm layer
+PASS completion restores normal arms with no leftover foreground hand layer
+PASS reload permits movement but applies its own slowdown and prevents sprint
+PASS ordinary jump does not cancel magazine handling
+PASS pause freezes reload progress, hand pose, inventory and the dropped magazine
+PASS editing duration does not retime an already started reload
+PASS dash interrupts reload without granting or losing rounds
+PASS death cancels the transaction without transferring rounds
+PASS manual death and revival on pause cannot resume an interrupted reload
+PASS entering a ladder interrupts reload and restores ladder grips
+PASS held trigger after reload respects the selected fire mode 0
+PASS held trigger after reload respects the selected fire mode 1
+PASS single mode fires once after a fresh press following reload
+PASS reducing magazine size returns overflow to reserve
+PASS increasing magazine size cannot generate new rounds
+PASS F4 has a dedicated ammunition page with all balance controls
+PASS typing R in a balance field cannot reload or reset the game
+PASS closing settings commits the magazine capacity edit
+PASS developer resupply works on pause without resetting combat statistics
+PASS enemy respawn does not refill player ammunition
+PASS F8 returns the player to start with configured ammunition
+PASS shooting profile preserves ammunition and reload settings
+PASS old profiles receive the default magazine and reserve
+PASS JSON carries balance values without saving live ammunition or animation state
+RESULT: 60/60 checks passed
