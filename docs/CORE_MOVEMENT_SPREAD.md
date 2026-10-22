@@ -57,4 +57,4 @@
 
 Снимки создаёт `tools/capture_movement_spread.gd`.
 
-![Настройки разброса движения](core/movement_spread_settings.png)
+![Настройки разброса движения](../../../../5_Проверки%20и%20отчёты/Полигон/core/movement_spread_settings.png)

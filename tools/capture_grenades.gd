@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -12,7 +13,7 @@ func capture() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	root.add_child(lab)
-	lab.export_settings_file("res://docs/core/settings-defaults.json")
+	lab.export_settings_file(MEDIA.path("docs/core/settings-defaults.json"))
 	lab.player.weapon.tuning.sound_enabled = false
 	lab.ragdoll_settings.explosion_audio_enabled = false
 	# Keep limbs intact for a readable throw / articulated recovery demo.
@@ -44,20 +45,20 @@ func capture() -> void:
 		caption.text = "T · ГРАНАТА НА ИЗГОТОВКУ · ЗАПАЛ ЖДЁТ ЛКМ" if index < 12 else "ЛКМ · ЗАПАЛ ИДЁТ · УДЕРЖАНИЕ МЕНЯЕТ СИЛУ И ДУГУ" if index < 26 else "ОТПУСКАНИЕ ЛКМ · ФИЗИЧЕСКИЙ БРОСОК И ОТСКОКИ" if index < 129 else "ВЗРЫВ · УРОН И ФИЗИЧЕСКИЙ РЭГДОЛЛ"
 		await frames(2)
 		await save_image("/private/tmp/grenade-frames/%03d.png" % index)
-		if index == 7: await save_image("res://docs/core/grenade_ready.png")
-		if index == 24: await save_image("res://docs/core/grenade_charged.png")
-		if index == 36: await save_image("res://docs/core/grenade_flying.png")
-		if index == 137: await save_image("res://docs/core/grenade_explosion.png")
+		if index == 7: await save_image(MEDIA.path("docs/core/grenade_ready.png"))
+		if index == 24: await save_image(MEDIA.path("docs/core/grenade_charged.png"))
+		if index == 36: await save_image(MEDIA.path("docs/core/grenade_flying.png"))
+		if index == 137: await save_image(MEDIA.path("docs/core/grenade_explosion.png"))
 	caption.hide()
 	paused = true
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_section(CoreDeveloperMode.Section.PHYSICS)
 	lab.ragdoll_overlay.tabs.current_tab = 4
 	await frames(5)
-	await save_image("res://docs/core/grenade_settings.png")
+	await save_image(MEDIA.path("docs/core/grenade_settings.png"))
 	lab.ragdoll_overlay.tabs.current_tab = 5
 	await frames(5)
-	await save_image("res://docs/core/shockwave_settings.png")
+	await save_image(MEDIA.path("docs/core/shockwave_settings.png"))
 	print("CAPTURE grenade throws ",gren.throws," live ",get_nodes_in_group("core_grenades").size()," HP ",lab.level.enemies.map(func(enemy): return enemy.health))
 	lab.queue_free()
 	await process_frame

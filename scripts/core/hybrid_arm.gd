@@ -17,6 +17,7 @@ var upper_length := 0.0
 var lower_length := 0.0
 var requested_hand := Vector2.ZERO
 var minimum_reach := 0.0
+var occlusion_forearm: Polygon2D
 
 func _ready() -> void:
 	foreground = Foreground.new()

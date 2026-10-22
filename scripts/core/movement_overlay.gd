@@ -10,7 +10,7 @@ var settings: Resource
 var defaults: Resource
 var profile_owner: CoreMovementOverlay
 var params: Array = CoreMovementSettings.PARAMS
-var groups := ["Бег","Прыжок","Дэш","Лестница","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
+var groups := ["Бег","Прыжок","Дэш","Лестница","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
 var heading_text := "НАСТРОЙКА ДВИЖЕНИЯ · F3"
 var help_text := "Изменения применяются сразу. Проверяйте на площадке."
 var current_values_text := "Текущие значения · новые тайминги со следующего действия"
@@ -173,6 +173,10 @@ func _ready() -> void:
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Подкат":
 			var hint := _label("C — новое нажатие во время спринта.\nНачальная скорость — множитель от фактического разгона.\nОдин удар по каждому врагу за подкат.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
+		if settings is CoreMovementSettings and group == "Паркур":
+			var hint := _label("Удерживайте пробел рядом с краем. Отпустите, чтобы прервать.\nНизкое узкое препятствие — переход на другую сторону.\nШирокая поверхность — подъём на неё. Нужен свободный путь.\nАнимации паркура будут добавлены позже.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Толкание":

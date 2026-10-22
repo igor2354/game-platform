@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -12,7 +13,7 @@ func capture() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	root.add_child(lab)
-	lab.export_settings_file("res://docs/core/settings-defaults.json")
+	lab.export_settings_file(MEDIA.path("docs/core/settings-defaults.json"))
 	await frames(6)
 	var hero := lab.player
 	var gun := hero.weapon
@@ -62,19 +63,19 @@ func capture() -> void:
 			gun.tuning.recoil_auto_enabled = true
 		await frames(2)
 		await save_image("/private/tmp/recoil-compensation-frames/%03d.png" % index)
-		if index == 59: await save_image("res://docs/core/recoil_manually_compensated.png")
+		if index == 59: await save_image(MEDIA.path("docs/core/recoil_manually_compensated.png"))
 	caption.hide()
 	paused = true
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_overlay(1)
 	lab.shooting_overlay.tabs.current_tab = 3
 	await frames(5)
-	await save_image("res://docs/core/recoil_unified_settings.png")
+	await save_image(MEDIA.path("docs/core/recoil_unified_settings.png"))
 	var scroll := lab.shooting_overlay.tabs.get_tab_control(3) as ScrollContainer
 	lab.shooting_overlay.rows.ads_recoil_angle.number.value = 1.237
 	scroll.ensure_control_visible(lab.shooting_overlay.rows.ads_recoil_angle.number)
 	await frames(4)
-	await save_image("res://docs/core/recoil_precision_settings.png")
+	await save_image(MEDIA.path("docs/core/recoil_precision_settings.png"))
 	print("CAPTURE recoil return error: ",gun.aim_point.distance_to(start))
 	Input.action_release("core_aim")
 	lab.queue_free()

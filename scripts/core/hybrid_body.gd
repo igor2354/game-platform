@@ -4,6 +4,8 @@ extends Node2D
 const POSES = preload("res://resources/core/hybrid/poses.gd")
 const HARRY = preload("res://scripts/campaign/harry_anatomy.gd")
 const HARRY_MOTION = preload("res://scripts/campaign/harry_motion.gd")
+const HARRY_STG = preload("res://scripts/campaign/harry_stg_pose.gd")
+const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const TEXTURES = {
 	"idle":preload("res://resources/core/hybrid/idle.png"),
 	"walk":preload("res://resources/core/hybrid/walk.png"),
@@ -49,7 +51,7 @@ var _harry_pose: Dictionary = {}
 var down_aim_blend := 0.0
 
 func down_aim_wanted() -> bool:
-	if not player.uses_painted_cels() or not state in ["idle","crouch"]: return false
+	if not (player.uses_painted_cels() or HARRY_STG.applies(player)) or not state in ["idle","crouch"]: return false
 	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
 	if player.weapon.reloading or player.climbing or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
 	if player.grenades and player.grenades.busy(): return false
@@ -57,7 +59,7 @@ func down_aim_wanted() -> bool:
 
 func uses_down_aim_pose() -> bool:
 	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
-	return player.uses_painted_cels() and state in ["idle","crouch"] and down_aim_blend > 0
+	return (player.uses_painted_cels() or HARRY_STG.applies(player)) and state in ["idle","crouch"] and down_aim_blend > 0
 
 func _ready() -> void:
 	if not player: player = get_parent() as CoreMovementPlayer
@@ -106,10 +108,14 @@ func advance(delta: float) -> void:
 		state = "slide"
 		facing = player.facing
 		frame = 3
+	elif player.parkour_active():
+		state = "jump"
+		frame = 3
+		facing = player.parkour.direction
 	elif player.mode == "climb":
 		state = "climb"
 		# World distance drives the cycle; stopping and reversing keep the pose.
-		phase = fposmod(-(player.global_position.y-player.ladder.position.y-12)/48,1)
+		phase = fposmod(-(player.global_position.y-LADDER.rung_origin(player.ladder))/LADDER.CYCLE_DISTANCE,1)
 		frame = posmod(floori(phase*8),8)
 	elif player.mode == "push":
 		state = "pull" if player.movement_axis*player.push_direction < 0 else "push"
@@ -203,6 +209,8 @@ func _update_deform_pose(delta: float,snap := false) -> void:
 		deform_frame_data.clear()
 		return
 	var target: Dictionary = HARRY_MOTION.channels(state,phase,frame)
+	if HARRY_STG.applies(player):
+		target = HARRY_MOTION.stg_channels(target,down_aim_blend if uses_down_aim_pose() else 0.0,player.weapon.ads_blend,player.weapon.aim_direction)
 	var duration := player.visuals.settings.deform_pose_smoothing
 	if snap or harry_channels.is_empty() or duration <= 0: harry_channels = target.duplicate(true)
 	else: harry_channels = _blend_data(harry_channels,target,1-exp(-delta/duration))
@@ -244,8 +252,9 @@ func update_arms() -> void:
 		if player.uses_deformed_skin():
 			arm.upper_length = HARRY.UPPER_ARM
 			arm.lower_length = HARRY.FOREARM
-		# At most 112 degrees of flexion: the elbow never folds back on itself.
-		arm.minimum_reach = 11.75 if uses_down_aim_pose() else 0.0
+		# Separate downward reach limits for Sofia's open pose and Harry's STG.
+		# Fixed segment lengths prevent the elbow folding back on itself.
+		arm.minimum_reach = (10.2 if HARRY_STG.applies(player) else 11.75) if uses_down_aim_pose() else 0.0
 	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
 	if player.grenades and player.grenades.busy():
 		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
@@ -259,24 +268,35 @@ func update_arms() -> void:
 			var desired_height := 33.0 if side == "far" else 45.0
 			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
 				desired_height = -shoulder(side).y+(-12 if side == "far" else 12)
-			var rungs_start := player.ladder.position.y+12
-			var cell := (player.global_position.y-desired_height-rungs_start)/24
+			var rungs_start := LADDER.rung_origin(player.ladder)
+			var step := LADDER.HAND_STRIDE
+			var cell := (player.global_position.y-desired_height-rungs_start)/step
 			var fraction := fposmod(cell,1)
-			var rung := rungs_start+floorf(cell)*24
+			var rung := rungs_start+floorf(cell)*step
 			# Move one hand to the next rung while the other supports the body.
-			rung -= (1-smoothstep(0,.30,fraction))*24
-			var last_rung := rungs_start+floorf((player.ladder.end.y-1-rungs_start)/24)*24
-			rung = clampf(rung,rungs_start-72,last_rung)
-			var hand := Vector2(-14 if side == "far" else 14,rung-player.global_position.y)
-			if player.ladder_side_view: hand.x = 14
-			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
-				# Choose a reachable rung before IK. Clamping the arm alone leaves
+			rung -= (1-smoothstep(0,.30,fraction))*step
+			var last_rung := rungs_start+floorf((player.ladder.end.y-1-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
+			rung = clampf(rung,rungs_start-LADDER.TOP_EXTENSION,last_rung)
+			var hand := Vector2(LADDER.hand_x(player.ladder,side == "far",player.ladder_side_view),rung-player.global_position.y)
+			if player.uses_painted_cels() or player.uses_deformed_skin():
+				# Choose a reachable rung before IK, including the side-view cels.
+				# Clamping the arm alone leaves
 				# its painted glove floating between the character and the ladder.
 				var socket := shoulder(side)
 				var reach_y := sqrt(maxf(0,pow(arm.upper_length+arm.lower_length-.05,2)-pow(hand.x-socket.x,2)))
-				var low := rungs_start+ceilf((player.global_position.y+socket.y-reach_y-rungs_start)/24)*24
-				var high := rungs_start+floorf((player.global_position.y+socket.y+reach_y-rungs_start)/24)*24
+				var low := rungs_start+ceilf((player.global_position.y+socket.y-reach_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
+				var high := rungs_start+floorf((player.global_position.y+socket.y+reach_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
 				hand.y = clampf(rung,low,high)-player.global_position.y
+				# A narrow rail can lie beside the shoulder. Pick another reachable
+				# hold instead of forcing an almost fully folded elbow (over 120°).
+				var minimum := sqrt(arm.upper_length*arm.upper_length+arm.lower_length*arm.lower_length-arm.upper_length*arm.lower_length)
+				if hand.distance_to(socket) < minimum:
+					var minimum_y := sqrt(maxf(0,minimum*minimum-pow(hand.x-socket.x,2)))
+					var above := rungs_start+floorf((player.global_position.y+socket.y-minimum_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
+					var below := rungs_start+ceilf((player.global_position.y+socket.y+minimum_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
+					var chosen := above if above >= low else below
+					if below <= high and absf(below-rung) < absf(chosen-rung): chosen = below
+					hand.y = chosen-player.global_position.y
 			arm.pose(shoulder(side),hand,-1 if side == "far" else 1,side == "far")
 	else:
 		var gun_pose := player.weapon.visual_pose()

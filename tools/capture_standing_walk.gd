@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -17,13 +18,13 @@ func capture() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/standing_walk_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/standing_walk_settings.png"))
 	lab.movement_overlay.tabs.current_tab = 0
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/run_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/run_settings.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	for action in ["core_right","core_walk"]: Input.action_release(action)
 	lab.queue_free()
 	await process_frame

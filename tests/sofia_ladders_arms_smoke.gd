@@ -27,7 +27,7 @@ func run() -> void:
 	gun.tuning.sound_enabled = false
 	gun.tuning.recoil_enabled = false
 	check(hero.ladders.size() == 4 and hero.side_ladders.size() == 2,"two original ladders and two nearby profile ladders")
-	check(hero.ladders[0] == Rect2(1428,540,36,220) and hero.ladders[1] == Rect2(2000,350,36,410),"original landings and ladder entries preserved")
+	check(hero.ladders[0] == Rect2(1437,540,18,220) and hero.ladders[1] == Rect2(2009,350,18,410),"ladder width halved with original centers and landings preserved")
 	for index in hero.ladders.size():
 		var ladder := hero.ladders[index]
 		hero.reset_to(Vector2(ladder.get_center().x,ladder.end.y))

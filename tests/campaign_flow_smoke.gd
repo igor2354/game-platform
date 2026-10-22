@@ -39,7 +39,7 @@ func run() -> void:
 	root.add_child(app)
 	await frames(3)
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/frontend.tscn","application boots into the main menu")
-	check(app.page == "main" and app.buttons.settings.disabled and app.buttons.quit.disabled,"only campaign and polygon are enabled on the main menu")
+	check(app.page == "main" and app.buttons.settings.disabled and not app.buttons.quit.disabled,"campaign, polygon and quit are enabled on the main menu")
 	await click(app.buttons.campaign)
 	check(app.page == "characters","campaign button opens character selection")
 	await click(app.buttons.sofia)
@@ -61,8 +61,10 @@ func run() -> void:
 			var lab: CoreMovementLab = app.game
 			lab.player.weapon.tuning.sound_enabled = false
 			lab.player.weapon.aim_override = lab.player.global_position+Vector2(300,-40)
-			check(lab.campaign_mode and lab.level.prologue_mode and lab.player.is_on_floor() and lab.player.global_position.x > 12000,"prologue starts on its separate long platform: "+id+"/"+weapon.id)
+			check(lab.campaign_mode and lab.level.prologue_mode and lab.level.forest != null and lab.player.is_on_floor() and lab.player.global_position.x > 12000,"prologue starts on its separate forest terrain: "+id+"/"+weapon.id)
 			check(lab.player.character_id == id and not lab.player.body.sprite.visible and lab.player.body.near_arm.character_id == id,"selected character uses the new body and articulated sleeves: "+id)
+			check(lab.find_children("*","TextureRect",true,false).all(func(picture): return picture.texture != FRONTEND.RUINS),"prologue has no ruins backdrop: "+id+"/"+weapon.id)
+			check(lab.player.sofia_cel_variant == (id == "sofia") and lab.player.uses_painted_cels() == (id == "sofia"),"prologue enables the polygon painted skin only for Sofia: "+id+"/"+weapon.id)
 			check(lab.player.weapon.equipped_weapon_id == weapon.id and lab.player.weapon.capacity() == int(weapon.values.magazine_capacity),"equipped model and magazine match the selected weapon: "+weapon.id)
 			check(lab.player.weapon.tuning.fire_mode == weapon.values.fire_mode and lab.player.weapon.tuning.rounds_per_minute == weapon.values.rounds_per_minute and lab.player.weapon.reserve_ammo == weapon.values.starting_reserve,"selected fire mode, rate and reserve are functional: "+weapon.id)
 			check(ART.weapon(CATALOG.index_for(weapon.id)).get_size().x > 100 and is_equal_approx(lab.player.weapon.muzzle_distance(),weapon.length*(1.0-weapon.grip)),"weapon image and muzzle geometry match the selected model: "+weapon.id)

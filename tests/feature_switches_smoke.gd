@@ -2,7 +2,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/feature-switches-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/tmp").path_join("feature-switches-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -51,7 +51,7 @@ func run() -> void:
 		var defaults_match := true
 		for key in toggles: defaults_match = defaults_match and toggles[key].button_pressed == overlay.defaults.get(key)
 		check(covered_groups.size() == overlay.groups.size() and defaults_match,"every mechanic has an active master switch and deliberate option defaults: "+overlay.heading_text)
-	check(total == 37,"all 37 mechanic pages have switches")
+	check(total == 38,"all 38 mechanic pages have switches")
 	flag(move,"run_enabled",false)
 	Input.action_press("core_right")
 	await frames(30)

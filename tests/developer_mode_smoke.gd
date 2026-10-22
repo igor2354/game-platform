@@ -2,7 +2,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/developer-mode-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/tmp").path_join("developer-mode-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -48,7 +48,7 @@ func run() -> void:
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
 	for values in defaults.values(): total += values.size()
-	check(total == 317 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 317 balance values remain in the four-section workspace")
+	check(total == 329 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 329 balance values, including parkour, remain in the four-section workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")
 	check(dev.player_tabs.get_tab_count() == 4 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье","Player groups movement, shooting, camera and health")
@@ -97,6 +97,9 @@ func run() -> void:
 	lab.camera_overlay.rows.zoom.slider.value = 1.25
 	lab.zombie_overlay.zombie_toggles.hearing_enabled.button_pressed = false
 	check(hero.tuning.run_speed == 430 and hero.weapon.tuning.rounds_per_minute == 1100 and lab.camera_settings.zoom == 1.25 and not lab.level.zombie.tuning.hearing_enabled,"all hosted controls edit the same live player, weapon, camera and zombie resources")
+	# Measure horizontal speed on the flat start, not on the new prologue's first slope.
+	hero.reset_to(lab.level.player_spawn()-Vector2(240,0))
+	await frames(4)
 	Input.action_press("core_right")
 	await frames(30)
 	Input.action_release("core_right")

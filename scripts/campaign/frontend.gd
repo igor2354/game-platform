@@ -237,17 +237,11 @@ func launch(campaign: bool) -> void:
 		for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:
 			game.set(entry[0],test_settings_directory.path_join(entry[1]))
 	game.get_node("World/Player").character_id = selected_character
-	game.get_node("World/Player").sofia_cel_variant = not campaign and selected_character == "sofia"
+	game.get_node("World/Player").sofia_cel_variant = selected_character == "sofia"
 	add_child(game)
 	CATALOG.equip(game.player.weapon,selected_weapon)
 	game.shooting_overlay.defaults.apply_values(CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].values)
 	game.shooting_overlay._sync()
-	if campaign:
-		var backdrop := CanvasLayer.new()
-		backdrop.layer = -10
-		game.add_child(backdrop)
-		var picture := _picture(RUINS,Rect2(Vector2.ZERO,BASE),backdrop,TextureRect.STRETCH_SCALE)
-		picture.modulate = Color(.3,.32,.34)
 	game.suppress_mouse_until_release = true
 	game_bar = CanvasLayer.new()
 	game_bar.layer = 60

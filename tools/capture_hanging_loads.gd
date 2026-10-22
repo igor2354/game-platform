@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -12,7 +13,7 @@ func capture() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	root.add_child(lab)
-	lab.export_settings_file("res://docs/core/settings-defaults.json")
+	lab.export_settings_file(MEDIA.path("docs/core/settings-defaults.json"))
 	var hero := lab.player
 	var gun := hero.weapon
 	hero.reset_to(CoreMovementLevel.HANGING_TEST_SPAWN)
@@ -47,17 +48,17 @@ func capture() -> void:
 			gun._fire()
 		await frames(2)
 		await save_image("/private/tmp/hanging-load-frames/%03d.png" % index)
-		if index == 4: await save_image("res://docs/core/hanging_loads.png")
-		if index == 24: await save_image("res://docs/core/hanging_load_falling.png")
-		if index == 45: await save_image("res://docs/core/hanging_load_impact.png")
-		if index == 85: await save_image("res://docs/core/hanging_load_spilled.png")
+		if index == 4: await save_image(MEDIA.path("docs/core/hanging_loads.png"))
+		if index == 24: await save_image(MEDIA.path("docs/core/hanging_load_falling.png"))
+		if index == 45: await save_image(MEDIA.path("docs/core/hanging_load_impact.png"))
+		if index == 85: await save_image(MEDIA.path("docs/core/hanging_load_spilled.png"))
 	caption.hide()
 	paused = true
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_section(CoreDeveloperMode.Section.PHYSICS)
 	lab.ragdoll_overlay.tabs.current_tab = 3
 	await frames(5)
-	await save_image("res://docs/core/hanging_load_settings.png")
+	await save_image(MEDIA.path("docs/core/hanging_load_settings.png"))
 	print("CAPTURE hanging target HP ",target.health," impact ",trap.last_damage," speed ",trap.last_impact_speed)
 	lab.queue_free()
 	await process_frame

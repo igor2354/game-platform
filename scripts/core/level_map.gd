@@ -93,10 +93,29 @@ func _draw_level_geometry(plot: Rect2) -> void:
 		for rung in rung_count:
 			var y := lerpf(top.y,bottom.y,float(rung+1)/float(rung_count+1))
 			draw_line(Vector2(top.x-5,y),Vector2(top.x+5,y),Color("94b6b3"),2)
-	_draw_top_edges(PackedVector2Array(CoreMovementLevel.BARREL_RAMP),plot,Color("c28e58"))
-	for polygon in level.slopes:
-		_draw_top_edges(polygon,plot,Color("c28e58"))
-	_draw_horizontal(CoreMovementLevel.HANGING_BEAM.position.x,CoreMovementLevel.HANGING_BEAM.end.x,CoreMovementLevel.HANGING_BEAM.position.y,plot,Color("778d91"),3)
+	if level.prologue_mode and level.forest:
+		for surface in level.forest.surfaces:
+			for index in range(1,surface.size()):
+				_draw_campaign_edge(surface[index-1],surface[index],plot,terrain_color)
+	else:
+		_draw_top_edges(PackedVector2Array(CoreMovementLevel.BARREL_RAMP),plot,Color("c28e58"))
+		for polygon in level.slopes:
+			_draw_top_edges(polygon,plot,Color("c28e58"))
+		_draw_horizontal(CoreMovementLevel.HANGING_BEAM.position.x,CoreMovementLevel.HANGING_BEAM.end.x,CoreMovementLevel.HANGING_BEAM.position.y,plot,Color("778d91"),3)
+
+func _draw_campaign_edge(first: Vector2,second: Vector2,plot: Rect2,color: Color) -> void:
+	# Clip sloped surfaces to the same revealed sections as horizontal platforms.
+	# Do not reveal a whole long slope just because its midpoint was visited.
+	var minimum := _world_x_bounds().x
+	var cursor := first.x
+	while cursor < second.x:
+		var section := _section_at(cursor)
+		var finish := minf(second.x,minimum+(section+1)*CAMPAIGN_SECTION_WIDTH)
+		if explored_sections.has(section):
+			var a := first.lerp(second,(cursor-first.x)/(second.x-first.x))
+			var b := first.lerp(second,(finish-first.x)/(second.x-first.x))
+			draw_line(_map_point(a,plot),_map_point(b,plot),color,4)
+		cursor = finish
 
 func _draw_horizontal(x0: float,x1: float,y: float,plot: Rect2,color: Color,width: float) -> void:
 	var minimum := _world_x_bounds().x
@@ -141,7 +160,7 @@ func _draw_connections(plot: Rect2) -> void:
 func _draw_landmarks(plot: Rect2,font: Font) -> void:
 	for landmark in level.map_landmarks():
 		var point: Vector2 = landmark.position
-		if not level.prologue_mode and not _is_revealed(point.x) and landmark.kind != "start": continue
+		if landmark.kind != "start" and not _is_revealed(point.x): continue
 		var screen := _map_point(point,plot)
 		var color := Color("81c6a7") if landmark.kind == "start" else Color("d3b47c")
 		if landmark.kind == "edge": color = Color("9c7570")
@@ -185,6 +204,11 @@ func _draw_legend(font: Font) -> void:
 		draw_line(Vector2(500,y-5),Vector2(540,y-5),Color("bdc4b4"),4)
 		draw_string(font,Vector2(548,y),"Пройденный участок",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("d6ddd7"))
 		draw_string(font,Vector2(930,y),"Участок раскрытия: %.0f игровых единиц" % CAMPAIGN_SECTION_WIDTH,HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("9babb1"))
+		var discovered := level.map_landmarks().filter(func(mark): return mark.kind == "zone" and _is_revealed(mark.position.x))
+		for index in discovered.size():
+			var x := 66+(index%3)*480
+			var row_y := y+27+floori(float(index)/3)*22
+			draw_string(font,Vector2(x,row_y),discovered[index].id+" · "+discovered[index].label,HORIZONTAL_ALIGNMENT_LEFT,-1,13,Color("b7c9c6"))
 	else:
 		var landmarks := level.map_landmarks()
 		for index in landmarks.size():
@@ -197,11 +221,11 @@ func _draw_legend(font: Font) -> void:
 			draw_string(font,Vector2(x+40,row_y),landmark.label,HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("d6ddd7"))
 
 func _world_x_bounds() -> Vector2:
-	if level.prologue_mode: return Vector2(CoreMovementLevel.PROLOGUE_FLOOR.position.x,CoreMovementLevel.PROLOGUE_FLOOR.end.x)
+	if level.prologue_mode: return Vector2(CoreMovementLevel.FOREST.BOUNDS.position.x,CoreMovementLevel.FOREST.BOUNDS.end.x)
 	return Vector2(CoreMovementLevel.LEFT_BOUND,CoreMovementLevel.WIDTH)
 
 func _world_y_bounds() -> Vector2:
-	if level.prologue_mode: return Vector2(610,890)
+	if level.prologue_mode: return Vector2(CoreMovementLevel.FOREST.BOUNDS.position.y,CoreMovementLevel.FOREST.BOUNDS.end.y)
 	return Vector2(180,1120)
 
 func _map_point(point: Vector2,plot: Rect2) -> Vector2:

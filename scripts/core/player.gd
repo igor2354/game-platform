@@ -14,7 +14,7 @@ const WORLD_MASK := 1 | 4 | 8
 const ENEMY_MASK := 4
 @export var tuning: CoreMovementSettings
 @export var character_id := "" # Empty preserves the original polygon hero.
-@export var sofia_cel_variant := false # Selected polygon Sofia only; prologue keeps its prior skin.
+@export var sofia_cel_variant := false # Selected Sofia uses the same painted skin in both modes.
 
 func uses_deformed_skin() -> bool:
 	return character_id == "harry" and is_instance_valid(visuals) and visuals.settings.deform_skin_enabled
@@ -42,6 +42,11 @@ func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
 		var height := sqrt(maxf(0,10.8*10.8-along*along))
 		points[side+"_hand"] = shoulder+direction*distance
 		points[side+"_elbow"] = shoulder+direction*along+Vector2(-direction.y,direction.x)*height*body.facing
+var parkour: RefCounted
+
+func parkour_active() -> bool:
+	return parkour != null and parkour.active
+
 var ladders: Array[Rect2] = []
 var side_ladders: Array[Rect2] = []
 var ladder_side_view := false
@@ -111,6 +116,7 @@ var slide_hit_enemies := {}
 var slide_rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	parkour = preload("res://scripts/core/parkour.gd").new(self)
 	slide_rng.randomize()
 	if tuning == null: tuning = CoreMovementSettings.new()
 	air_move_speed = tuning.run_speed
@@ -152,6 +158,7 @@ func _ready() -> void:
 	add_child(blast_ragdoll)
 
 func reset_to(point: Vector2) -> void:
+	if parkour: parkour.cancel(false)
 	collision_layer = 2
 	if blast_ragdoll: blast_ragdoll.cancel()
 	if grenades: grenades.reset_state()
@@ -214,9 +221,10 @@ func reset_to(point: Vector2) -> void:
 	queue_redraw()
 
 func dash_available() -> bool:
-	return not grenades.busy() and tuning.dash_enabled and barrel_knockdown_left <= 0 and not pushing and health > 0 and not climbing and slide_left <= 0 and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or (tuning.air_dash_enabled and not air_dash_used))
+	return not parkour_active() and not grenades.busy() and tuning.dash_enabled and barrel_knockdown_left <= 0 and not pushing and health > 0 and not climbing and slide_left <= 0 and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or (tuning.air_dash_enabled and not air_dash_used))
 
 func transition_to(point: Vector2) -> void:
+	if parkour: parkour.cancel(false)
 	stop_pushing()
 	_clear_dash_exceptions()
 	global_position = point
@@ -296,6 +304,7 @@ func apply_health_limit() -> void:
 	health = clampf(health,0,maximum_health())
 
 func apply_feature_settings() -> void:
+	if not tuning.parkour_enabled and parkour_active(): parkour.cancel()
 	if not tuning.push_enabled: stop_pushing()
 	if not tuning.dash_enabled and dash_left > 0:
 		dash_left = 0
@@ -345,6 +354,7 @@ func take_damage(amount: float) -> bool:
 func receive_shove(impulse: Vector2) -> bool:
 	if health <= 0 or dash_left > 0 or get_tree().paused or not is_finite(impulse.x) or not is_finite(impulse.y): return false
 	stop_pushing()
+	if parkour_active(): parkour.cancel()
 	if climbing: _leave_ladder()
 	if slide_left > 0: _finish_slide()
 	velocity = impulse
@@ -396,6 +406,7 @@ func _physics_process(delta: float) -> void:
 		weapon.update_state(delta,false)
 		return
 	apply_feature_settings()
+	parkour.cooldown = maxf(0,parkour.cooldown-delta)
 	_refresh_dash_exceptions()
 	movement_noise_suppressed = maxf(0,movement_noise_suppressed-delta)
 	var previous_position := global_position
@@ -407,6 +418,7 @@ func _physics_process(delta: float) -> void:
 	hurt_flash = maxf(0,hurt_flash-delta)
 	body.modulate = Color("6c737a") if health <= 0 else Color("ff8f80") if hurt_flash > 0 else Color.WHITE
 	if health <= 0:
+		if parkour_active(): parkour.cancel()
 		stop_pushing()
 		if slide_left > 0: _finish_slide()
 		weapon.update_state(delta,false)
@@ -428,6 +440,16 @@ func _physics_process(delta: float) -> void:
 	sprint_requested = tuning.sprint_enabled and input_allowed and Input.is_action_pressed("core_sprint")
 	var vertical := Input.get_axis("core_up","core_down") if input_allowed else 0.0
 	var jump_held := input_allowed and Input.is_action_pressed("core_jump")
+	if parkour_active():
+		dash_held = Input.is_action_pressed("core_dash")
+		crouch_held = Input.is_action_pressed("core_crouch")
+		queued_grab_press = false
+		parkour.tick(delta,jump_held,input_allowed)
+		weapon.update_state(delta,false)
+		_update_mode()
+		body.advance(delta)
+		queue_redraw()
+		return
 	var dash_pressed := Input.is_action_pressed("core_dash")
 	var dash_requested := input_allowed and dash_pressed and not dash_held
 	dash_held = dash_pressed
@@ -480,6 +502,8 @@ func _physics_process(delta: float) -> void:
 		elif dash_requested and dash_available():
 			_start_dash(axis)
 			_tick_dash(delta)
+		elif parkour.try_start(axis,jump_held):
+			pass
 		else:
 			_tick_run(axis,delta,jump_held)
 	if pushing: _move_grabbed_body(delta,axis,(global_position.x-previous_position.x)/delta)
@@ -535,7 +559,7 @@ func _update_push_contact(axis: float,delta: float,input_allowed: bool) -> void:
 		if pushing:
 			stop_pushing()
 			return
-		if not tuning.push_enabled or health <= 0 or not is_on_floor() or crouching or climbing or dash_left > 0 or slide_left > 0 or shove_left > 0 or weapon.reloading or grenades.busy(): return
+		if not tuning.push_enabled or health <= 0 or not is_on_floor() or crouching or climbing or parkour_active() or dash_left > 0 or slide_left > 0 or shove_left > 0 or weapon.reloading or grenades.busy(): return
 		# Prefer the side being approached; a stationary hero uses the body gaze.
 		var preferred := signf(axis) if axis != 0 else body.facing
 		for direction in [preferred,-preferred]:
@@ -1032,7 +1056,8 @@ func _tick_climb(axis: float,vertical: float,delta: float) -> void:
 		_leave_ladder()
 
 func _update_mode() -> void:
-	if dash_left > 0: mode = "dash"
+	if parkour_active(): mode = parkour.stage
+	elif dash_left > 0: mode = "dash"
 	elif slide_left > 0: mode = "slide"
 	elif climbing: mode = "climb"
 	elif not is_on_floor(): mode = "jump" if velocity.y < 0 else "fall"

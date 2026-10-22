@@ -1,7 +1,8 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const FRONTEND = preload("res://scripts/campaign/frontend.gd")
 var app: Node
-var directory := "res://docs/campaign"
+var directory := MEDIA.path("docs/campaign")
 
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:

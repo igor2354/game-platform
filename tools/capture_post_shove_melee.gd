@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -26,7 +27,7 @@ func capture() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/post_shove_melee.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/post_shove_melee.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

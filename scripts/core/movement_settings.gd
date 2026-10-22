@@ -3,6 +3,7 @@ extends Resource
 
 const SAVE_PATH := "user://core_movement.cfg"
 const SWITCHES := [
+	["parkour_enabled", "Паркур включён", "Паркур", "Удерживайте пробел рядом с краем: захват и подъём, через низкое узкое препятствие — перепрыгивание. Отпускание прерывает действие."],
 	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],
 	["jump_enabled", "Прыжок включён", "Прыжок", "Запрещает новые прыжки; гравитация и уже начатый полёт сохраняются."],
 	["dash_enabled", "Дэш включён", "Дэш", "Запрещает новые дэши и завершает текущий с безопасным восстановлением коллизий."],
@@ -17,6 +18,7 @@ const SWITCHES := [
 	["health_enabled", "Получать урон", "Здоровье", "Выключено: входящий урон не уменьшает HP. Ручное изменение HP, лечение и отдельное бессмертие остаются доступны."],
 	["push_enabled", "Захват и перемещение включены", "Толкание", "G — взять/отпустить предмет; A/D — толкать и тянуть. Выключение освобождает руки; гравитация и импульсы пуль сохраняются."]
 ]
+@export var parkour_enabled := true
 @export var run_enabled := true
 @export var jump_enabled := true
 @export var dash_enabled := true
@@ -33,6 +35,16 @@ const SWITCHES := [
 
 # key, label, minimum, maximum, step, unit, group
 const PARAMS := [
+	["parkour_reach","Дистанция захвата от тела",2.0,24.0,1.0,"px","Паркур"],
+	["parkour_ledge_height","Высота досягаемого уступа",48.0,100.0,1.0,"px","Паркур"],
+	["parkour_vault_height","Предел низкого препятствия",24.0,56.0,1.0,"px","Паркур"],
+	["parkour_vault_width","Предел ширины препятствия",28.0,160.0,1.0,"px","Паркур"],
+	["parkour_clearance","Зазор над препятствием",2.0,16.0,1.0,"px","Паркур"],
+	["parkour_hang_time","Задержка на захвате",0.05,0.6,0.01,"с","Паркур"],
+	["parkour_mantle_time","Время подъёма",0.25,1.5,0.05,"с","Паркур"],
+	["parkour_vault_time","Время преодоления",0.25,1.2,0.05,"с","Паркур"],
+	["parkour_regrab_delay","Задержка повторного захвата",0.1,1.0,0.05,"с","Паркур"],
+	["parkour_drop_limit","Допустимый спуск за препятствием",0.0,80.0,1.0,"px","Паркур"],
 	["run_speed","Скорость бега",100.0,750.0,10.0,"px/с","Бег"],
 	["acceleration","Разгон",200.0,6000.0,50.0,"px/с²","Бег"],
 	["braking","Торможение",200.0,8000.0,50.0,"px/с²","Бег"],
@@ -100,6 +112,17 @@ const PARAMS := [
 	["push_hand_spacing","Разнос кистей по высоте",0.0,20.0,1.0,"px","Толкание"]
 ]
 
+@export_category("Паркур")
+@export var parkour_reach := 12.0
+@export var parkour_ledge_height := 76.0
+@export var parkour_vault_height := 48.0
+@export var parkour_vault_width := 96.0
+@export var parkour_clearance := 4.0
+@export var parkour_hang_time := 0.14
+@export var parkour_mantle_time := 0.65
+@export var parkour_vault_time := 0.55
+@export var parkour_regrab_delay := 0.25
+@export var parkour_drop_limit := 32.0
 @export_category("Здоровье")
 @export var max_health := 100.0
 @export_category("Бег")

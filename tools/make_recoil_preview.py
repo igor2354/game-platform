@@ -1,4 +1,5 @@
 """Assemble native Godot recoil captures; no simulated or redrawn gameplay."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image
 
@@ -10,6 +11,6 @@ for mode in range(2):
         with Image.open(captures / f'{mode}_{index:03d}.png') as source:
             frame = source.convert('RGB').resize((1000, 563), Image.Resampling.LANCZOS)
             frames.append(frame.quantize(colors=96))
-frames[0].save(root / 'docs/core/recoil.gif', save_all=True,
+frames[0].save(media_path("docs/core/recoil.gif"), save_all=True,
                append_images=frames[1:], duration=40, loop=0, optimize=True)
 print('Created docs/core/recoil.gif from native gameplay frames.')

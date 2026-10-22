@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -6,7 +7,7 @@ func capture() -> void:
 	root.add_child(lab)
 	await create_timer(.25).timeout
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/start.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/start.png"))
 	lab.player.reset_to(Vector2(1446,760))
 	Input.action_press("core_up")
 	await create_timer(.7).timeout
@@ -19,7 +20,7 @@ func capture() -> void:
 	lab.camera.reset_smoothing()
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/ladders.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/ladders.png"))
 	lab.player.reset_to(Vector2(3345,690))
 	lab.player.set_physics_process(true)
 	for i in 30: await physics_frame
@@ -30,7 +31,7 @@ func capture() -> void:
 	lab.camera.reset_smoothing()
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/slopes.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/slopes.png"))
 	# Static complete map overview, with no painterly legacy assets.
 	var overview := SubViewport.new()
 	overview.size = Vector2i(int(CoreMovementLevel.WIDTH),900)
@@ -43,5 +44,5 @@ func capture() -> void:
 	camera.make_current()
 	await process_frame
 	await RenderingServer.frame_post_draw
-	overview.get_texture().get_image().get_region(Rect2i(0,230,int(CoreMovementLevel.WIDTH),630)).save_png("res://docs/core/overview.png")
+	overview.get_texture().get_image().get_region(Rect2i(0,230,int(CoreMovementLevel.WIDTH),630)).save_png(MEDIA.path("docs/core/overview.png"))
 	quit()

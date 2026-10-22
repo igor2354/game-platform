@@ -824,7 +824,7 @@ func _process(delta: float) -> void:
 		explosion_camera_shake *= exp(-8*delta)
 		camera_phase += delta
 		if camera_settings.camera_enabled: camera.offset = camera_kick+Vector2(sin(camera_phase*83)*.65,sin(camera_phase*127+1.2))*(camera_shake+explosion_camera_shake)
-	var names := {"ragdoll":"рэгдолл","knocked_down":"сбит с ног","idle":"стойка","run":"бег","walk":"ходьба","sprint":"спринт","slide":"подкат","crouch":"присед","crouch_walk":"ходьба в приседе","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница","push":"предмет: G — отпустить"}
+	var names := {"ledge_hang":"захват уступа","mantle":"подъём на уступ","vault":"через препятствие","ragdoll":"рэгдолл","knocked_down":"сбит с ног","idle":"стойка","run":"бег","walk":"ходьба","sprint":"спринт","slide":"подкат","crouch":"присед","crouch_walk":"ходьба в приседе","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница","push":"предмет: G — отпустить"}
 	hud.text = ("ПОГИБ · F8 — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/%.0f" % [player.health,player.maximum_health()])+(" · БЕССМЕРТИЕ" if player.invulnerable else "")+(" · ПАУЗА" if get_tree().paused else "")
 	var dash_status := "граната в руке" if player.grenades.busy() else "готов" if player.dash_available() else ("в подкате" if player.slide_left > 0 else "на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
 	var sprint_status := "восст. %.1f с" % player.sprint_recovery_left() if player.sprint_exhausted else "%.1f / %.1f с" % [player.sprint_seconds_left(),player.tuning.sprint_duration]
@@ -841,7 +841,7 @@ func _process(delta: float) -> void:
 func _nearby_transition_door() -> CoreTransitionDoor:
 	if player.health <= 0 or player.blast_ragdoll.active or player.barrel_knockdown_left > 0 or player.shove_left > 0:
 		return null
-	if not player.is_on_floor() or player.climbing or player.dash_left > 0 or player.slide_left > 0 or player.pushing or player.grenades.busy():
+	if not player.is_on_floor() or player.parkour_active() or player.climbing or player.dash_left > 0 or player.slide_left > 0 or player.pushing or player.grenades.busy():
 		return null
 	var nearest: CoreTransitionDoor
 	var nearest_distance := INF

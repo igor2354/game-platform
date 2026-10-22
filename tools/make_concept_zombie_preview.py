@@ -1,11 +1,12 @@
 """Encode native Godot capture frames as a compact demonstration GIF."""
+from media_paths import media_path
 from pathlib import Path
 
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path("/private/tmp/concept-zombie-preview")
-DESTINATION = ROOT / "docs/core/concept_zombie.gif"
+DESTINATION = media_path("docs/core/concept_zombie.gif")
 
 
 def main():

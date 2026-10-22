@@ -59,7 +59,7 @@ F3 регулирует взаимодействие персонажа с ни�
 скрипт — `scripts/core/physics_crate.gd`.
 
 Проверка: `tests/physics_crate_smoke.gd`. Превью:
-`docs/core/physics_crate.png`, инструмент — `tools/capture_physics_crate.gd`.
+`../../../5_Проверки и отчёты/Полигон/core/physics_crate.png`, инструмент — `tools/capture_physics_crate.gd`.
 
 
 Проверки разрушения: `tests/crate_health_smoke.gd` — 29 проверок реальных
@@ -67,8 +67,8 @@ F3 регулирует взаимодействие персонажа с ни�
 постоянных физических обломков, повторного урона, паузы, F7/F8 и захвата.
 `tools/capture_crate_destruction.gd` создаёт изображения:
 
-![Повреждение ящика](core/crate_damaged.png)
-![Постоянные обломки](core/crate_destroyed.png)
+![Повреждение ящика](../../../../5_Проверки%20и%20отчёты/Полигон/core/crate_damaged.png)
+![Постоянные обломки](../../../../5_Проверки%20и%20отчёты/Полигон/core/crate_destroyed.png)
 
 `tests/debris_contact_smoke.gd`: 32 проверки размеров, массы, коллизий,
 совпадения траектории игрока с чистым полом при ходьбе, беге, спринте,

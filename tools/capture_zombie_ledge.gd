@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -34,7 +35,7 @@ func capture() -> void:
 		zombie.set_physics_process(false)
 		await process_frame
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png("res://docs/core/zombie_ledge_%s.png" % ("crawl" if prone else "standing"))
+		root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_ledge_%s.png") % ("crawl" if prone else "standing"))
 	lab.queue_free()
 	await process_frame
 	quit()

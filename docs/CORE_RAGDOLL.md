@@ -90,9 +90,9 @@
 сохранение формы тела после попаданий и сравнение с нулевым напряжением.
 `tests/physics_crate_smoke.gd`: **22/22** после добавления манекена.
 
-Превью — `docs/core/ragdoll.gif`; отдельные снимки —
-`docs/core/ragdoll_standing.png` и `docs/core/ragdoll_fallen.png`.
+Превью — `../../../5_Проверки и отчёты/Полигон/core/ragdoll.gif`; отдельные снимки —
+`../../../5_Проверки и отчёты/Полигон/core/ragdoll_standing.png` и `../../../5_Проверки и отчёты/Полигон/core/ragdoll_fallen.png`.
 Создание: `tools/capture_ragdoll.gd`, затем `tools/make_ragdoll_preview.py`.
 
-Панель: `docs/core/ragdoll_settings.png`. Проверка панели, живой физики,
+Панель: `../../../5_Проверки и отчёты/Полигон/core/ragdoll_settings.png`. Проверка панели, живой физики,
 паузы и переноса профилей — `tests/ragdoll_overlay_smoke.gd`: **26/26**.

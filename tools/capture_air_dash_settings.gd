@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -15,9 +16,9 @@ func capture() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/air_dash_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/air_dash_settings.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	lab.queue_free()
 	await process_frame
 	quit()

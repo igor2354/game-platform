@@ -43,7 +43,7 @@ F8 восстанавливает обычную стоячую капсулу.
 `tests/crouch_smoke.gd` — **38 проверок** движения, кадров, коллизий,
 хватов, реальной стрельбы в обе стороны и обоих режимов, прицела,
 низкого потолка, дэша, прыжка, лестницы, F3, паузы и F8.
-Превью: `docs/core/crouch_character.png`, `docs/core/crouch_overlay.png`.
+Превью: `../../../5_Проверки и отчёты/Полигон/core/crouch_character.png`, `../../../5_Проверки и отчёты/Полигон/core/crouch_overlay.png`.
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tests/crouch_smoke.gd

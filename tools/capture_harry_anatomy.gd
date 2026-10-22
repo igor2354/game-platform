@@ -1,6 +1,7 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const MOTION = preload("res://scripts/campaign/harry_motion.gd")
-var directory := "res://docs/harry_anatomy_20261018"
+var directory := MEDIA.path("docs/harry_anatomy_20261018")
 var app: Node
 var hero: CoreMovementPlayer
 func _initialize() -> void: call_deferred("run")

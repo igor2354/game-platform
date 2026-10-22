@@ -21,6 +21,7 @@ var reload_layers := false
 var push_layers := false
 var grenade_layers := false
 var front_arms_layers := false
+var split_arm_layers := false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	blur_material = ShaderMaterial.new()
@@ -37,8 +38,10 @@ func _ready() -> void:
 	add_child(reload_magazine)
 func arrange_layers() -> void:
 	# CanvasGroup composites only matching Z layers. Tree order supplies depth.
-	var front_arms := player.body.uses_down_aim_pose() or (player.climbing and not player.ladder_side_view)
-	if layers_arranged and front_arms_layers == front_arms and reload_layers == player.weapon.reloading and push_layers == (player.pushing or player.climbing) and grenade_layers == (player.grenades != null and player.grenades.busy()): return
+	var split_arm := player.uses_deformed_skin() and is_instance_valid(player.body.far_arm.occlusion_forearm) and player.body.uses_down_aim_pose()
+	var front_arms := (player.body.uses_down_aim_pose() and not split_arm) or (player.climbing and not player.ladder_side_view)
+	if layers_arranged and front_arms_layers == front_arms and split_arm_layers == split_arm and reload_layers == player.weapon.reloading and push_layers == (player.pushing or player.climbing) and grenade_layers == (player.grenades != null and player.grenades.busy()): return
+	split_arm_layers = split_arm
 	front_arms_layers = front_arms
 	reload_layers = player.weapon.reloading
 	push_layers = player.pushing or player.climbing
@@ -64,6 +67,13 @@ func arrange_layers() -> void:
 	if push_layers or grenade_layers:
 		# Sling the gun behind the torso while both complete arms brace the box.
 		move_child(gun,0)
+	if is_instance_valid(player.body.far_arm.occlusion_forearm):
+		# Harry's far shoulder stays behind the coat; only the reaching forearm
+		# crosses in front of it. The receiver then occludes that supporting hand.
+		var surface := player.body.far_arm.occlusion_forearm
+		var before_gun := gun.get_index()
+		if surface.get_index() < before_gun: before_gun -= 1
+		move_child(surface,before_gun)
 func update_effect() -> void:
 	if not player or not player.body: return
 	player.body.sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if settings.visual_enabled and settings.character_linear_filter else CanvasItem.TEXTURE_FILTER_NEAREST

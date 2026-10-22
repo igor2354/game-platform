@@ -1,9 +1,10 @@
 """Review sheets/GIF from native game captures, without altering painted assets."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image, ImageDraw
 import os
 root = Path(__file__).resolve().parents[1]
-folder = root / "docs/sofia_anatomy_v3"
+folder = media_path("docs/sofia_anatomy_v3")
 for character in ("sofia", "harry"):
     sheet = Image.new("RGB", (1440, 1392), "#18242c")
     draw = ImageDraw.Draw(sheet)

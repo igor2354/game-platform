@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -30,13 +31,13 @@ func capture() -> void:
 		quit(1)
 		return
 	paused = true
-	await save_frame("res://docs/core/zombie_stun.png")
+	await save_frame(MEDIA.path("docs/core/zombie_stun.png"))
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_overlay(3)
 	lab.zombie_overlay.tabs.current_tab = 7
 	await process_frame
 	await process_frame
-	await save_frame("res://docs/core/zombie_stun_settings.png")
+	await save_frame(MEDIA.path("docs/core/zombie_stun_settings.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

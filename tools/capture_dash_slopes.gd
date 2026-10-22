@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -23,9 +24,9 @@ func capture() -> void:
 		if child is Label and child.text == "Наклонные поверхности": scroll.scroll_vertical = int(child.position.y)
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/dash_slope_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/dash_slope_settings.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	Input.action_release("core_dash")
 	lab.queue_free()
 	await process_frame

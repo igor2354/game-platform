@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	root.size = Vector2i(1440,960)
@@ -27,7 +28,7 @@ func capture() -> void:
 		push_error("Enemy tools do not fit their visible scroll area")
 		quit(1)
 		return
-	root.get_texture().get_image().save_png("res://docs/core/enemy_test_tools.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/enemy_test_tools.png"))
 	print("CAPTURE: enemy tools with frozen immortal zombie and edited HP")
 	lab.queue_free()
 	await process_frame

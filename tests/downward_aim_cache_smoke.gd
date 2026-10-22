@@ -9,14 +9,15 @@ func check(ok: bool,message: String) -> void:
 	if ok: print("PASS ",message)
 	else: failures += 1; push_error("FAIL "+message)
 func run() -> void:
+	var campaign := "--campaign" in OS.get_cmdline_user_args()
 	var app := preload("res://scripts/campaign/frontend.gd").new()
 	app.load_user_settings = false
 	app.test_settings_directory = OS.get_environment("TEMP").path_join("down-aim-cache-%d" % OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(app.test_settings_directory)
 	root.add_child(app)
-	app.begin_selection(false)
+	app.begin_selection(campaign)
 	app.select_character("sofia")
-	app.launch(false)
+	app.launch(campaign)
 	for i in 8: await physics_frame; await process_frame
 	var hero: CoreMovementPlayer = app.game.player
 	hero.set_physics_process(false)
@@ -25,7 +26,7 @@ func run() -> void:
 	gun.tuning.sound_enabled = false
 	MOUNT.diagnostics_enabled = true
 	for data in CATALOG.WEAPONS:
-		hero.reset_to(Vector2(1900,760))
+		hero.reset_to(Vector2(12400,760) if campaign else Vector2(1900,760))
 		CATALOG.equip(gun,data.id)
 		hero.body.state = "idle"
 		hero.body.down_aim_blend = 1

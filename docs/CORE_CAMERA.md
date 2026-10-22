@@ -127,7 +127,7 @@ F5 сразу показывает новый вид. Закрытие окна 
 /Applications/Godot.app/Contents/MacOS/Godot --path . -s tools/capture_camera_overlay.gd
 ```
 
-Снимки — `docs/core/camera_overlay.png` и `docs/core/camera_overlay_paused.png`.
+Снимки — `../../../5_Проверки и отчёты/Полигон/core/camera_overlay.png` и `../../../5_Проверки и отчёты/Полигон/core/camera_overlay_paused.png`.
 
 `tests/vertical_aim_smoke.gd`: **65 проверок** верха/низа, обеих сторон,
 прицела/огня от бедра, точных вертикальных выстрелов, границ допуска,

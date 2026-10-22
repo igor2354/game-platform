@@ -1,6 +1,7 @@
 extends RefCounted
 ## Fit the rigid weapon to the actor, with fixed-length arms and body clearance.
 const CATALOG = preload("res://scripts/campaign/catalog.gd")
+const HARRY_STG = preload("res://scripts/campaign/harry_stg_pose.gd")
 static var cache: Dictionary = {}
 static var diagnostics_enabled := false
 static var fit_requests := 0
@@ -24,6 +25,7 @@ class FitContext:
 	var minimum_x: float
 	var offsets: PackedVector2Array
 	var down_stance := false
+	var shoulder_mount := false
 	var leg_segments: PackedVector2Array
 	var muzzle: Vector2
 
@@ -37,7 +39,7 @@ static func score(candidate: Vector2,c: FitContext,ceiling := INF) -> float:
 	excess += maxf(0,c.minimum_reach-near_distance)+maxf(0,c.minimum_reach-far_distance)
 	var value := candidate.distance_squared_to(c.desired)+excess*excess*2000
 	var behind := maxf(0,c.minimum_x-candidate.x*c.facing)
-	if not c.down_stance: value += behind*behind*3000
+	if not c.down_stance and not c.shoulder_mount: value += behind*behind*3000
 	if c.down_stance:
 		var underground := maxf(0,candidate.y+c.muzzle.y+2)
 		value += underground*underground*5000
@@ -50,7 +52,7 @@ static func score(candidate: Vector2,c: FitContext,ceiling := INF) -> float:
 		var head_excess := maxf(0,c.head_radius-head_gap)
 		# In the open, three-quarter stance the receiver is in front of the
 		# pelvis in depth. The barrel below it must pass between both legs.
-		if not c.down_stance:
+		if not c.down_stance and not c.shoulder_mount:
 			var torso_gap := point.distance_to(Geometry2D.get_closest_point_to_segment(point,c.neck,c.waist))
 			var torso_excess := maxf(0,5.3-torso_gap)
 			value += torso_excess*torso_excess*3000
@@ -94,6 +96,10 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 		reach = preload("res://scripts/campaign/harry_anatomy.gd").UPPER_ARM+preload("res://scripts/campaign/harry_anatomy.gd").FOREARM-.15
 	var rear := CATALOG.rear_grip(data)
 	var front := CATALOG.front_grip(data)
+	var harry_stg := HARRY_STG.applies(player)
+	if harry_stg:
+		rear = HARRY_STG.rear_grip()
+		front = HARRY_STG.front_grip()
 	var direction: Vector2 = pose.direction
 	var normal: Vector2 = pose.normal
 	if reloading:
@@ -106,21 +112,28 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 	var waist: Vector2 = anchors[2]
 	var head_radius := 5.5 if player.uses_painted_cels() else 10.0
 	if player.uses_deformed_skin(): head_radius = 5.5
+	# A shouldered rifle touches the cheek/scarf edge. Keep the facial core
+	# clear without treating that deliberate contact as a five-pixel collision.
+	if harry_stg and not reloading: head_radius = lerpf(5.5,3.5,smoothstep(0,1,player.weapon.ads_blend))
 	var desired: Vector2 = pose.breech
 	var down_stance := player.body.uses_down_aim_pose() and not reloading
-	if down_stance and data.id != "m1911":
+	if down_stance and data.id != "m1911" and not harry_stg:
 		# Slide the support hand toward the receiver when pointing between the
 		# feet, rather than moving the anatomical shoulder to fit a distant grip.
 		front.x = minf(front.x,5.5)
 	var leg_segments := PackedVector2Array()
 	if down_stance:
-		var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
-		var anatomy: Dictionary = drawn._baseline_readonly(drawn.selection(player))
+		var anatomy: Dictionary
+		if harry_stg: anatomy = player.body.harry_pose()
+		else:
+			var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
+			anatomy = drawn._baseline_readonly(drawn.selection(player))
+		var mirror := Vector2.ONE if harry_stg else Vector2(facing,1)
 		for side in ["left","right"]:
 			for span in [["_hip","_knee"],["_knee","_ankle"]]:
-				leg_segments.append(anatomy.joints[side+span[0]]*Vector2(facing,1))
-				leg_segments.append(anatomy.joints[side+span[1]]*Vector2(facing,1))
-	var cache_key := hash([player.get_instance_id(),data.id,near,far,head,neck,waist,desired,direction,normal,reloading,pose.get("front_grip",Vector2.ZERO),front,down_stance,leg_segments])
+				leg_segments.append(anatomy.joints[side+span[0]]*mirror)
+				leg_segments.append(anatomy.joints[side+span[1]]*mirror)
+	var cache_key := hash([player.get_instance_id(),data.id,harry_stg,near,far,head,neck,waist,head_radius,reach,desired,direction,normal,reloading,pose.get("front_grip",Vector2.ZERO),rear,front,down_stance,leg_segments])
 	if cache.has(cache_key): return cache[cache_key].duplicate(true)
 	var best := desired
 	var best_score := INF
@@ -130,7 +143,7 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 	context.near = near
 	context.far = far
 	context.reach = reach
-	context.minimum_reach = 11.9 if down_stance else 0.0
+	context.minimum_reach = (10.2 if harry_stg else 11.9) if down_stance else 0.0
 	context.desired = desired
 	context.neck = neck
 	context.waist = waist
@@ -140,6 +153,9 @@ static func fit(player: CoreMovementPlayer,pose: Dictionary,reloading := false) 
 	context.minimum_x = maxf(neck.x*facing,waist.x*facing)+5
 	context.offsets = PackedVector2Array([Vector2.ZERO,direction*data.length*.14,direction*data.length*(1-data.grip),normal*3.5])
 	context.down_stance = down_stance
+	# The shouldered STG crosses the chest in depth. Projected torso clearance
+	# must not push its stock away; the head and actual grip reach still apply.
+	context.shoulder_mount = harry_stg and not reloading
 	context.leg_segments = leg_segments
 	context.muzzle = direction*data.length*(1-data.grip)
 	if down_stance:
@@ -183,6 +199,7 @@ static func desired_pivot(player: CoreMovementPlayer,direction: Vector2,blend: f
 	var data: Dictionary = CATALOG.WEAPONS[CATALOG.index_for(player.weapon.equipped_weapon_id)]
 	var normal := direction.orthogonal()*-player.body.facing
 	var near := player.body.shoulder("near")
+	if HARRY_STG.applies(player): return HARRY_STG.pivot(near,direction,normal,blend)
 	var desired: Vector2 = near+direction*data.length*data.grip+normal*lerpf(7,1,blend)
 	if data.id == "m1911": desired = near+direction*(17.5 if player.uses_painted_cels() or player.uses_deformed_skin() else 23.0)+normal*lerpf(6,2,blend)
 	if player.body.uses_down_aim_pose() and not player.weapon.reloading:

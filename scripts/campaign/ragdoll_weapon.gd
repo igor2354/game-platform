@@ -7,6 +7,7 @@ var source: Dictionary
 var weapon_facing := 1.0
 var wrist_angle := 0.0
 var controller: Node2D
+var grip_local := Vector2.ZERO
 func _ready() -> void:
 	var data: Dictionary = CATALOG.WEAPONS[CATALOG.index_for(player.weapon.equipped_weapon_id)]
 	mass = 1.0 if data.id == "m1911" else 3.0
@@ -32,7 +33,9 @@ func _ready() -> void:
 	add_collision_exception_with(rig.parts.right_upper_arm)
 	add_collision_exception_with(rig.parts.left_forearm)
 	var pin := PinJoint2D.new()
-	pin.position = CATALOG.rear_grip(data)*Vector2(1,weapon_facing)
+	var grip_offset: Vector2 = source.rear_grip-source.breech
+	grip_local = Vector2(grip_offset.dot(source.direction),grip_offset.dot(source.normal)*weapon_facing)
+	pin.position = grip_local
 	pin.disable_collision = true
 	add_child(pin)
 	pin.node_a = pin.get_path_to(self)
@@ -45,9 +48,9 @@ func _physics_process(_delta: float) -> void:
 	var held: bool = controller.recovering or controller.recovery_finished or controller.frozen
 	freeze = held
 	if held:
-		var data: Dictionary = CATALOG.WEAPONS[CATALOG.index_for(player.weapon.equipped_weapon_id)]
 		var forearm: RigidBody2D = rig.parts.right_forearm
 		global_rotation = forearm.global_rotation+wrist_angle
-		global_position = forearm.to_global(Vector2(0,forearm.dimensions.y*.5))-global_transform.basis_xform(CATALOG.rear_grip(data)*Vector2(1,weapon_facing))
+		global_position = forearm.to_global(Vector2(0,forearm.dimensions.y*.5))-global_transform.basis_xform(grip_local)
 func _draw() -> void:
-	CATALOG.draw_weapon(self,player.weapon.equipped_weapon_id,Vector2.ZERO,Vector2.RIGHT,Vector2(0,weapon_facing))
+	var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
+	CATALOG.draw_weapon(self,player.weapon.equipped_weapon_id,Vector2.ZERO,Vector2.RIGHT,Vector2(0,weapon_facing),0,true,harry_stg.art_data() if harry_stg.applies(player) else {})

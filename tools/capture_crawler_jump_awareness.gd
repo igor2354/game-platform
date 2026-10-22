@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
 	for i in count:
@@ -53,7 +54,7 @@ func capture() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/crawler_jump_awareness.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/crawler_jump_awareness.png"))
 	print("CAPTURE: melee after jump; HP ",hero.health," facing ",zombie.facing)
 	lab.queue_free()
 	await process_frame

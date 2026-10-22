@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -12,7 +13,7 @@ func capture() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	root.add_child(lab)
-	lab.export_settings_file("res://docs/core/settings-defaults.json")
+	lab.export_settings_file(MEDIA.path("docs/core/settings-defaults.json"))
 	lab.ragdoll_settings.explosion_audio_enabled = false
 	lab.ragdoll_settings.explosion_player_damage_enabled = false
 	lab.player.weapon.tuning.sound_enabled = false
@@ -40,8 +41,8 @@ func capture() -> void:
 		if index == 66: Input.action_release("core_grab")
 		await frames(2)
 		await save_frame("/private/tmp/barrel-roll-frames/%03d.png" % index)
-		if index == 7: await save_frame("res://docs/core/barrel_tipping.png")
-		if index == 29: await save_frame("res://docs/core/barrel_rolling.png")
+		if index == 7: await save_frame(MEDIA.path("docs/core/barrel_tipping.png"))
+		if index == 29: await save_frame(MEDIA.path("docs/core/barrel_rolling.png"))
 	lab.player.stop_pushing()
 	barrel.queue_free()
 	lab.camera_settings.apply_values({"zoom":1.5,"offset_x":250,"offset_y":-100})
@@ -69,14 +70,14 @@ func capture() -> void:
 	lab.player.weapon.tuning.apply_values({"hip_spread":0,"hip_max_spread":0,"recoil_enabled":false,"sound_enabled":false})
 	lab.player.weapon.aim_override = first
 	await frames(8)
-	await save_frame("res://docs/core/barrel_fuel_trail.png")
+	await save_frame(MEDIA.path("docs/core/barrel_fuel_trail.png"))
 	DirAccess.make_dir_recursive_absolute("/private/tmp/barrel-fire-frames")
 	for index in 180:
 		if index == 7: lab.player.weapon._fire()
 		await frames(2)
 		await save_frame("/private/tmp/barrel-fire-frames/%03d.png" % index)
-		if index == 70: await save_frame("res://docs/core/barrel_fire.png")
-		if index == 160: await save_frame("res://docs/core/barrel_fire_explosion.png")
+		if index == 70: await save_frame(MEDIA.path("docs/core/barrel_fire.png"))
+		if index == 160: await save_frame(MEDIA.path("docs/core/barrel_fire_explosion.png"))
 	paused = true
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_section(CoreDeveloperMode.Section.PHYSICS)
@@ -87,7 +88,7 @@ func capture() -> void:
 	var row: Control = lab.ragdoll_overlay.rows.barrel_leak_hits.number.get_parent().get_parent()
 	scroll.scroll_vertical = int(row.position.y)-60
 	await process_frame
-	await save_frame("res://docs/core/barrel_fuel_settings.png")
+	await save_frame(MEDIA.path("docs/core/barrel_fuel_settings.png"))
 	print("CAPTURE flame cells ",field.ignitions," tank destroyed ",barrel.destroyed)
 	lab.queue_free()
 	await process_frame

@@ -20,9 +20,9 @@ static func equip(controller: CoreShootingController,id: String) -> void:
 	controller.apply_tuning()
 	controller.refill_ammunition()
 
-static func draw_weapon(canvas: Node2D,id: String,breech: Vector2,direction: Vector2,normal: Vector2,layer := 0,magazine := true) -> void:
+static func draw_weapon(canvas: Node2D,id: String,breech: Vector2,direction: Vector2,normal: Vector2,layer := 0,magazine := true,layout: Dictionary = {}) -> void:
 	var index := index_for(id)
-	var data: Dictionary = WEAPONS[index]
+	var data: Dictionary = WEAPONS[index] if layout.is_empty() else layout
 	var texture := ART.weapon(index)
 	var size := Vector2(data.length,data.length*texture.get_height()/texture.get_width())
 	canvas.draw_set_transform_matrix(Transform2D(direction,normal,breech))

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 ## Preview actual baked body + procedural arms at 4x; no gameplay overrides saved.
 class Backdrop extends Node2D:
 	func _draw() -> void:
@@ -55,7 +56,7 @@ func capture() -> void:
 	note.text = "Кадры тела дискретные. Хват, локти и отдача оружия двигаются отдельно. Масштаб ×4."
 	note.add_theme_font_size_override("font_size",19)
 	ui.add_child(note)
-	DirAccess.make_dir_recursive_absolute("res://docs/core/hybrid_frames")
+	DirAccess.make_dir_recursive_absolute(MEDIA.path("docs/core/hybrid_frames"))
 	for i in 48:
 		var t := float(i)/24
 		for j in 4:
@@ -87,8 +88,8 @@ func capture() -> void:
 			hero.body.advance(1.0/24)
 		await RenderingServer.frame_post_draw
 		await RenderingServer.frame_post_draw
-		view.get_texture().get_image().save_png("res://docs/core/hybrid_frames/%03d.png" % i)
-		if i == 5: view.get_texture().get_image().save_png("res://docs/core/hybrid_character.png")
+		view.get_texture().get_image().save_png(MEDIA.path("docs/core/hybrid_frames/%03d.png") % i)
+		if i == 5: view.get_texture().get_image().save_png(MEDIA.path("docs/core/hybrid_character.png"))
 	print("CAPTURE: 48 hybrid frames")
 	view.queue_free()
 	await process_frame
@@ -105,7 +106,7 @@ func capture() -> void:
 	lab.camera.position = Vector2(440,610)
 	lab.camera.reset_smoothing()
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/hybrid_gameplay.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/hybrid_gameplay.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

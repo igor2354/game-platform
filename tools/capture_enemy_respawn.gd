@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -10,12 +11,12 @@ func capture() -> void:
 	for enemy in lab.level.enemies: enemy.take_damage(100)
 	await create_timer(.3).timeout
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/enemy_respawn_before.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/enemy_respawn_before.png"))
 	lab.respawn_enemies_button.pressed.emit()
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/enemy_respawn.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/enemy_respawn.png"))
 	lab.queue_free()
 	await process_frame
 	print("CAPTURE: enemy respawn button")

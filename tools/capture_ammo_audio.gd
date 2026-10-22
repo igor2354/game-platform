@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const RATE := 22050
 func _initialize() -> void: call_deferred("capture")
 func samples(stream: AudioStreamWAV) -> PackedFloat32Array:
@@ -41,7 +42,7 @@ func capture() -> void:
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = RATE
 	stream.data = data
-	var error := stream.save_to_wav("res://docs/core/ammo_sound_comparison.wav")
+	var error := stream.save_to_wav(MEDIA.path("docs/core/ammo_sound_comparison.wav"))
 	gun.free()
 	if error != OK: push_error("Could not save sound comparison")
 	print("CAPTURE: five normal shots, then low ammo and last round")

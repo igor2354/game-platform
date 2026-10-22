@@ -61,7 +61,7 @@ func run() -> void:
 	hero.weapon.aim_override = hero.position+Vector2(300,-35)
 	await frames(8)
 	var figure: Node2D = hero.body.find_child("SofiaCelFigure",true,false)
-	check(not lab.campaign_mode and not lab.level.prologue_mode and hero.sofia_cel_variant and hero.uses_painted_cels(),"only the polygon Sofia uses the new cel-based skin")
+	check(not lab.campaign_mode and not lab.level.prologue_mode and hero.sofia_cel_variant and hero.uses_painted_cels(),"polygon Sofia uses the painted skin")
 	check(lab.level.enemies.size() == 6 and lab.level.floors.size() == 2 and lab.level.player_spawn() == Vector2(160,760),"all original polygon geometry, enemies and spawn remain")
 	check(figure.skeleton.get_bone_count() == 13 and figure.meshes.size() == 3,"whole painted body and arms use the thirteen-bone physical-compatible skeleton")
 	var weights_ok := true
@@ -174,7 +174,7 @@ func run() -> void:
 	app.selected_character = "sofia"
 	app.launch(true)
 	await frames(7)
-	check(app.game.campaign_mode and app.game.level.prologue_mode and not app.game.player.sofia_cel_variant and not app.game.player.uses_painted_cels(),"prologue Sofia retains the previous animation path")
+	check(app.game.campaign_mode and app.game.level.prologue_mode and app.game.player.sofia_cel_variant and app.game.player.uses_painted_cels(),"prologue Sofia uses the same painted animation path as the polygon")
 	check(app.game.level.player_spawn() == Vector2(12400,760),"prologue level and spawn remain unchanged")
 	await app.return_to_menu()
 	app.queue_free()

@@ -191,7 +191,7 @@ func refill_ammunition() -> void:
 func request_reload() -> bool:
 	apply_tuning()
 	if not tuning.weapon_enabled or not tuning.magazine_enabled: return false
-	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or reloading or player.pushing or player.barrel_knockdown_left > 0 or get_tree().paused or player.health <= 0 or player.climbing or player.dash_left > 0 or player.slide_left > 0 or magazine_ammo >= capacity() or reserve_ammo <= 0: return false
+	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or reloading or player.pushing or player.barrel_knockdown_left > 0 or get_tree().paused or player.health <= 0 or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or magazine_ammo >= capacity() or reserve_ammo <= 0: return false
 	var pose := visual_pose()
 	reload_facing = player.body.facing
 	reload_start_direction = pose.direction
@@ -227,7 +227,7 @@ func _play_reload_sound(kind: String) -> void:
 
 func _tick_reload(delta: float) -> void:
 	if not reloading: return
-	if player.health <= 0 or player.climbing or player.dash_left > 0 or player.slide_left > 0:
+	if player.health <= 0 or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0:
 		cancel_reload()
 		return
 	reload_left = maxf(0,reload_left-delta)
@@ -253,7 +253,7 @@ func spread_degrees() -> float:
 	return moving*tuning.movement_spread_ads_multiplier if aiming else minf(tuning.hip_max_spread,tuning.hip_spread+bloom)+moving
 
 func movement_spread_target() -> float:
-	if not tuning.movement_spread_enabled or not tuning.weapon_enabled or player.health <= 0 or not player.is_on_floor() or player.climbing or player.dash_left > 0 or player.slide_left > 0 or is_zero_approx(player.velocity.x): return 0.0
+	if not tuning.movement_spread_enabled or not tuning.weapon_enabled or player.health <= 0 or not player.is_on_floor() or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or is_zero_approx(player.velocity.x): return 0.0
 	# Actual ground speed already includes backward, firing and slope modifiers.
 	# Use its tangent length so climbing a hill does not artificially improve aim.
 	var speed := player.velocity.length()
@@ -288,7 +288,7 @@ func look_facing() -> float:
 func requires_standing_for_down_aim() -> bool:
 	# Long firearms need a standing barrel corridor. The pistol can stay kneeling.
 	if equipped_weapon_id == "m1911" or not tuning.weapon_enabled: return false
-	if reloading or player.climbing or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
+	if reloading or player.climbing or player.parkour_active() or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
 	if player.grenades and player.grenades.busy(): return false
 	var direction := (cursor_point()-player.global_position-Vector2(0,-42)).normalized()
 	return direction.y > .78
@@ -306,7 +306,7 @@ func update_state(delta: float,input_allowed: bool) -> void:
 		effect.life -= delta
 		if effect.get("kind","") in ["casing","magazine"]: _tick_casing(effect,delta)
 	effects = effects.filter(func(effect: Dictionary) -> bool: return effect.life > 0)
-	var blocked := (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or not tuning.weapon_enabled or not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.pushing or player.climbing or player.dash_left > 0 or player.slide_left > 0
+	var blocked := (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or not tuning.weapon_enabled or not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.pushing or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0
 	var trigger := tuning.weapon_enabled and Input.is_action_pressed("core_fire")
 	if tuning.fire_mode != last_fire_mode:
 		trigger_needs_release = trigger and trigger_held
@@ -438,7 +438,7 @@ func finish_tick() -> void:
 		burst_time = 0
 		return
 	# Dash and ladder entry take priority over shooting in the same frame.
-	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or player.pushing or player.climbing or player.dash_left > 0 or player.slide_left > 0:
+	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or player.pushing or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0:
 		_tick_movement_spread(player.get_physics_process_delta_time())
 		cancel_reload()
 		aiming = false
@@ -459,7 +459,7 @@ func finish_tick() -> void:
 func _fire() -> void:
 	if player.crouching and requires_standing_for_down_aim(): return
 	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active): return
-	if player.pushing or player.barrel_knockdown_left > 0 or not tuning.weapon_enabled or (not aiming and not tuning.hip_enabled) or reloading or (tuning.magazine_enabled and magazine_ammo <= 0) or player.health <= 0: return
+	if player.parkour_active() or player.pushing or player.barrel_knockdown_left > 0 or not tuning.weapon_enabled or (not aiming and not tuning.hip_enabled) or reloading or (tuning.magazine_enabled and magazine_ammo <= 0) or player.health <= 0: return
 	var rounds_before := magazine_ammo
 	if tuning.magazine_enabled: magazine_ammo -= 1
 	last_shot_spread = spread_degrees()
@@ -704,6 +704,11 @@ func _reload_pose(progress: float) -> Dictionary:
 		var mag_local: Vector2 = catalog.magazine_local(data)
 		var rear_local: Vector2 = catalog.rear_grip(data)
 		var front_local: Vector2 = catalog.front_grip(data)
+		var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
+		if harry_stg.applies(player):
+			mag_local = catalog.magazine_local(harry_stg.art_data())
+			rear_local = harry_stg.rear_grip()
+			front_local = harry_stg.front_grip()
 		magazine_point = breech+direction*mag_local.x+normal*mag_local.y
 		front = breech+direction*front_local.x+normal*front_local.y
 		rear = breech+direction*rear_local.x+normal*rear_local.y
@@ -777,7 +782,8 @@ func draw_weapon(canvas: Node2D,layer := 0) -> void:
 
 func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal: Vector2,bolt := 0.0,magazine := true,layer := 0) -> void:
 	if not equipped_weapon_id.is_empty():
-		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal,layer,magazine)
+		var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
+		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal,layer,magazine,harry_stg.art_data() if harry_stg.applies(player) else {})
 		return
 	# Shared silhouette for the equipped gun and the gun slung on a fallen hero.
 	if magazine:

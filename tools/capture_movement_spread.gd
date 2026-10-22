@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
 	for tick in count:
@@ -24,13 +25,13 @@ func capture() -> void:
 	paused = true
 	Input.action_release("core_left")
 	Input.action_release("core_fire")
-	await save_frame("res://docs/core/movement_spread.png")
+	await save_frame(MEDIA.path("docs/core/movement_spread.png"))
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_overlay(1)
 	lab.shooting_overlay.tabs.current_tab = 7
 	await process_frame
 	await process_frame
-	await save_frame("res://docs/core/movement_spread_settings.png")
+	await save_frame(MEDIA.path("docs/core/movement_spread_settings.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

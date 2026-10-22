@@ -38,7 +38,7 @@ func reset_state() -> void:
 	needs_release = trigger_held
 	refill()
 func prepare() -> bool:
-	if not tuning or not tuning.grenades_enabled or preparing() or count <= 0 or get_tree().paused or player.health <= 0 or player.pushing or player.climbing or player.dash_left > 0 or player.slide_left > 0 or player.barrel_knockdown_left > 0 or (is_instance_valid(player.blast_ragdoll) and player.blast_ragdoll.active): return false
+	if not tuning or not tuning.grenades_enabled or preparing() or count <= 0 or get_tree().paused or player.health <= 0 or player.pushing or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or player.barrel_knockdown_left > 0 or (is_instance_valid(player.blast_ragdoll) and player.blast_ragdoll.active): return false
 	player.weapon.cancel_reload()
 	player.weapon.firing = false
 	player.weapon.aiming = false

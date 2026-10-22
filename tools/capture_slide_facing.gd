@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func label(parent: Node,point: Vector2,text: String,size: int) -> void:
 	var item := Label.new()
@@ -49,7 +50,7 @@ func capture() -> void:
 			label(ui,Vector2(65+frame*180,345+row*360),str(frame+1),20)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	view.get_texture().get_image().save_png("res://docs/core/slide_facing_frames.png")
+	view.get_texture().get_image().save_png(MEDIA.path("docs/core/slide_facing_frames.png"))
 	view.queue_free()
 	await process_frame
 	quit()
