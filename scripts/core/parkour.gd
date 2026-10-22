@@ -19,6 +19,9 @@ var elapsed := 0.0
 var duration := 0.0
 var segment_duration := 0.0
 var hang_time := 0.0
+var jump_was_held := true
+var climb_requested := false
+var jump_rearm_required := false
 
 func _init(actor: CharacterBody2D) -> void:
 	player = actor
@@ -29,10 +32,13 @@ func cancel(delay := true) -> void:
 	progress = 0
 	source = null
 	waypoints.clear()
+	climb_requested = false
 	player.jump_buffer = 0
 	player.coyote = 0
 	if delay: cooldown = player.tuning.parkour_regrab_delay
-	else: cooldown = 0
+	else:
+		cooldown = 0
+		jump_rearm_required = false
 
 func _ray(a: Vector2,b: Vector2,mask := SURFACES) -> Dictionary:
 	var query := PhysicsRayQueryParameters2D.create(a,b,mask,[player.get_rid()])
@@ -69,9 +75,13 @@ func _supported(feet: Vector2) -> bool:
 	return true
 
 func try_start(axis: float,held: bool) -> bool:
+	if not held: jump_rearm_required = false
+	if jump_rearm_required: return false
 	if not held or cooldown > 0 or not player.tuning.parkour_enabled: return false
 	if player.health <= 0 or player.climbing or player.pushing or player.dash_left > 0 or player.slide_left > 0 or player.shove_left > 0 or player.barrel_knockdown_left > 0 or player.grenades.busy() or player.blast_ragdoll.active: return false
-	direction = signf(axis) if axis != 0 else player.weapon.look_facing()
+	# The visible gaze, including backwards movement, decides which edge is reachable.
+	direction = player.weapon.look_facing()
+	if axis != 0 and signf(axis) != direction: return false
 	var feet: Vector2 = player.global_position
 	var reach: float = player.RADIUS+player.tuning.parkour_reach
 	var max_height: float = player.tuning.parkour_ledge_height
@@ -124,6 +134,8 @@ func try_start(axis: float,held: bool) -> bool:
 		active = true
 		stage = "ledge_hang" if kind == "mantle" else "vault"
 		progress = 0
+		jump_was_held = true
+		climb_requested = false
 		hang_time = player.tuning.parkour_hang_time if kind == "mantle" else 0.0
 		duration = player.tuning.parkour_mantle_time if kind == "mantle" else player.tuning.parkour_vault_time
 		waypoint = 0
@@ -165,15 +177,23 @@ func _begin_segment() -> void:
 	# Vertical lift, crossing, controlled landing; timings are frozen at entry.
 	segment_duration = duration*[.40,.45,.15][waypoint]
 
-func tick(delta: float,held: bool,input_allowed: bool) -> void:
+func tick(delta: float,held: bool,cancel_requested: bool,input_allowed: bool) -> void:
 	player.velocity = Vector2.ZERO
-	if not input_allowed: return
-	if not held or not is_instance_valid(source) or source.collision_layer & SURFACES == 0 or not player.tuning.parkour_enabled:
+	var jump_pressed := held and not jump_was_held
+	jump_was_held = held
+	if not is_instance_valid(source) or source.collision_layer & SURFACES == 0 or not player.tuning.parkour_enabled:
 		cancel()
 		return
+	if not input_allowed: return
+	if cancel_requested:
+		cancel()
+		# A held Jump must not immediately catch the same ledge after dropping.
+		jump_rearm_required = held
+		return
 	if stage == "ledge_hang":
-		hang_time -= delta
-		if hang_time > 0: return
+		hang_time = maxf(0,hang_time-delta)
+		if jump_pressed: climb_requested = true
+		if not climb_requested or hang_time > 0: return
 		stage = "mantle"
 	# Moving props/enemies can block a previously clear route: sweep every tick.
 	elapsed = minf(elapsed+delta,segment_duration)

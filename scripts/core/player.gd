@@ -442,9 +442,10 @@ func _physics_process(delta: float) -> void:
 	var jump_held := input_allowed and Input.is_action_pressed("core_jump")
 	if parkour_active():
 		dash_held = Input.is_action_pressed("core_dash")
+		var cancel_parkour := input_allowed and Input.is_action_pressed("core_crouch") and not crouch_held
 		crouch_held = Input.is_action_pressed("core_crouch")
 		queued_grab_press = false
-		parkour.tick(delta,jump_held,input_allowed)
+		parkour.tick(delta,Input.is_action_pressed("core_jump"),cancel_parkour,input_allowed)
 		weapon.update_state(delta,false)
 		_update_mode()
 		body.advance(delta)
