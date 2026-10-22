@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func label(parent: Node,point: Vector2,text: String,size: int) -> void:
 	var item := Label.new()
@@ -22,9 +23,9 @@ func capture() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/backward_movement_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/backward_movement_settings.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	Input.action_release("core_left")
 	lab.queue_free()
 	await process_frame
@@ -69,7 +70,7 @@ func capture() -> void:
 		label(ui,Vector2(50+i*360,630),["БЕГ ЗАДОМ · 224 PX/С","ХОДЬБА ЗАДОМ · 112 PX/С","ПРИСЕД ЗАДОМ · 115 PX/С","СПРИНТ · 520 PX/С"][i],20)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	view.get_texture().get_image().save_png("res://docs/core/backward_movement_poses.png")
+	view.get_texture().get_image().save_png(MEDIA.path("docs/core/backward_movement_poses.png"))
 	view.queue_free()
 	await process_frame
 	quit()

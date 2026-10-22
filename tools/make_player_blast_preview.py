@@ -1,4 +1,5 @@
 """Preview the actual game capture, including the dressed physical hero."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image
 
@@ -10,6 +11,6 @@ for path in sorted(Path('/private/tmp/player-blast-frames').glob('*.png')):
         frames.append(frame.quantize(colors=96))
 if not frames:
     raise SystemExit('Run tools/capture_player_blast.gd first.')
-frames[0].save(root / 'docs/core/player_blast.gif', save_all=True,
+frames[0].save(media_path("docs/core/player_blast.gif"), save_all=True,
                append_images=frames[1:], duration=33, loop=0, optimize=True)
 print(f'Created docs/core/player_blast.gif from {len(frames)} native frames.')

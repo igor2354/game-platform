@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const ART = preload("res://scripts/core/concept_zombie_art.gd")
 class Sheet extends Node2D:
 	var clip := "idle"
@@ -22,7 +23,7 @@ func bake() -> void:
 		await process_frame
 		await RenderingServer.frame_post_draw
 		var image := viewport.get_texture().get_image()
-		var error := image.save_png("res://resources/core/concept_zombie/"+clip+".png")
+		var error := image.save_png(MEDIA.path("generated/concept_zombie/"+clip+".png"))
 		if error != OK:
 			push_error("Cannot save "+clip)
 			quit(1)

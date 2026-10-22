@@ -3,6 +3,7 @@
 Run with Pillow. Coordinates and attachment points are in gameplay pixels;
 textures are supersampled for clean outlines, not runtime skeletal bodies.
 """
+from media_paths import media_path
 from pathlib import Path
 from math import sqrt, sin, cos, pi
 import json
@@ -10,7 +11,7 @@ import argparse
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'resources/core/hybrid'
+OUT = media_path("generated/core_hybrid")
 S = 4
 SIZE = (96, 96)
 PIVOT = (48, 80)

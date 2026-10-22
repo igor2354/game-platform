@@ -2,21 +2,20 @@ class_name CoreMovementLevel
 extends Node2D
 
 @export var prologue_mode := false
+const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
+const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const PROLOGUE_START := Vector2(12400,760)
-const PROLOGUE_FLOOR := Rect2(12000,760,12000,100)
+var forest: FOREST
 
 func player_spawn() -> Vector2:
 	return PROLOGUE_START if prologue_mode else SPAWN
 
 func right_bound() -> float:
-	return PROLOGUE_FLOOR.end.x if prologue_mode else WIDTH
+	return FOREST.BOUNDS.end.x if prologue_mode else WIDTH
 
 func map_landmarks() -> Array[Dictionary]:
 	if prologue_mode:
-		return [
-			{"id":"S","label":"Начало тестовой платформы","position":PROLOGUE_START,"kind":"start"},
-			{"id":"E","label":"Край текущей платформы · цель пролога ещё не задана","position":Vector2(PROLOGUE_FLOOR.end.x,FLOOR),"kind":"edge"}
-		]
+		return forest.map_landmarks() if forest else []
 	return [
 		{"id":"S","label":"Старт","position":SPAWN,"kind":"start"},
 		{"id":"11","label":"Зомби-солдат","position":Vector2(-6350,FLOOR),"kind":"zone"},
@@ -49,9 +48,9 @@ const FAR_RIGHT_DOOR := Vector2(WIDTH-180,FLOOR)
 const ZOMBIE_TEST_SPAWN := Vector2(4980,760)
 var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,760,WIDTH-1160,100)]
 var platforms: Array[Rect2] = [Rect2(1340,540,420,20),Rect2(1780,540,460,20),Rect2(1780,350,460,20)]
-var obstacles: Array[Rect2] = [Rect2(640,690,90,70)]
-var ladders: Array[Rect2] = [Rect2(1428,540,36,220),Rect2(2000,350,36,410)]
-var side_ladders: Array[Rect2] = [Rect2(1650,540,36,220),Rect2(2180,350,36,410)]
+var obstacles: Array[Rect2] = [Rect2(640,690,90,70),Rect2(800,712,56,48)]
+var ladders: Array[Rect2] = [LADDER.make(1446,540,220),LADDER.make(2018,350,410)]
+var side_ladders: Array[Rect2] = [LADDER.make(1668,540,220),LADDER.make(2198,350,410)]
 var enemies: Array[CoreEnemyDummy] = []
 var zombie: CoreZombie
 var concept_zombie: CoreConceptZombie
@@ -72,9 +71,14 @@ func _ready() -> void:
 	# Keep the original two entries and their landings; add profile ladders nearby.
 	if not prologue_mode: ladders.append_array(side_ladders)
 	if prologue_mode:
-		floors.append(PROLOGUE_FLOOR)
-		_solid(Rect2(11960,0,40,1200),false)
-		_solid(Rect2(24000,0,40,1200),false)
+		forest = FOREST.new()
+		add_child(forest)
+		platforms.append_array(forest.platforms)
+		obstacles.append_array(forest.obstacles)
+		ladders.append_array(forest.ladders)
+		slopes.append_array(forest.terrain)
+		_solid(Rect2(FOREST.ORIGIN.x-40,-1500,40,3000),false)
+		_solid(Rect2(FOREST.BOUNDS.end.x,-1500,40,3000),false)
 	for rect in floors+obstacles: _solid(rect,false)
 	for rect in platforms: _solid(rect,true)
 	_solid(HANGING_BEAM,false)
@@ -192,19 +196,10 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array(BARREL_RAMP),Color("43525b"))
 	for i in 2: draw_line(BARREL_RAMP[i],BARREL_RAMP[i+1],Color("81c6a7"),3)
 	for rect in ladders:
-		var color := Color("b4af83")
-		if rect in side_ladders:
-			var center := rect.get_center().x+14
-			draw_line(Vector2(center,rect.position.y-72),Vector2(center,rect.end.y),Color("88aeb9"),4)
-			for y in range(int(rect.position.y)-60,int(rect.end.y),24):
-				draw_line(Vector2(center-7,y+3),Vector2(center+11,y-3),Color("88aeb9"),3)
-			continue
-		# Rails above the landing let a human-sized climber keep a handhold.
-		draw_line(rect.position-Vector2(0,72),Vector2(rect.position.x,rect.end.y),color,3)
-		draw_line(Vector2(rect.end.x,rect.position.y-72),rect.end,color,3)
-		for y in range(int(rect.position.y)-60,int(rect.end.y),24):
-			draw_line(Vector2(rect.position.x,y),Vector2(rect.end.x,y),color,2)
+		var profile := rect in side_ladders
+		LADDER.draw(self,rect,Color("88aeb9") if profile else Color("b4af83"),profile)
 	var font := ThemeDB.fallback_font
+	draw_string(font,Vector2(630,657),"ПАРКУР · удерживайте Space у края",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color("81c6a7"))
 	draw_string(font,Vector2(-6350,510),"11 · ЗОМБИ-СОЛДАТ · F10 — К ЗОНЕ",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("c2b579"))
 	draw_string(font,Vector2(-6350,547),"Новая модель · 16 кадров в каждой анимации",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
 	draw_string(font,Vector2(-6350,579),"F1 — зоны попаданий · F6 — баланс · F7 — возрождение",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))

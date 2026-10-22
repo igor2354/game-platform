@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -27,9 +28,9 @@ func capture() -> void:
 		await frames(2)
 		hero.weapon._fire()
 		await frames(14)
-		if i == 2: await save_frame("res://docs/core/crate_damaged.png")
+		if i == 2: await save_frame(MEDIA.path("docs/core/crate_damaged.png"))
 	await frames(120)
-	await save_frame("res://docs/core/crate_destroyed.png")
+	await save_frame(MEDIA.path("docs/core/crate_destroyed.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

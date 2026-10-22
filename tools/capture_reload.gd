@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const DIRECTORY := "/private/tmp/dead-platform-reload-frames"
 class Backdrop extends Node2D:
 	func _draw() -> void:
@@ -73,7 +74,7 @@ func capture() -> void:
 	for i in 4: await process_frame
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/reload_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/reload_settings.png"))
 	lab.queue_free()
 	await process_frame
 	print("CAPTURE: 84 native reload frames and ammunition settings")

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 
@@ -14,7 +15,7 @@ func capture() -> void:
 	lab.movement_overlay.tabs.current_tab = 4
 	await create_timer(.4).timeout
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/slope_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/slope_settings.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

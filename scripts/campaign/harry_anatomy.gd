@@ -2,7 +2,7 @@ extends RefCounted
 ## Harry's anatomy in the coordinates of the supplied concept, not the lab poses.
 ## Annotation canvas is a uniformly resized 1440 x 1724 view of harry-reference.jpg.
 ## Hip/knee under the coat are reconstructed landmarks; see CORE_DEFORM_HARRY.md.
-const REFERENCE = "res://source_art/campaign/harry-reference.jpg"
+const REFERENCE = "../../../1_Персонажи/Гарри/Исходники/harry-reference.jpg"
 const PIXEL_SCALE := 64.0/(1606.0-180.0)
 const ROOT := Vector2(1085,1606)
 const LANDMARKS := {"hip":Vector2(1065,925),"neck":Vector2(1035,418),

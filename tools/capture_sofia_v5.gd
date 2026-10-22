@@ -1,6 +1,7 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 const CATALOG = preload("res://scripts/campaign/catalog.gd")
-var directory := "res://docs/sofia_fixes_v5"
+var directory := MEDIA.path("docs/sofia_fixes_v5")
 func _initialize() -> void: call_deferred("run")
 func frames(count: int) -> void:
 	for i in count: await physics_frame; await process_frame

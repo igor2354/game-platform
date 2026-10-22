@@ -1,4 +1,5 @@
 """Assemble frames recorded from the running Godot project."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image
 
@@ -11,6 +12,6 @@ for path in sorted(captures.glob('*.png')):
         frames.append(frame.quantize(colors=96))
 if not frames:
     raise SystemExit('Run tools/capture_unified_recoil.gd first.')
-frames[0].save(root / 'docs/core/recoil_compensation.gif', save_all=True,
+frames[0].save(media_path("docs/core/recoil_compensation.gif"), save_all=True,
                append_images=frames[1:], duration=33, loop=0, optimize=True)
 print(f'Created docs/core/recoil_compensation.gif from {len(frames)} native frames.')

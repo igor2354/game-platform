@@ -1,8 +1,9 @@
 """Compose review artifacts from native game renders; never edits sprite assets."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image,ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
-FOLDER = ROOT/"docs/sofia_cycles_v4"
+FOLDER = media_path("docs/sofia_cycles_v4")
 CROP = (620,280,1110,720)
 
 def frame(name,size=(392,352)):

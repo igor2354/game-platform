@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
@@ -11,7 +12,7 @@ func capture() -> void:
 	for i in 110: await physics_frame
 	lab._update_camera(true)
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/ragdoll_standing.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/ragdoll_standing.png"))
 	var folder := "/private/tmp/dead-platform-ragdoll-frames"
 	DirAccess.make_dir_recursive_absolute(folder)
 	var times: Array[int] = []
@@ -22,7 +23,7 @@ func capture() -> void:
 		await RenderingServer.frame_post_draw
 		times.append(Engine.get_physics_frames())
 		root.get_texture().get_image().save_png(folder+"/%03d.png" % frame)
-	root.get_texture().get_image().save_png("res://docs/core/ragdoll_fallen.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/ragdoll_fallen.png"))
 	var timing := FileAccess.open(folder+"/timing.json",FileAccess.WRITE)
 	timing.store_string(JSON.stringify(times))
 	timing.close()

@@ -13,17 +13,19 @@ func frames(count: int) -> void:
 	for i in count: await physics_frame; await process_frame
 func record(origin: Vector2,_direction: Vector2,_ads: bool,_spread: float) -> void: shot_origin = origin
 func run() -> void:
+	var campaign := "--campaign" in OS.get_cmdline_user_args()
+	var test_spawn := Vector2(12400,760) if campaign else Vector2(1900,760)
 	var app := preload("res://scripts/campaign/frontend.gd").new()
 	app.load_user_settings = false
 	app.test_settings_directory = OS.get_environment("TEMP").path_join("sofia-gait-%d" % OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(app.test_settings_directory)
 	root.add_child(app)
-	app.begin_selection(false)
+	app.begin_selection(campaign)
 	app.select_character("sofia")
-	app.launch(false)
+	app.launch(campaign)
 	await frames(8)
 	var hero: CoreMovementPlayer = app.game.player
-	hero.reset_to(Vector2(1900,760))
+	hero.reset_to(test_spawn)
 	hero.set_physics_process(false)
 	var gun := hero.weapon
 	gun.tuning.sound_enabled = false
@@ -48,7 +50,7 @@ func run() -> void:
 		check(body_part.dimensions == Vector2(6.5,8),"anatomical head/collider scale stays independent of clip: "+state)
 	# Exercise the real movement-to-cel path as well as isolated artwork phases.
 	for state in ["walk","run","sprint","crouch_walk"]:
-		hero.reset_to(Vector2(1900,760))
+		hero.reset_to(test_spawn)
 		hero.set_physics_process(true)
 		gun.aim_override = hero.global_position+Vector2(400,-40)
 		Input.action_press("core_right")
@@ -57,10 +59,10 @@ func run() -> void:
 		if state == "crouch_walk": Input.action_press("core_crouch")
 		await frames(25)
 		var meta := DATA.selection(hero)
-		check(hero.position.x > 1902 and hero.body.phase > 0 and meta.drawn_clip == ("walk" if state == "walk" else "crouch_walk" if state == "crouch_walk" else "run"),"live movement advances the correct painted cycle: "+state)
+		check(hero.position.x > test_spawn.x+2 and hero.body.phase > 0 and meta.drawn_clip == ("walk" if state == "walk" else "crouch_walk" if state == "crouch_walk" else "run"),"live movement advances the correct painted cycle: "+state)
 		for action in ["core_right","core_walk","core_sprint","core_crouch"]: Input.action_release(action)
 		hero.set_physics_process(false)
-	hero.reset_to(Vector2(1900,760))
+	hero.reset_to(test_spawn)
 	for state in ["idle","crouch"]:
 		if state == "crouch": CATALOG.equip(gun,"m1911")
 		hero.body.state = state
@@ -117,7 +119,7 @@ func run() -> void:
 				check(silhouette_clear,"actual painted legs leave the bullet path empty: "+state+" / "+str(face)+" / "+data.id)
 				check(physical_bends,"ragdoll accepts the authored outward elbows and knees: "+state+" / "+str(face)+" / "+data.id)
 	# Check that normal physics enters/exits the new drawing, without test-only flags.
-	hero.reset_to(Vector2(1900,760))
+	hero.reset_to(test_spawn)
 	hero.set_physics_process(true)
 	gun.aim_override = hero.global_position+Vector2(0,160)
 	await frames(20)

@@ -54,6 +54,7 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 	actor.rotation = 0
 	height = actor.collision_height() if actor is CoreMovementPlayer else actor.body_size.y
 	if actor is CoreMovementPlayer:
+		if actor.parkour_active(): actor.parkour.cancel()
 		actor.stop_pushing()
 		if actor.climbing: actor._leave_ladder()
 		if actor.slide_left > 0: actor._finish_slide()

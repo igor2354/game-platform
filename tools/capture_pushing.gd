@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -41,8 +42,8 @@ func capture() -> void:
 				Input.action_press("core_left" if side > 0 else "core_right")
 			await frames(3)
 			if side > 0: await save_frame("/private/tmp/core-pushing-frames/%03d.png" % index)
-			if index == 46 and side > 0: await save_frame("res://docs/core/pulling.png")
-			if index == 12: await save_frame("res://docs/core/pushing_%s.png" % ("right" if side > 0 else "left"))
+			if index == 46 and side > 0: await save_frame(MEDIA.path("docs/core/pulling.png"))
+			if index == 12: await save_frame(MEDIA.path("docs/core/pushing_%s.png") % ("right" if side > 0 else "left"))
 		Input.action_release("core_left")
 		Input.action_release("core_right")
 		Input.action_press("core_grab")
@@ -56,7 +57,7 @@ func capture() -> void:
 	lab.movement_overlay.tabs.current_tab = lab.movement_overlay.groups.find("Толкание")
 	await process_frame
 	await process_frame
-	await save_frame("res://docs/core/pushing_settings.png")
+	await save_frame(MEDIA.path("docs/core/pushing_settings.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

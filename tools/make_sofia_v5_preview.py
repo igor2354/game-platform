@@ -1,7 +1,8 @@
 """Compose native game captures for review; sprite atlases are never edited."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image, ImageDraw
-FOLDER = Path(__file__).resolve().parents[1]/"docs/sofia_fixes_v5"
+FOLDER = media_path("docs/sofia_fixes_v5")
 
 def frame(name):
     return Image.open(FOLDER/(name+".png")).convert("RGB").crop((530,160,1070,780)).resize((324,372),Image.Resampling.LANCZOS)

@@ -1,11 +1,12 @@
 """Create NEW anatomical pose diagrams, never retouch generated sprite images."""
+from media_paths import media_path
 from pathlib import Path
 from math import sin, cos, pi, sqrt
 import json
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "source_art/campaign/sofia_v4_guides"
+OUT = media_path("source_art/campaign/sofia_v4_guides")
 
 def knee(hip, ankle, length):
     dx, dy = ankle[0]-hip[0], ankle[1]-hip[1]

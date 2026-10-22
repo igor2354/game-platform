@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 class Backdrop extends Node2D:
 	func _draw() -> void:
 		draw_line(Vector2(-155,0),Vector2(155,0),Color("829398"),.5)
@@ -55,7 +56,7 @@ func capture() -> void:
 		label(ui,Vector2(65+(i%3)*525,520 if i < 3 else 940),["СТОЯ · ОТ БЕДРА","СТОЯ · ПРИЦЕЛ ВПРАВО","СТОЯ · ПРИЦЕЛ ВЛЕВО","ПРИСЕД · ОТ БЕДРА","ПРИСЕД · ПРИЦЕЛ ВПРАВО","ПРИСЕД · ПРИЦЕЛ ВЛЕВО"][i],22)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	view.get_texture().get_image().save_png("res://docs/core/ads_shoulder_pose.png")
+	view.get_texture().get_image().save_png(MEDIA.path("docs/core/ads_shoulder_pose.png"))
 	view.queue_free()
 	await process_frame
 	print("CAPTURE: shoulder ADS and baked head lean, standing/crouched, both sides")

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func label(parent: Node,point: Vector2,text: String,size: int) -> void:
@@ -51,7 +52,7 @@ func capture() -> void:
 	label(ui,Vector2(36,650),"Удерживайте C. Стрельба — ЛКМ, прицел — ПКМ. Настройки — F3 → Приседание.",20)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	view.get_texture().get_image().save_png("res://docs/core/crouch_character.png")
+	view.get_texture().get_image().save_png(MEDIA.path("docs/core/crouch_character.png"))
 	view.queue_free()
 	await process_frame
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -69,9 +70,9 @@ func capture() -> void:
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/crouch_overlay.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/crouch_overlay.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	Input.action_release("core_crouch")
 	Input.action_release("core_aim")
 	lab.queue_free()

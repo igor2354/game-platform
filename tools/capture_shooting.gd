@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
 	for i in count: await physics_frame
@@ -22,7 +23,7 @@ func capture() -> void:
 	lab._process(0)
 	lab.camera.position = Vector2(2800,450)
 	lab.camera.reset_smoothing()
-	await save_image("res://docs/core/shooting_hip.png")
+	await save_image(MEDIA.path("docs/core/shooting_hip.png"))
 	Input.action_release("core_fire")
 	lab._recover()
 	lab.player.reset_to(Vector2(2250,760))
@@ -37,9 +38,9 @@ func capture() -> void:
 	lab._process(0)
 	lab.camera.position = Vector2(2800,450)
 	lab.camera.reset_smoothing()
-	await save_image("res://docs/core/shooting_aim.png")
+	await save_image(MEDIA.path("docs/core/shooting_aim.png"))
 	lab.shooting_overlay.toggle()
 	lab.shooting_overlay.tabs.current_tab = 1
-	await save_image("res://docs/core/shooting_settings.png")
+	await save_image(MEDIA.path("docs/core/shooting_settings.png"))
 	Input.action_release("core_aim")
 	quit()

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
@@ -18,7 +19,7 @@ func capture() -> void:
 		survivor.take_projectile_hit(25,part)
 	await create_timer(.6).timeout
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/enemy_damage.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/enemy_damage.png"))
 	lab.player.reset_to(Vector2(2420,760))
 	lab.camera_settings.apply_values({"offset_x":0,"zoom":2.0})
 	lab.shooting_overlay.toggle()
@@ -26,9 +27,9 @@ func capture() -> void:
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/enemy_damage_settings.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/enemy_damage_settings.png"))
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	lab.queue_free()
 	await process_frame
 	quit()

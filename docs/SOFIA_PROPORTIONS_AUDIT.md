@@ -101,14 +101,14 @@
 SCRIPT ERROR/ERROR/FAIL и предупреждения. Все пять путей настроек временные;
 реальные пять CFG сверены по SHA256 до/после целевого прогона и не изменились.
 
-Существующий [концепт Софии](../source_art/campaign/sofia-reference.jpg) и
-[снимок стойки v3](sofia_anatomy_v3/idle.png) просмотрены как контекст.
+Существующий [концепт Софии](../../../../1_Персонажи/София/Исходники/sofia-reference.jpg) и
+[снимок стойки v3](../../../../1_Персонажи/София/Проверки/sofia_anatomy_v3/idle.png) просмотрены как контекст.
 Снимок исторический, не новый захват и не новое утверждение пользователя.
 Автоматическое сохранение PNG в игре не доказывает художественную верность
 самого PNG концепту. Новые эталоны не утверждались, внешность и механики
 не исправлялись, EXE/PCK не собирались.
 
-Сохранённые журналы: [геометрия и подъём](sofia_proportions_audit_20261018/audit_sofia_proportions-final.log),
-[анатомия](sofia_proportions_audit_20261018/sofia_anatomy_smoke.log),
-[циклы и наведение вниз](sofia_proportions_audit_20261018/sofia_gait_down_smoke.log),
-[лестницы и руки](sofia_proportions_audit_20261018/sofia_ladders_arms_smoke.log).
+Сохранённые журналы: [геометрия и подъём](../../../../1_Персонажи/София/Проверки/sofia_proportions_audit_20261018/audit_sofia_proportions-final.log),
+[анатомия](../../../../1_Персонажи/София/Проверки/sofia_proportions_audit_20261018/sofia_anatomy_smoke.log),
+[циклы и наведение вниз](../../../../1_Персонажи/София/Проверки/sofia_proportions_audit_20261018/sofia_gait_down_smoke.log),
+[лестницы и руки](../../../../1_Персонажи/София/Проверки/sofia_proportions_audit_20261018/sofia_ladders_arms_smoke.log).

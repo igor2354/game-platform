@@ -1,4 +1,5 @@
 """Assemble native gameplay screenshots; painted source assets stay intact."""
+from media_paths import media_path
 from pathlib import Path
 import os
 from PIL import Image
@@ -11,7 +12,7 @@ for index in range(150):
         frames.append(frame.convert("RGB").resize((560, 408), Image.Resampling.LANCZOS))
 palette = frames[0].quantize(colors=128)
 frames = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
-target = root / "docs/sofia_cels/motion.gif"
+target = media_path("docs/sofia_cels/motion.gif")
 frames[0].save(target, save_all=True, append_images=frames[1:],
                duration=50, loop=0, optimize=True, disposal=2)
 print(f"PREVIEW: {len(frames)} frames, 7.5 seconds")

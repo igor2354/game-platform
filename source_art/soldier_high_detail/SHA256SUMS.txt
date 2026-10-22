@@ -1,2 +1,0 @@
-4b1138b3c617d9ff8a915daddc094742272e13911ecc24b94d69bf15651ae9ab  soldier_high_detail.blend
-5703b25c7bd613708e58f3d1dfb09fed7f1897afb495822a8d0be8b247077529  soldier_high_detail.glb

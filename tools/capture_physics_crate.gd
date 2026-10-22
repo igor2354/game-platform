@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
@@ -11,7 +12,7 @@ func capture() -> void:
 	await create_timer(2).timeout
 	lab._update_camera(true)
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/physics_crate.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/physics_crate.png"))
 	lab.queue_free()
 	await process_frame
 	await create_timer(.12).timeout

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
 	var lab: CoreMovementLab = load("res://scenes/main.tscn").instantiate()
@@ -10,7 +11,7 @@ func capture() -> void:
 	lab.camera_overlay.toggle()
 	await create_timer(.25).timeout
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/camera_overlay.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/camera_overlay.png"))
 	paused = true
 	lab.camera_overlay.rows.zoom.slider.value = 2.5
 	await process_frame
@@ -18,7 +19,7 @@ func capture() -> void:
 	(lab.camera_overlay.tabs.get_tab_control(0) as ScrollContainer).ensure_control_visible(lab.camera_overlay.rows.vertical_aim_deadzone.number)
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/camera_overlay_paused.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/camera_overlay_paused.png"))
 	paused = false
 	lab.queue_free()
 	await process_frame

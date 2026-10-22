@@ -86,5 +86,5 @@
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tests/enemy_damage_smoke.gd
 ```
 
-Превью: `docs/core/enemy_damage.png`, `docs/core/enemy_damage_settings.png`.
+Превью: `../../../5_Проверки и отчёты/Полигон/core/enemy_damage.png`, `../../../5_Проверки и отчёты/Полигон/core/enemy_damage_settings.png`.
 Инструмент: `tools/capture_enemy_damage.gd`.

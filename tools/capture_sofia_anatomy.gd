@@ -1,7 +1,8 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var app: Node
 var lab: CoreMovementLab
-var directory := "res://docs/sofia_anatomy_v3"
+var directory := MEDIA.path("docs/sofia_anatomy_v3")
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
 	for i in count:

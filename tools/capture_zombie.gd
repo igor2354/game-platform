@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 
 func _initialize() -> void: call_deferred("capture")
 func capture() -> void:
@@ -26,7 +27,7 @@ func capture() -> void:
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie.png"))
 	paused = false
 	zombie.reset_target()
 	for part in ["left_leg","right_leg"]: zombie.take_projectile_hit(50,part)
@@ -35,7 +36,7 @@ func capture() -> void:
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie_crawler.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_crawler.png"))
 	lab.queue_free()
 	await process_frame
 	quit()
@@ -50,14 +51,14 @@ func capture_vision(lab: CoreMovementLab) -> void:
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie_vision.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_vision.png"))
 	paused = false
 	zombie.facing = 1
 	for tick in 3: await physics_frame
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie_vision_right.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_vision_right.png"))
 	lab.queue_free()
 	await process_frame
 	quit()
@@ -80,10 +81,10 @@ func capture_settings(lab: CoreMovementLab) -> void:
 		await process_frame
 		await process_frame
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png("res://docs/core/%s_%d.png" % ["zombie_switches" if key != "" else "zombie_settings",tab])
+		root.get_texture().get_image().save_png(MEDIA.path("docs/core/%s_%d.png") % ["zombie_switches" if key != "" else "zombie_settings",tab])
 		if key != "": lab.zombie_overlay.zombie_toggles[key].button_pressed = true
 	var defaults := {"movement":lab.movement_overlay.defaults,"shooting":lab.shooting_overlay.defaults,"camera":lab.camera_overlay.defaults,"zombie":lab.zombie_overlay.defaults}
-	lab.SettingsFile.write_file("res://docs/core/settings-defaults.json",defaults)
+	lab.SettingsFile.write_file(MEDIA.path("docs/core/settings-defaults.json"),defaults)
 	lab.queue_free()
 	await process_frame
 	quit()
@@ -108,7 +109,7 @@ func capture_crawl_slope(lab: CoreMovementLab) -> void:
 	paused = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie_crawl_slope.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_crawl_slope.png"))
 	lab.queue_free()
 	await process_frame
 	quit()
@@ -129,7 +130,7 @@ func capture_shove(lab: CoreMovementLab) -> void:
 	zombie.queue_redraw()
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/zombie_shove.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/zombie_shove.png"))
 	lab.queue_free()
 	await process_frame
 	quit()

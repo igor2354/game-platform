@@ -1,4 +1,5 @@
 """Assemble unmodified gameplay capture frames into a compact preview."""
+from media_paths import media_path
 from pathlib import Path
 from PIL import Image
 root = Path(__file__).resolve().parents[1]
@@ -9,6 +10,6 @@ for path in sorted(Path('/private/tmp/grenade-frames').glob('*.png')):
         frames.append(frame.quantize(colors=96))
 if not frames:
     raise SystemExit('Run tools/capture_grenades.gd first.')
-frames[0].save(root / 'docs/core/grenades.gif', save_all=True,
+frames[0].save(media_path("docs/core/grenades.gif"), save_all=True,
                append_images=frames[1:], duration=33, loop=0, optimize=True)
 print(f'Created docs/core/grenades.gif from {len(frames)} native frames.')

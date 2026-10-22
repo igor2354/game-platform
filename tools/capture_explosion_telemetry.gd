@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -32,7 +33,7 @@ func capture() -> void:
 	lab.developer_mode.debug_toggle.button_pressed = true
 	await frames(3)
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/explosion_telemetry.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/explosion_telemetry.png"))
 	print("CAPTURE ",lab.explosion_debug.summary())
 	lab.queue_free()
 	await process_frame

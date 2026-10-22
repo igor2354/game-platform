@@ -144,8 +144,8 @@ B — переключение автоматического и одиночн�
 подброс и увод вверх выбранного режима; предел бокового увода 0 убирает
 горизонтальную составляющую. Откат и камерные импульсы можно отдельно
 выставить в ноль. Громкости по умолчанию: выстрел −18 dB, попадание −13 dB,
-убийство −10 dB. Звуковые примеры: `docs/core/audio/shot.wav`, `hit.wav`, `kill.wav`.
-Пример из игры — `docs/core/combat_feel.gif`, настройки — `combat_feel_settings.png`
+убийство −10 dB. Звуковые примеры: `../../../5_Проверки и отчёты/Полигон/core/audio/shot.wav`, `hit.wav`, `kill.wav`.
+Пример из игры — `../../../5_Проверки и отчёты/Полигон/core/combat_feel.gif`, настройки — `combat_feel_settings.png`
 и `combat_feel_sound.png`.
 
 ## Настройки
@@ -222,6 +222,6 @@ Esc сначала завершает редактирование, затем �
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tests/combat_feel_smoke.gd
 ```
 
-Примеры: `docs/core/shooting_hip.png`, `docs/core/shooting_aim.png`,
-`docs/core/shooting_settings.png`. Старые сцены и арт остаются в архивной части проекта.
-Одиночный режим: `docs/core/shooting_single.png`, `docs/core/shooting_single_settings.png`.
+Примеры: `../../../5_Проверки и отчёты/Полигон/core/shooting_hip.png`, `../../../5_Проверки и отчёты/Полигон/core/shooting_aim.png`,
+`../../../5_Проверки и отчёты/Полигон/core/shooting_settings.png`. Старые сцены и арт остаются в архивной части проекта.
+Одиночный режим: `../../../5_Проверки и отчёты/Полигон/core/shooting_single.png`, `../../../5_Проверки и отчёты/Полигон/core/shooting_single_settings.png`.

@@ -1,4 +1,5 @@
 extends SceneTree
+const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 func _initialize() -> void: call_deferred("capture")
 func frames(count: int) -> void:
@@ -33,7 +34,7 @@ func capture() -> void:
 	layer.add_child(caption)
 	await frames(3)
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/core/concept_zombie_game.png")
+	root.get_texture().get_image().save_png(MEDIA.path("docs/core/concept_zombie_game.png"))
 	DirAccess.make_dir_recursive_absolute("/private/tmp/concept-zombie-preview")
 	for filename in DirAccess.get_files_at("/private/tmp/concept-zombie-preview"):
 		if filename.ends_with(".png") and filename.get_basename().is_valid_int():
