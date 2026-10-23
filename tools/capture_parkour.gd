@@ -11,7 +11,7 @@ func shot(name: String) -> void:
 	var result := root.get_texture().get_image().save_png(directory.path_join(name+".png"))
 	if result != OK: push_error("Capture failed: "+name)
 func run() -> void:
-	directory = MEDIA.path("docs/core/parkour_20261022")
+	directory = MEDIA.path("docs/core/parkour_controls_20261023")
 	root.mode = Window.MODE_WINDOWED
 	root.size = Vector2i(1600,900)
 	var app := preload("res://scripts/campaign/frontend.gd").new()
@@ -33,6 +33,15 @@ func run() -> void:
 		Input.action_press("core_jump")
 		await frames(2)
 		await shot(entry[0]+"_start")
+		if entry[0] == "mantle":
+			await frames(45)
+			await shot("hang_jump_held")
+			Input.action_release("core_jump")
+			await frames(30)
+			await shot("hang_jump_released")
+			Input.action_press("core_jump")
+			await frames(2)
+		Input.action_release("core_jump")
 		await frames(15)
 		await shot(entry[0]+"_lift")
 		await frames(13)
@@ -45,5 +54,5 @@ func run() -> void:
 	lab.movement_overlay.tabs.current_tab = lab.movement_overlay.groups.find("Паркур")
 	await frames(3)
 	await shot("settings")
-	print("PARKOUR CAPTURE: 9 frames complete")
+	print("PARKOUR CAPTURE: 11 frames complete")
 	quit()
