@@ -3,7 +3,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/settings-file-test-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/tmp").path_join("settings-file-test-%d" % OS.get_process_id())
 var preset_path: String
 var scratch_path: String
 var bad_path: String

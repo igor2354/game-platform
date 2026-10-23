@@ -29,7 +29,7 @@ func run() -> void:
 	var overlay := lab.camera_overlay
 	overlay.toggle()
 	overlay.tabs.current_tab = 1
-	check(overlay.tabs.get_tab_title(1) == "Визуал" and overlay.character_filter_toggle != null and overlay.rows.size() == 8,"F5 exposes three blur sliders and the filtering toggle")
+	check(overlay.tabs.get_tab_title(1) == "Визуал" and overlay.character_filter_toggle != null and overlay.rows.size() == CoreCameraSettings.PARAMS.size(),"F5 preserves the blur sliders and filtering toggle alongside current visual controls")
 	overlay.rows.character_blur_strength.slider.value = .5
 	overlay.rows.character_blur_length.number.value = 20
 	overlay.rows.character_blur_start_speed.slider.value = 100
@@ -66,7 +66,7 @@ func run() -> void:
 	paused = false
 	visual.update_effect()
 	check(visual.material != null and is_equal_approx(visual.blur_offset.length(),15),"unpausing restores the configured effect")
-	var path := "/private/tmp/character-visuals-%d.cfg" % OS.get_process_id()
+	var path := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/tmp").path_join("character-visuals-%d.cfg" % OS.get_process_id())
 	var loaded := CoreCameraSettings.new()
 	check(settings.save_saved(path) == OK and loaded.load_saved(path) == OK and loaded.character_blur_strength == .75 and loaded.character_blur_length == 20 and loaded.character_blur_start_speed == 100 and loaded.character_linear_filter,"all visual settings persist in the camera profile")
 	DirAccess.remove_absolute(path)

@@ -1,6 +1,6 @@
 extends Node2D
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
-## Approved forest plan, drawn as geometry only. No external concept art at runtime.
+## Approved forest plan. The user-approved 4K backdrop covers the opening test area.
 ## Heights are positive upwards; all measurements use the existing 64 px capsule.
 
 const H := 64.0
@@ -8,6 +8,23 @@ const ORIGIN := Vector2(12000,760)
 const WIDTH := 330.0*H
 const BOUNDS := Rect2(12000,80,WIDTH,1000)
 const SOIL_BOTTOM := 1280.0
+const BACKDROP = preload("res://resources/campaign/prologue_forest_4k.png")
+const BACKDROP_SCALE := .625
+# Source road at x=1440, y=1650, aligned to the existing spawn floor (not a collider).
+const ROAD_PIXEL := Vector2(1440,1650)
+var backdrop: Sprite2D
+
+func _ready() -> void:
+	backdrop = Sprite2D.new()
+	backdrop.name = "ForestBackdrop"
+	backdrop.texture = BACKDROP
+	backdrop.centered = false
+	backdrop.scale = Vector2.ONE*BACKDROP_SCALE
+	backdrop.position = point(6.25,0)-ROAD_PIXEL*BACKDROP_SCALE
+	backdrop.z_index = -2
+	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	add_child(backdrop)
+	queue_redraw()
 const SECTIONS := [
 	["01","Лес / заброшенная машина",24,[[0,0],[8,0],[12,.5],[18,.5],[24,0]]],
 	["02","Овраг",28,[[0,0],[4,0],[10,-3],[17,-3],[24,0],[28,0]]],
@@ -127,11 +144,14 @@ func map_landmarks() -> Array[Dictionary]:
 
 func _draw() -> void:
 	for x in range(int(ORIGIN.x),int(BOUNDS.end.x)+1,128):
+		if x < point(24,0).x: continue
 		draw_line(Vector2(x,100),Vector2(x,1080),Color("253239"),1)
 	for y in range(120,1081,128):
-		draw_line(Vector2(ORIGIN.x,y),Vector2(BOUNDS.end.x,y),Color("253239"),1)
-	for polygon in terrain: draw_colored_polygon(polygon,Color("3b4c52"))
-	for surface in surfaces: draw_polyline(surface,Color("8fa7ac"),3,true)
+		draw_line(Vector2(point(24,0).x,y),Vector2(BOUNDS.end.x,y),Color("253239"),1)
+	# Keep the opening artwork visible below the feet. Collision polygons are untouched.
+	for index in range(1,terrain.size()): draw_colored_polygon(terrain[index],Color("3b4c52"))
+	for index in surfaces.size():
+		draw_polyline(surfaces[index],Color(.56,.65,.67,.32) if index == 0 else Color("8fa7ac"),1 if index == 0 else 3,true)
 	# Non-colliding supports sit behind the playable plane, not across its path.
 	for x_H in [147.0,156.0]:
 		draw_line(point(x_H,1),point(x_H,8),Color("61777e"),10)
@@ -159,6 +179,7 @@ func _draw() -> void:
 		LADDER.draw(self,rect,Color("c1b68a"))
 	var font := ThemeDB.fallback_font
 	for section in sections:
+		if section.id == "01": continue
 		var origin := ground_point(section.start_H+1.0)
 		draw_string(font,origin+Vector2(0,-164),section.id+" · "+section.label,HORIZONTAL_ALIGNMENT_LEFT,-1,21,Color("b4c9cc"))
 	for guide in guides:

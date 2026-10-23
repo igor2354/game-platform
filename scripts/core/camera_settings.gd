@@ -6,12 +6,18 @@ const SWITCHES := [
 	["camera_enabled", "Слежение камеры включено", "Камера", "Выключено: камера остаётся на месте. Настройки сохраняются до повторного включения."],
 	["map_enabled", "Карта уровня включена", "Визуал", "Выключено: карта не открывается по M. Схема строится по геометрии уровня и сохраняет настройки отображения."],
 	["visual_enabled", "Эффекты героя включены", "Визуал", "Отключает блюр и сглаживание героя, сохраняя их настройки."],
+	["pixel_enabled", "Пиксельный фильтр", "Визуал", "Размер пикселя задаётся ниже. Работает отдельно и вместе с нуаром; интерфейс остаётся чётким."],
+	["scale_reference_enabled", "Линейка и образцы масштаба на полигоне", "Визуал", "Рабочая сверка по Софии и коллажу. В прологе не создаётся. Размеры образцов ещё не утверждены."],
+	["noir_enabled", "Чёрно-белый нуар · красные акценты", "Нуар", "Обрабатывает игровой мир; интерфейс и прицел сохраняют цвет. Выключение сохраняет параметры фильтра."],
 	["deform_skin_enabled", "Гарри: деформируемый рисунок", "Визуал", "Цельные рукава и ноги на сетке. Выключение возвращает прежний сегментный облик и сохраняет параметры."],
 	["sofia_cels_enabled", "София: рисованные кадры", "Визуал", "Цельные кадры с собственной анатомией на полигоне и в кампании; физика получает их текущую позу. Выключение возвращает прежний облик."]
 ]
 @export var camera_enabled := true
 @export var map_enabled := true
 @export var visual_enabled := true
+@export var noir_enabled := false
+@export var pixel_enabled := false
+@export var scale_reference_enabled := false
 @export var deform_skin_enabled := true
 @export var deform_mesh_debug := false
 @export var sofia_cels_enabled := true
@@ -25,12 +31,23 @@ const PARAMS := [
 	["vertical_aim_deadzone","Допуск разворота у вертикали",0.0,80.0,1.0,"°","Камера"],
 	["follow_speed","Плавность: скорость слежения",0.0,30.0,.5,"/с","Камера"],
 	["look_turn_duration","Плавность смены стороны · время",0.0,1.5,.05,"с","Камера"],
+	["pixel_size","Размер пикселя",1.0,16.0,1.0,"px экрана","Визуал"],
 	["character_blur_strength","Интенсивность блюра героя",0.0,1.0,.05,"×","Визуал"],
 	["character_blur_length","Максимальное размытие",0.0,32.0,1.0,"px экрана","Визуал"],
 	["character_blur_start_speed","Блюр от скорости",0.0,1000.0,10.0,"px/с","Визуал"],
 	["deform_pose_smoothing","Гарри: плавность перехода поз",0.0,.20,.01,"с","Визуал"],
 	["deform_joint_volume","Гарри: объём локтей и коленей",0.0,1.2,.05,"×","Визуал"],
-	["sofia_cel_correction","София: поправка головы к прицелу",0.0,1.0,.05,"×","Визуал"]
+	["sofia_cel_correction","София: поправка головы к прицелу",0.0,1.0,.05,"×","Визуал"],
+	["noir_strength","Сила фильтра",0.0,1.0,.05,"×","Нуар"],
+	["noir_contrast","Контраст полутонов",.6,1.6,.05,"×","Нуар"],
+	["noir_gamma","Осветление полутонов",.5,1.8,.05,"×","Нуар"],
+	["noir_shadow_lift","Свет в глубоких тенях",0.0,.2,.005,"×","Нуар"],
+	["noir_highlight_cap","Предел яркости бликов",.55,1.0,.01,"×","Нуар"],
+	["noir_red_strength","Сила красных акцентов",0.0,1.0,.05,"×","Нуар"],
+	["noir_red_width","Диапазон красных оттенков",2.0,40.0,1.0,"°","Нуар"],
+	["noir_red_feather","Мягкость отбора красного",1.0,20.0,1.0,"°","Нуар"],
+	["noir_red_saturation","Минимальная насыщенность красного",.1,.9,.01,"×","Нуар"],
+	["noir_red_brightness","Яркость красного",.5,2.0,.05,"×","Нуар"]
 ]
 @export var zoom := 1.0
 @export var offset_x := 0.0
@@ -41,6 +58,7 @@ const PARAMS := [
 @export var look_turn_duration := .35
 @export var limit_to_level := true
 @export_category("Визуал")
+@export var pixel_size := 3.0
 @export var character_blur_strength := 0.0
 @export var character_blur_length := 12.0
 @export var character_blur_start_speed := 80.0
@@ -48,6 +66,17 @@ const PARAMS := [
 @export var deform_pose_smoothing := .06
 @export var deform_joint_volume := .65
 @export var sofia_cel_correction := .25
+@export_category("Нуар")
+@export var noir_strength := 1.0
+@export var noir_contrast := 1.05
+@export var noir_gamma := 1.05
+@export var noir_shadow_lift := .045
+@export var noir_highlight_cap := .86
+@export var noir_red_strength := 1.0
+@export var noir_red_width := 12.0
+@export var noir_red_feather := 6.0
+@export var noir_red_saturation := .45
+@export var noir_red_brightness := 1.2
 
 func framing_values() -> Dictionary:
 	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled}
@@ -83,7 +112,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	if result != OK: return result
 	var values := {}
 	for key in as_dictionary(): values[key] = config.get_value("camera",key,get(key))
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],true)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["noir_enabled","pixel_enabled","scale_reference_enabled"] else true)
 	apply_values(values)
 	return OK
 func as_text() -> String:

@@ -2,7 +2,7 @@ extends SceneTree
 var checks := 0
 var failures := 0
 var lab: CoreMovementLab
-var path := "/private/tmp/camera-overlay-test-%d.cfg" % OS.get_process_id()
+var path := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/tmp").path_join("camera-overlay-test-%d.cfg" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -27,7 +27,7 @@ func run() -> void:
 	await frames(8)
 	var overlay := lab.camera_overlay
 	var hero := lab.player
-	check(not overlay.visible and overlay.rows.size() == 10 and overlay.camera_limits_toggle != null,"camera window starts closed with zoom, framing, follow and turn controls")
+	check(not overlay.visible and overlay.rows.size() == CoreCameraSettings.PARAMS.size() and overlay.camera_limits_toggle != null,"camera window starts closed with all declared camera, visual and noir controls")
 	await dispatch("core_camera_tuner")
 	check(overlay.visible and not paused,"F5 opens the camera window without pausing the game")
 	check(overlay.rows.offset_y.number.value == -278 and overlay.rows.look_ahead.slider.value == 64,"controls represent the default framing values exactly")
