@@ -36,7 +36,7 @@ func run() -> void:
 	var overlay := lab.camera_overlay
 	var effect := lab.noir_filter
 	check(not settings.noir_enabled and not effect.surface.visible and effect.screen_copy.copy_mode == BackBufferCopy.COPY_MODE_DISABLED,"startup bypasses noir and its screen copy")
-	check(overlay.groups == ["Камера","Визуал","Нуар"] and overlay.feature_toggles.has("noir_enabled"),"F5 exposes an independent noir page and toggle")
+	check(overlay.groups == ["Камера","Визуал","Нуар","Окружение"] and overlay.feature_toggles.has("noir_enabled"),"F5 exposes an independent noir page and toggle alongside the environment page")
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_overlay(2)
 	overlay.tabs.current_tab = 2

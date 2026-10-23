@@ -10,7 +10,13 @@ const SWITCHES := [
 	["scale_reference_enabled", "Линейка и образцы масштаба на полигоне", "Визуал", "Рабочая сверка по Софии и коллажу. В прологе не создаётся. Размеры образцов ещё не утверждены."],
 	["noir_enabled", "Чёрно-белый нуар · красные акценты", "Нуар", "Обрабатывает игровой мир; интерфейс и прицел сохраняют цвет. Выключение сохраняет параметры фильтра."],
 	["deform_skin_enabled", "Гарри: деформируемый рисунок", "Визуал", "Цельные рукава и ноги на сетке. Выключение возвращает прежний сегментный облик и сохраняет параметры."],
-	["sofia_cels_enabled", "София: рисованные кадры", "Визуал", "Цельные кадры с собственной анатомией на полигоне и в кампании; физика получает их текущую позу. Выключение возвращает прежний облик."]
+	["sofia_cels_enabled", "София: рисованные кадры", "Визуал", "Цельные кадры с собственной анатомией на полигоне и в кампании; физика получает их текущую позу. Выключение возвращает прежний облик."],
+	["forest_enabled", "Лунный лес у старта полигона", "Окружение", "Анимированный присланный арт. Коллизии и геометрия прежние. Выключение сохраняет все параметры."],
+	["forest_wind_enabled", "Ветер только в листве", "Окружение", "Колебания красной листвы. Стволы, крупные ветви и цельные силуэты елей неподвижны."],
+	["forest_clouds_enabled", "Движение облаков", "Окружение", "Мягкая деформация неба; луна остаётся неподвижной."],
+	["forest_smoke_enabled", "Движение дыма", "Окружение", "Завихрения трёх нарисованных столбов дыма."],
+	["forest_fire_enabled", "Мерцание пожаров", "Окружение", "Подвижность и нерегулярная яркость огня в дальнем городе."],
+	["forest_water_enabled", "Рябь и блики ручья", "Окружение", "Локальная анимация нарисованной воды. Игровой физики воды не добавляет."]
 ]
 @export var camera_enabled := true
 @export var map_enabled := true
@@ -21,6 +27,12 @@ const SWITCHES := [
 @export var deform_skin_enabled := true
 @export var deform_mesh_debug := false
 @export var sofia_cels_enabled := true
+@export var forest_enabled := true
+@export var forest_wind_enabled := true
+@export var forest_clouds_enabled := true
+@export var forest_smoke_enabled := true
+@export var forest_fire_enabled := true
+@export var forest_water_enabled := true
 
 # Offset and look-ahead use screen pixels, so zoom keeps the chosen framing.
 const PARAMS := [
@@ -47,7 +59,18 @@ const PARAMS := [
 	["noir_red_width","Диапазон красных оттенков",2.0,40.0,1.0,"°","Нуар"],
 	["noir_red_feather","Мягкость отбора красного",1.0,20.0,1.0,"°","Нуар"],
 	["noir_red_saturation","Минимальная насыщенность красного",.1,.9,.01,"×","Нуар"],
-	["noir_red_brightness","Яркость красного",.5,2.0,.05,"×","Нуар"]
+	["noir_red_brightness","Яркость красного",.5,2.0,.05,"×","Нуар"],
+	["forest_radius","Лес: радиус области от старта",600.0,6000.0,100.0,"px","Окружение"],
+	["forest_wind_strength","Ветер: сила",0.0,3.0,.05,"×","Окружение"],
+	["forest_wind_speed","Ветер: темп",0.0,3.0,.05,"×","Окружение"],
+	["forest_clouds_strength","Облака: сила движения",0.0,3.0,.05,"×","Окружение"],
+	["forest_clouds_speed","Облака: темп",0.0,3.0,.05,"×","Окружение"],
+	["forest_smoke_strength","Дым: сила движения",0.0,3.0,.05,"×","Окружение"],
+	["forest_smoke_speed","Дым: темп",0.0,3.0,.05,"×","Окружение"],
+	["forest_fire_strength","Пожары: сила мерцания",0.0,3.0,.05,"×","Окружение"],
+	["forest_fire_speed","Пожары: темп",0.0,3.0,.05,"×","Окружение"],
+	["forest_water_strength","Вода: сила ряби",0.0,3.0,.05,"×","Окружение"],
+	["forest_water_speed","Вода: темп",0.0,3.0,.05,"×","Окружение"]
 ]
 @export var zoom := 1.0
 @export var offset_x := 0.0
@@ -77,6 +100,18 @@ const PARAMS := [
 @export var noir_red_feather := 6.0
 @export var noir_red_saturation := .45
 @export var noir_red_brightness := 1.2
+
+@export var forest_radius := 1800.0
+@export var forest_wind_strength := 1.0
+@export var forest_wind_speed := 1.0
+@export var forest_clouds_strength := 1.0
+@export var forest_clouds_speed := 1.0
+@export var forest_smoke_strength := 1.0
+@export var forest_smoke_speed := 1.0
+@export var forest_fire_strength := 1.0
+@export var forest_fire_speed := 1.0
+@export var forest_water_strength := 1.0
+@export var forest_water_speed := 1.0
 
 func framing_values() -> Dictionary:
 	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled}

@@ -28,6 +28,8 @@ var camera_settings: CoreCameraSettings
 var noir_filter: CoreNoirFilter
 var scale_reference: CoreScaleReference
 var scale_reference_button: Button
+
+var moon_forest: CanvasLayer
 var zombie_overlay: CoreMovementOverlay
 var zombie_settings: CoreZombieSettings
 var concept_zombie_teleport_button: Button
@@ -133,6 +135,12 @@ func _ready() -> void:
 		scale_reference = CoreScaleReference.new()
 		scale_reference.player = player
 		add_child(scale_reference)
+
+	if not campaign_mode:
+		moon_forest = preload("res://scripts/core/moon_forest.gd").new()
+		moon_forest.name = "MoonForest"
+		moon_forest.lab = self
+		add_child(moon_forest)
 	_build_hud()
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.layer = 20
@@ -175,7 +183,7 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Нуар"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"

@@ -6,6 +6,7 @@ const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const PROLOGUE_START := Vector2(12400,760)
 var forest: FOREST
+var atmosphere_opacity := 0.0
 
 func player_spawn() -> Vector2:
 	return PROLOGUE_START if prologue_mode else SPAWN
@@ -185,8 +186,9 @@ func _solid(rect: Rect2,one_way: bool) -> void:
 	add_child(body)
 
 func _draw() -> void:
-	for x in range(int(LEFT_BOUND),int(WIDTH)+1,64): draw_line(Vector2(x,180),Vector2(x,900),Color("253039"),1)
-	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(WIDTH,y),Color("253039"),1)
+	var grid_color := Color(Color("253039"),1.0-atmosphere_opacity*.95)
+	for x in range(int(LEFT_BOUND),int(WIDTH)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)
+	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(WIDTH,y),grid_color,1)
 	for rect in floors+platforms+obstacles:
 		draw_rect(rect,Color("43525b"))
 		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("829398"),3)
