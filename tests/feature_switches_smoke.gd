@@ -46,12 +46,12 @@ func run() -> void:
 		var toggles: Dictionary = overlay.zombie_toggles if overlay.settings is CoreZombieSettings else overlay.feature_toggles
 		var covered_groups := {}
 		for entry in overlay.settings.SWITCHES:
-			if toggles.has(entry[0]) and toggles[entry[0]].button_pressed: covered_groups[entry[2]] = true
+			if toggles.has(entry[0]): covered_groups[entry[2]] = true
 		total += covered_groups.size()
 		var defaults_match := true
 		for key in toggles: defaults_match = defaults_match and toggles[key].button_pressed == overlay.defaults.get(key)
-		check(covered_groups.size() == overlay.groups.size() and defaults_match,"every mechanic has an active master switch and deliberate option defaults: "+overlay.heading_text)
-	check(total == 40,"all 40 mechanic pages, including indoor lighting, have switches")
+		check(covered_groups.size() == overlay.groups.size() and defaults_match,"every mechanic has a master switch with deliberate defaults, including opt-in noir: "+overlay.heading_text)
+	check(total == 41,"all 41 mechanic pages, including indoor lighting and opt-in noir, have switches")
 	flag(move,"run_enabled",false)
 	Input.action_press("core_right")
 	await frames(30)

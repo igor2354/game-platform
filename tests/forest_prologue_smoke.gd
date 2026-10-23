@@ -47,7 +47,12 @@ func drive_to(target_x: float,posture := "route",allow_jump := true) -> bool:
 		var crouch := posture == "crouch" or (posture == "route" and in_tunnel)
 		if crouch: Input.action_press("core_crouch")
 		else: Input.action_release("core_crouch")
-		if jump_left > 0:
+		if allow_jump and hero.parkour.active and hero.parkour.stage == "ledge_hang":
+			# The agreed parkour input requires release + a fresh press to climb.
+			if Input.is_action_pressed("core_jump"): Input.action_release("core_jump")
+			else: Input.action_press("core_jump")
+			jump_left = 0
+		elif jump_left > 0:
 			jump_left -= 1
 			if jump_left == 0: Input.action_release("core_jump")
 		elif allow_jump and not crouch and hero.is_on_floor() and hero.is_on_wall():

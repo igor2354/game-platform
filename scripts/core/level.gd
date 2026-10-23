@@ -231,6 +231,8 @@ func _draw() -> void:
 	draw_string(font,Vector2(-1080,590),"G — взять / отпустить · A/D — толкать / тянуть",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
 	draw_string(font,Vector2(-1080,620),"Выстрел или захват — ragdoll · F8 — восстановить всё",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
 	for i in slopes.size():
+		# Forest draws its own terrain; avoid an opaque duplicate over the approved backdrop.
+		if prologue_mode and i >= slopes.size()-forest.terrain.size(): continue
 		var points := slopes[i]
 		draw_colored_polygon(points,Color("43525b"))
 		for edge in 3: draw_line(points[edge],points[edge+1],Color("81c6a7"),3)
@@ -244,4 +246,4 @@ func _draw() -> void:
 		draw_string(font,item[0],item[1],HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("a4b4ba"))
 	draw_line(SPAWN-Vector2(0,90),SPAWN,Color("81c6a7"),2)
 	draw_string(font,SPAWN-Vector2(40,102),"СТАРТ",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("81c6a7"))
-	draw_string(font,Vector2(975,803),"200 px",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
+	draw_string(font,Vector2(975,803),CoreWorldUnits.distance(200),HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))

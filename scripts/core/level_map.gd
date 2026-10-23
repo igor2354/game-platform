@@ -203,7 +203,7 @@ func _draw_legend(font: Font) -> void:
 		draw_string(font,Vector2(253,y),"Текущий обзор камеры",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("d6ddd7"))
 		draw_line(Vector2(500,y-5),Vector2(540,y-5),Color("bdc4b4"),4)
 		draw_string(font,Vector2(548,y),"Пройденный участок",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("d6ddd7"))
-		draw_string(font,Vector2(930,y),"Участок раскрытия: %.0f игровых единиц" % CAMPAIGN_SECTION_WIDTH,HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("9babb1"))
+		draw_string(font,Vector2(930,y),"Участок раскрытия: "+CoreWorldUnits.distance(CAMPAIGN_SECTION_WIDTH),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("9babb1"))
 		var discovered := level.map_landmarks().filter(func(mark): return mark.kind == "zone" and _is_revealed(mark.position.x))
 		for index in discovered.size():
 			var x := 66+(index%3)*480

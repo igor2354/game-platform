@@ -27,7 +27,7 @@ func run() -> void:
 	check(forest.visible and forest.opacity == 1 and forest.layer < 0,"animated art is behind gameplay at polygon spawn")
 	check(forest.picture.mouse_filter == Control.MOUSE_FILTER_IGNORE and forest.picture.size == root.get_visible_rect().size,"backdrop fits the viewport without consuming input")
 	check(lab.level.floors.size() == 2 and lab.level.enemies.size() == 7 and lab.level.transition_doors.size() == 4 and hero.is_on_floor(),"floor, enemies, transition doors and actor collision are preserved")
-	check(lab.camera_overlay.groups == ["Камера","Визуал","Окружение"],"original camera/visual pages remain with a separate environment page")
+	check(lab.camera_overlay.groups == ["Камера","Визуал","Нуар","Окружение"],"original camera/visual pages remain with a separate environment page")
 	var balance := hero.tuning.as_dictionary()
 	var ammunition := hero.weapon.magazine_ammo
 	lab.camera_overlay.feature_toggles.forest_enabled.button_pressed = false

@@ -30,6 +30,7 @@ var load_button: Button
 var pointer_position := Vector2.ZERO
 var fire_mode_selector: OptionButton
 var character_filter_toggle: CheckButton
+var visual_noir_toggle: CheckButton
 var camera_limits_toggle: CheckButton
 var damage_reaction_toggle: CheckButton
 var zombie_toggles: Dictionary = {}
@@ -124,6 +125,17 @@ func _ready() -> void:
 			else: box.add_child(toggle)
 			feature_toggles[entry[0]] = toggle
 		if settings is CoreCameraSettings and group == "Визуал":
+			visual_noir_toggle = CheckButton.new()
+			visual_noir_toggle.text = "Чёрно-белый нуар · красные акценты"
+			visual_noir_toggle.focus_mode = Control.FOCUS_NONE
+			visual_noir_toggle.toggled.connect(_change_feature_switch.bind("noir_enabled"))
+			box.add_child(visual_noir_toggle)
+			box.move_child(visual_noir_toggle,0)
+			box.move_child(feature_toggles.pixel_enabled,1)
+			var pixel_hint := _label("1 px — исходная детализация; больше — крупнее пиксели.\nМожно сочетать с нуаром; его параметры — во вкладке «Нуар».",14)
+			pixel_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(pixel_hint)
+			box.move_child(pixel_hint,2)
 			character_filter_toggle = CheckButton.new()
 			character_filter_toggle.text = "Сглаживание спрайта тела"
 			character_filter_toggle.focus_mode = Control.FOCUS_NONE
@@ -137,6 +149,10 @@ func _ready() -> void:
 			box.add_child(mesh_debug)
 			feature_toggles["deform_mesh_debug"] = mesh_debug
 			var hint := _label("Для тестов: интенсивность 0 и сглаживание выключено.\nБлюр затрагивает тело, руки и оружие героя.\nПрицел, интерфейс и окружение остаются чёткими.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
+		if settings is CoreCameraSettings and group == "Нуар":
+			var hint := _label("Мягкий чёрно-белый мир и яркие красные акценты.\nКрасный выделяется по исходному цвету, а не по типу объекта.\nУзкий диапазон помогает не окрашивать кожу и коричневые детали.\nИнтерфейс и прицел сохраняют цвет. Параметры входят в профиль камеры.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Разгон":
@@ -263,6 +279,7 @@ func _ready() -> void:
 				slide_knockdown_toggle.toggled.connect(_change_slide_knockdown)
 				box.add_child(slide_knockdown_toggle)
 			_add_row(box,param)
+			if settings is CoreCameraSettings and param[0] == "pixel_size": box.move_child(box.get_child(-1),2)
 	readout = _label("",16)
 	readout.add_theme_color_override("font_color",Color("91c6de"))
 	content.add_child(readout)
@@ -339,11 +356,19 @@ func _add_row(parent: VBoxContainer,param: Array) -> void:
 	number.min_value = param[2]
 	number.max_value = param[3]
 	number.step = param[4]
-	number.suffix = param[5]
+	number.suffix = CoreWorldUnits.source_suffix(param[5])
 	number.custom_minimum_size.x = 145
 	number.value_changed.connect(_change_value.bind(key))
 	number.get_line_edit().text_submitted.connect(_finish_editing)
 	heading.add_child(number)
+	var metric: Label
+	var kind := CoreWorldUnits.metric_kind(param[5])
+	if not kind.is_empty():
+		metric = _label("",14)
+		metric.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		metric.add_theme_color_override("font_color",Color("a9d9c8"))
+		box.add_child(metric)
+		number.tooltip_text = "Ввод — в прежних единицах мира. Подпись ниже: метры; скорости также в км/ч. Рабочая калибровка по стоячему рисунку Софии."
 	var slider := HSlider.new()
 	slider.min_value = param[2]
 	slider.max_value = param[3]
@@ -352,7 +377,7 @@ func _add_row(parent: VBoxContainer,param: Array) -> void:
 	slider.custom_minimum_size.y = 18
 	slider.value_changed.connect(_change_value.bind(key))
 	box.add_child(slider)
-	rows[key] = {"slider":slider,"number":number}
+	rows[key] = {"slider":slider,"number":number,"metric":metric,"metric_kind":kind}
 
 func _layout_panel() -> void:
 	if not panel: return
@@ -444,6 +469,7 @@ func _sync() -> void:
 	if fire_mode_selector: fire_mode_selector.select(settings.fire_mode)
 	if camera_limits_toggle: camera_limits_toggle.set_pressed_no_signal(settings.limit_to_level)
 	if character_filter_toggle: character_filter_toggle.set_pressed_no_signal(settings.character_linear_filter)
+	if visual_noir_toggle: visual_noir_toggle.set_pressed_no_signal(settings.noir_enabled)
 	for key in zombie_toggles: zombie_toggles[key].set_pressed_no_signal(settings.get(key))
 	for key in feature_toggles: feature_toggles[key].set_pressed_no_signal(settings.get(key))
 	if slide_knockdown_toggle: slide_knockdown_toggle.set_pressed_no_signal(settings.slide_knockdown_enabled)
@@ -451,11 +477,17 @@ func _sync() -> void:
 	for key in rows:
 		rows[key].slider.set_value_no_signal(settings.get(key))
 		rows[key].number.set_value_no_signal(settings.get(key))
+		if rows[key].metric: rows[key].metric.text = CoreWorldUnits.format(float(settings.get(key)),rows[key].metric_kind)
 	syncing = false
 	_update_readout()
 	_update_status()
 
 func _update_readout() -> void:
+	_update_readout_values()
+	if not settings is CoreCameraSettings:
+		readout.text = readout.text.replace("px/с²","ед./с²").replace("px/с","ед./с").replace(" px"," ед.")
+
+func _update_readout_values() -> void:
 	if acceleration_preview: acceleration_preview.queue_redraw()
 	if settings is CoreRagdollSettings:
 		if tabs.get_tab_title(tabs.current_tab) == "Гранаты":
@@ -495,10 +527,13 @@ func _update_readout() -> void:
 				readout.text = "Механика выключена\n"+readout.text
 		return
 	if settings is CoreCameraSettings:
-		if tabs.get_tab_title(tabs.current_tab) == "Визуал":
-			readout.text = "Блюр: %.0f%% · радиус до %.0f px экрана\nРастёт со скоростью выше %.0f px/с.\n0× полностью выключает блюр. На паузе блюра нет.\nСглаживание — отдельное смягчение текстуры тела." % [settings.character_blur_strength*100,settings.character_blur_length,settings.character_blur_start_speed]
+		if tabs.get_tab_title(tabs.current_tab) == "Нуар":
+			readout.text = "Нуар: %s · сила %.0f%%\nТени: %.3f · предел бликов: %.2f\nКрасный: ±%.0f° · насыщенность от %.0f%%\nСохранение — в профиле камеры и общем JSON." % ["включён" if settings.noir_enabled else "выключен",settings.noir_strength*100,settings.noir_shadow_lift,settings.noir_highlight_cap,settings.noir_red_width,settings.noir_red_saturation*100]
 			return
-		readout.text = "Масштаб: %.2f× · Видимая ширина ≈ %.0f px\nX+: камера правее героя · Y+: ниже\nДопуск от вертикали вверх/вниз: ±%.0f°\nСмена стороны: %.2f с · 0 — мгновенно\nСкорость слежения 0 — без задержки за героем." % [settings.zoom,get_viewport_rect().size.x/settings.zoom,settings.vertical_aim_deadzone,settings.look_turn_duration]
+		if tabs.get_tab_title(tabs.current_tab) == "Визуал":
+			readout.text = "Пиксели: %s · размер %.0f px · Нуар: %s\nБлюр героя: %.0f%% · радиус до %.0f px\nФильтры мира не затрагивают интерфейс и прицел." % ["вкл." if settings.pixel_enabled else "выкл.",settings.pixel_size,"вкл." if settings.noir_enabled else "выкл.",settings.character_blur_strength*100,settings.character_blur_length]
+			return
+		readout.text = "Масштаб: %.2f× · Видимая ширина %s\nX+: камера правее героя · Y+: ниже\nДопуск от вертикали вверх/вниз: ±%.0f°\nСмена стороны: %.2f с · 0 — мгновенно\nСкорость слежения 0 — без задержки за героем." % [settings.zoom,CoreWorldUnits.distance(get_viewport_rect().size.x/settings.zoom),settings.vertical_aim_deadzone,settings.look_turn_duration]
 		return
 	if settings is CoreShootingSettings:
 		readout.text = "От бедра: %.1f–%.1f° · Темп: %.0f/мин\nСкорость очереди: %.0f%% · В прицеле: %.0f%%" % [settings.hip_spread,settings.hip_max_spread,settings.rounds_per_minute,settings.hip_move_multiplier*100,settings.ads_move_multiplier*100]
@@ -523,7 +558,7 @@ func _update_readout() -> void:
 		return
 	var distance: float = settings.dash_speed*settings.dash_duration
 	var braking: float = settings.run_speed*settings.run_speed/(2*settings.braking)
-	readout.text = "Прыжок ≈ %.0f px · Дэш ≈ %.0f px\nРазгон ≈ %.2f с · Тормозной путь ≈ %.0f px" % [height,distance,settings.acceleration_time(settings.run_speed,settings.acceleration),braking]
+	readout.text = "Высота прыжка %s\nДэш %s\nРазгон ≈ %.2f с · Тормозной путь %s" % [CoreWorldUnits.distance(height),CoreWorldUnits.distance(distance),settings.acceleration_time(settings.run_speed,settings.acceleration),CoreWorldUnits.distance(braking)]
 	if tabs.get_tab_title(tabs.current_tab) == "Дэш":
 		readout.text = "Дэш в воздухе: %s · Дэш ≈ %.0f px\n%s\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nДлительность общая: %.2f с; начатый дэш сохраняет её." % ["включён" if settings.air_dash_enabled else "выключен",distance,"Один дэш до приземления, с учётом восстановления." if settings.air_dash_enabled else "Начать дэш можно только с земли.",settings.dash_speed*settings.dash_slope_multiplier(20,true),settings.dash_speed*settings.dash_slope_multiplier(20,false),settings.dash_speed*settings.dash_slope_multiplier(35,true),settings.dash_speed*settings.dash_slope_multiplier(35,false),settings.dash_duration]
 	if tabs.get_tab_title(tabs.current_tab) in ["Бег","Спринт"]:

@@ -25,6 +25,10 @@ var health_overlay: CoreMovementOverlay
 var shooting_overlay: CoreMovementOverlay
 var camera_overlay: CoreMovementOverlay
 var camera_settings: CoreCameraSettings
+var noir_filter: CoreNoirFilter
+var scale_reference: CoreScaleReference
+var scale_reference_button: Button
+
 var moon_forest: CanvasLayer
 var zombie_overlay: CoreMovementOverlay
 var zombie_settings: CoreZombieSettings
@@ -125,6 +129,14 @@ func _ready() -> void:
 	camera.make_current()
 	camera.process_mode = Node.PROCESS_MODE_ALWAYS
 	_update_camera(true)
+	noir_filter = CoreNoirFilter.new()
+	noir_filter.name = "NoirFilter"
+	add_child(noir_filter)
+	if not level.prologue_mode:
+		scale_reference = CoreScaleReference.new()
+		scale_reference.player = player
+		add_child(scale_reference)
+
 	if not campaign_mode:
 		moon_forest = preload("res://scripts/core/moon_forest.gd").new()
 		moon_forest.name = "MoonForest"
@@ -172,13 +184,24 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Окружение"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
 	camera_overlay.hosted = true
 	camera_overlay.settings_changed.connect(_camera_settings_changed)
 	overlay_layer.add_child(camera_overlay)
+	var visual_box: VBoxContainer = camera_overlay.tabs.get_tab_control(1).get_child(0)
+	scale_reference_button = camera_overlay._button("К линейке масштаба · полигон",func():
+		developer_mode._prepare_action()
+		camera_settings.scale_reference_enabled = true
+		camera_overlay._sync()
+		_camera_settings_changed()
+		player.reset_to(CoreScaleReference.ORIGIN)
+		_update_camera(true))
+	scale_reference_button.disabled = level.prologue_mode
+	visual_box.add_child(scale_reference_button)
+	visual_box.move_child(scale_reference_button,4)
 	zombie_overlay = CoreMovementOverlay.new()
 	zombie_overlay.settings = zombie_settings
 	zombie_overlay.defaults = zombie_defaults
@@ -381,6 +404,7 @@ func _setup_input() -> void:
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
+	layer.layer = 2
 	add_child(layer)
 	var panel := ColorRect.new()
 	panel.color = Color("16212a")
@@ -398,7 +422,7 @@ func _build_hud() -> void:
 	ammo_progress.show_percentage = false
 	ammo_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(ammo_progress)
-	telemetry = _label(layer,Vector2(30,780),"",18)
+	telemetry = _label(layer,Vector2(30,764),"",16)
 	explosion_telemetry = _label(layer,Vector2(30,750),"",15)
 	explosion_telemetry.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	explosion_telemetry.hide()
@@ -626,6 +650,8 @@ func _close_level_map() -> void:
 	get_tree().paused = map_was_paused
 
 func _camera_settings_changed() -> void:
+	if noir_filter: noir_filter.apply_settings(camera_settings)
+	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
 	if map_button:
 		map_button.disabled = not camera_settings.map_enabled
 		map_button.text = "Карта отключена · F5" if not camera_settings.map_enabled else "Карта уровня · M"
@@ -845,7 +871,7 @@ func _process(delta: float) -> void:
 	hud.text = ("ПОГИБ · F8 — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/%.0f" % [player.health,player.maximum_health()])+(" · БЕССМЕРТИЕ" if player.invulnerable else "")+(" · ПАУЗА" if get_tree().paused else "")
 	var dash_status := "граната в руке" if player.grenades.busy() else "готов" if player.dash_available() else ("в подкате" if player.slide_left > 0 else "на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
 	var sprint_status := "восст. %.1f с" % player.sprint_recovery_left() if player.sprint_exhausted else "%.1f / %.1f с" % [player.sprint_seconds_left(),player.tuning.sprint_duration]
-	telemetry.text = "Состояние: %s · Скорость: %.0f / %.0f · Спринт: %s · Дэш: %s (%.0f px) · Возвраты: %d" % [names[player.mode],player.velocity.x,player.velocity.y,sprint_status,dash_status,player.last_dash_distance,respawns]
+	telemetry.text = "Состояние: %s · Скорость: %s · Возвраты: %d\nX/Y: %.1f / %.1f ед./с · Спринт: %s · Дэш: %s (%s)" % [names[player.mode],CoreWorldUnits.speed(player.velocity.length()),respawns,player.velocity.x,player.velocity.y,sprint_status,dash_status,CoreWorldUnits.distance(player.last_dash_distance)]
 	var weapon := player.weapon
 	ammo_label.text = "Патроны: %d/%d · Запас: %d%s" % [weapon.magazine_ammo,weapon.capacity(),weapon.reserve_ammo," · ПЕРЕЗАРЯДКА %.0f%%" % (weapon.reload_progress()*100) if weapon.reloading else " · ПУСТО — R" if weapon.magazine_ammo == 0 and weapon.reserve_ammo > 0 else " · НЕТ ПАТРОНОВ" if weapon.magazine_ammo == 0 else ""]
 	ammo_label.text += " · Гранаты: %d · T" % player.grenades.count
