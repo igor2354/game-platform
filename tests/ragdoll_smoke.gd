@@ -59,7 +59,7 @@ func run() -> void:
 	check(held and not mannequin.active,"initial pose is held with physical bodies ready for activation")
 	await frames(120)
 	check(absf(mannequin.parts.head.global_position.y-(CoreMovementLevel.FLOOR-85)) < .1,"initial mannequin remains upright until hit")
-	check(lab.level.enemies.size() == 6,"physical mannequin does not enter the combat enemy roster")
+	check(lab.level.enemies.size() == 7,"physical mannequin does not enter the combat enemy roster")
 	await shoot_from(1)
 	check(mannequin.active and mannequin.impacts == 1,"a real projectile releases the entire ragdoll")
 	var dynamic := true

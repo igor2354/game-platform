@@ -40,7 +40,7 @@ func run() -> void:
 	var overlay := lab.zombie_overlay
 	var zombie := lab.level.zombie
 	var hero := lab.player
-	check(not overlay.visible and overlay.rows.size() == 30 and overlay.tabs.get_tab_count() == 8 and overlay.zombie_toggles.size() == 8 and overlay.damage_reaction_toggle != null,"F6 starts closed with thirty numeric controls and eight module switches")
+	check(not overlay.visible and overlay.rows.size() == 36 and overlay.tabs.get_tab_count() == 9 and overlay.zombie_toggles.size() == 9 and overlay.damage_reaction_toggle != null,"F6 starts closed with thirty-six numeric controls and nine module switches")
 	check(zombie.tuning == lab.zombie_settings and overlay.settings == zombie.tuning and overlay.defaults != zombie.tuning,"the panel edits the zombie's runtime resource rather than project defaults")
 	await dispatch("core_zombie_tuner")
 	check(overlay.visible and not paused and overlay.rows.vision_angle.number.value == 120,"F6 opens the zombie panel during play")

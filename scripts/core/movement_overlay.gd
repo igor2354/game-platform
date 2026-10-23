@@ -198,6 +198,10 @@ func _ready() -> void:
 			var hint := _label("При потере ноги: угол — склон, высота — ступень.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
+		if settings is CoreZombieSettings and group == "Освещение":
+			var hint := _label("Войдите в комнату и выстрелите в настенную лампу.\nF1 показывает реальный конус с учётом света.\nСлух, память и ближний контакт не отключаются.\nF7 — враги; F8 или кнопка ниже — ремонт лампы.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
 		if settings is CoreZombieSettings and group == "Попадания":
 			var hint := _label("Множитель — к погоне и ползанию до обнаружения.\nУвидев игрока, использует обычную скорость.\nЗрение и слух работают независимо от переключателя.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -474,6 +478,7 @@ func _update_readout() -> void:
 	if settings is CoreZombieSettings:
 		match tabs.get_tab_title(tabs.current_tab):
 			"Зрение": readout.text = "Сектор: %.0f° · Обнаружение: %.0f px\nСмещение X: %.0f px · X+ вперёд, X− назад\nF1 — сектор и слух; со спины может услышать." % [settings.vision_angle,settings.detection_range,settings.vision_offset_x]
+			"Освещение": readout.text = "Без света: дальность %.0f px · угол %.1f°\nЛампа %.0f HP · радиус %.0f px · яркость %.2f×\nФоновый свет плавно возвращает обычное зрение.\nВыстрел по лампе остаётся слышен." % [settings.detection_range*settings.dark_vision_range,settings.vision_angle*settings.dark_vision_angle,settings.lamp_health,settings.lamp_radius,settings.lamp_intensity]
 			"Слух": readout.text = "Шаги: %.0f px · выстрел: %.0f px\nДэш: %.0f px · через преграду: %.0f%%\nШум запоминается на %.1f с; 0 px — глухой." % [settings.hearing_range*settings.movement_noise_multiplier,settings.hearing_range*settings.shot_noise_multiplier,settings.hearing_range*settings.movement_noise_multiplier*2,settings.noise_occlusion_multiplier*100,settings.noise_memory_time]
 			"Движение": readout.text = "Патруль: ±%.0f px · скорость %.0f px/с\nПогоня: %.0f px/с\nПотеря любой ноги: падение и ползание %.0f px/с\nЛёжа реагирует на игрока, шум и попадания." % [settings.patrol_radius,settings.patrol_speed,settings.chase_speed,settings.crawl_speed]
 			"Попадания": readout.text = "Реакция на урон: %s · память %.1f с\nК источнику: %.1f px/с · лёжа %.1f px/с\nСкорость и сокращение памяти — сразу.\nБольше памяти — со следующего попадания." % ["включена" if settings.damage_reaction_enabled else "выключена",settings.damage_memory_time,settings.chase_speed*settings.damage_chase_multiplier,settings.crawl_speed*settings.damage_chase_multiplier]

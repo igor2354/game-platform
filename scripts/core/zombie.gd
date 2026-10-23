@@ -157,6 +157,12 @@ func vision_origin() -> Vector2:
 	# Offset X runs along the same gaze axis: forward or backward on the hill.
 	return eye_point()+vision_direction()*tuning.vision_offset_x
 
+func vision_radius(base_radius: float) -> float:
+	return base_radius*CoreIndoorLighting.vision_factors(self).x
+
+func effective_vision_angle() -> float:
+	return tuning.vision_angle*CoreIndoorLighting.vision_factors(self).y
+
 func sees_player(radius: float) -> bool:
 	if is_stunned(): return false
 	if not tuning.vision_enabled: return false
@@ -164,10 +170,11 @@ func sees_player(radius: float) -> bool:
 	var point := target.global_position-Vector2(0,target.collision_height()*.5)
 	var origin := vision_origin()
 	var offset := point-origin
+	radius = vision_radius(radius)
 	if offset.length_squared() < .001 or offset.length_squared() > radius*radius: return false
 	var forward := vision_direction()
 	# A cone of at most 180 degrees never includes the area behind the head.
-	if forward.dot(offset) <= 0 or forward.dot(offset.normalized()) < cos(deg_to_rad(tuning.vision_angle*.5)): return false
+	if forward.dot(offset) <= 0 or forward.dot(offset.normalized()) < cos(deg_to_rad(effective_vision_angle()*.5)): return false
 	# Moving a virtual cone past a wall must not give the head wall vision.
 	return _clear_sight(eye_point(),point) and (is_zero_approx(tuning.vision_offset_x) or _clear_sight(origin,point))
 
@@ -773,11 +780,12 @@ func _draw() -> void:
 			# Convert the shared world direction once; crawling already rotates self.
 			var local_forward := to_local(vision_origin()+vision_direction())-origin
 			var angle := local_forward.angle()
-			var half_angle := deg_to_rad(tuning.vision_angle*.5)
+			var half_angle := deg_to_rad(effective_vision_angle()*.5)
+			var radius := vision_radius(tuning.detection_range)
 			var points := PackedVector2Array([origin])
-			for i in 33: points.append(origin+Vector2.from_angle(angle-half_angle+half_angle*2*i/32)*tuning.detection_range)
+			for i in 33: points.append(origin+Vector2.from_angle(angle-half_angle+half_angle*2*i/32)*radius)
 			draw_colored_polygon(points,Color("a0bb8714"))
-			draw_arc(origin,tuning.detection_range,angle-half_angle,angle+half_angle,32,Color("a0bb8790"),1,true)
+			draw_arc(origin,radius,angle-half_angle,angle+half_angle,32,Color("a0bb8790"),1,true)
 			draw_line(origin,points[1],Color("a0bb8790"),1)
 			draw_line(origin,points[-1],Color("a0bb8790"),1)
 		draw_line(to_local(home)+Vector2(-tuning.patrol_radius,4),to_local(home)+Vector2(tuning.patrol_radius,4),Color("a0bb87"),2)

@@ -103,7 +103,7 @@ func run() -> void:
 	app.buttons.apply.pressed.emit()
 	await frames(6)
 	check(not app.game.campaign_mode and not app.game.level.prologue_mode and app.game.player.character_id == "harry" and app.game.player.weapon.equipped_weapon_id == "stg44","polygon equips the selected character and weapon on its original level")
-	check(app.game.level.enemies.size() == 6 and app.game.level.floors.size() == 2,"polygon keeps all six enemies and original geometry")
+	check(app.game.level.enemies.size() == 7 and app.game.level.floors.size() == 2,"polygon keeps the six original enemies, indoor patrol and test geometry")
 	await app.return_to_menu()
 	app.queue_free()
 	await frames(4)
