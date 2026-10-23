@@ -19,6 +19,7 @@ func map_landmarks() -> Array[Dictionary]:
 		return forest.map_landmarks() if forest else []
 	return [
 		{"id":"S","label":"Старт","position":SPAWN,"kind":"start"},
+		{"id":"12","label":"Освещение","position":CoreIndoorLighting.TEST_SPAWN,"kind":"zone"},
 		{"id":"11","label":"Зомби-солдат","position":Vector2(-6350,FLOOR),"kind":"zone"},
 		{"id":"10","label":"Подвесные грузы","position":Vector2(-4800,FLOOR),"kind":"zone"},
 		{"id":"09","label":"Бочки на склоне","position":Vector2(-3320,FLOOR),"kind":"zone"},
@@ -32,7 +33,8 @@ func map_landmarks() -> Array[Dictionary]:
 		{"id":"06","label":"Зомби","position":Vector2(4980,FLOOR),"kind":"zone"}
 	]
 
-const WIDTH := 5900.0
+const BASE_WIDTH := 5900.0
+const WIDTH := 7100.0
 const LEFT_BOUND := -6500.0
 const CONCEPT_ZOMBIE_TEST_SPAWN := Vector2(-6240,760)
 const EXPLOSION_TEST_SPAWN := Vector2(-1420,760)
@@ -45,9 +47,9 @@ const SPAWN := Vector2(160,760)
 const SPAWN_LEFT_DOOR := Vector2(-80,FLOOR)
 const SPAWN_RIGHT_DOOR := Vector2(400,FLOOR)
 const FAR_LEFT_DOOR := Vector2(LEFT_BOUND+180,FLOOR)
-const FAR_RIGHT_DOOR := Vector2(WIDTH-180,FLOOR)
+const FAR_RIGHT_DOOR := Vector2(BASE_WIDTH-180,FLOOR)
 const ZOMBIE_TEST_SPAWN := Vector2(4980,760)
-var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,760,WIDTH-1160,100)]
+var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,760,BASE_WIDTH-1160,100)]
 var platforms: Array[Rect2] = [Rect2(1340,540,420,20),Rect2(1780,540,460,20),Rect2(1780,350,460,20)]
 var obstacles: Array[Rect2] = [Rect2(640,690,90,70),Rect2(800,712,56,48)]
 var ladders: Array[Rect2] = [LADDER.make(1446,540,220),LADDER.make(2018,350,410)]
@@ -55,6 +57,8 @@ var side_ladders: Array[Rect2] = [LADDER.make(1668,540,220),LADDER.make(2198,350
 var enemies: Array[CoreEnemyDummy] = []
 var zombie: CoreZombie
 var concept_zombie: CoreConceptZombie
+var indoor_zombie: CoreZombie
+var indoor_lighting: CoreIndoorLighting
 var physics_crate: RigidBody2D
 var ragdoll_mannequin: Node2D
 var explosive_barrels: Array[CoreExplosiveBarrel] = []
@@ -70,7 +74,10 @@ var slopes: Array[PackedVector2Array] = [
 
 func _ready() -> void:
 	# Keep the original two entries and their landings; add profile ladders nearby.
-	if not prologue_mode: ladders.append_array(side_ladders)
+	if not prologue_mode:
+		floors[1].size.x = WIDTH-1160
+		ladders.append_array(side_ladders)
+		obstacles.append_array(CoreIndoorLighting.SOLIDS)
 	if prologue_mode:
 		forest = FOREST.new()
 		add_child(forest)
@@ -92,7 +99,7 @@ func _ready() -> void:
 		body.add_child(shape)
 		add_child(body)
 	_solid(Rect2(LEFT_BOUND-40,0,40,1200),false)
-	_solid(Rect2(WIDTH,0,40,1200),false)
+	_solid(Rect2(BASE_WIDTH if prologue_mode else WIDTH,0,40,1200),false)
 	var ramp := StaticBody2D.new()
 	var ramp_shape := CollisionPolygon2D.new()
 	ramp_shape.polygon = PackedVector2Array(BARREL_RAMP)
@@ -157,6 +164,14 @@ func _ready() -> void:
 	add_child(hanging_target)
 	enemies.append(hanging_target)
 	if not prologue_mode:
+		indoor_lighting = CoreIndoorLighting.new()
+		indoor_lighting.name = "IndoorLightingTest"
+		add_child(indoor_lighting)
+		indoor_zombie = load("res://scenes/core/zombie.tscn").instantiate()
+		indoor_zombie.identifier = "Z03"
+		indoor_zombie.position = CoreIndoorLighting.ENEMY_HOME
+		add_child(indoor_zombie)
+		enemies.append(indoor_zombie)
 		_add_transition_door("SpawnLeftDoor",SPAWN_LEFT_DOOR,FAR_LEFT_DOOR,"К ЛЕВОМУ КРАЮ")
 		_add_transition_door("SpawnRightDoor",SPAWN_RIGHT_DOOR,FAR_RIGHT_DOOR,"К ПРАВОМУ КРАЮ")
 		_add_transition_door("FarLeftReturnDoor",FAR_LEFT_DOOR,SPAWN_LEFT_DOOR,"К СТАРТУ")
@@ -187,8 +202,9 @@ func _solid(rect: Rect2,one_way: bool) -> void:
 
 func _draw() -> void:
 	var grid_color := Color(Color("253039"),1.0-atmosphere_opacity*.95)
-	for x in range(int(LEFT_BOUND),int(WIDTH)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)
-	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(WIDTH,y),grid_color,1)
+	var test_right := BASE_WIDTH if prologue_mode else WIDTH
+	for x in range(int(LEFT_BOUND),int(test_right)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)
+	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(test_right,y),grid_color,1)
 	for rect in floors+platforms+obstacles:
 		draw_rect(rect,Color("43525b"))
 		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("829398"),3)

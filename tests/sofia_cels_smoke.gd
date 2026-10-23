@@ -62,7 +62,7 @@ func run() -> void:
 	await frames(8)
 	var figure: Node2D = hero.body.find_child("SofiaCelFigure",true,false)
 	check(not lab.campaign_mode and not lab.level.prologue_mode and hero.sofia_cel_variant and hero.uses_painted_cels(),"polygon Sofia uses the painted skin")
-	check(lab.level.enemies.size() == 6 and lab.level.floors.size() == 2 and lab.level.player_spawn() == Vector2(160,760),"all original polygon geometry, enemies and spawn remain")
+	check(lab.level.enemies.size() == 7 and lab.level.floors.size() == 2 and lab.level.player_spawn() == Vector2(160,760),"all original polygon geometry, enemies and spawn remain")
 	check(figure.skeleton.get_bone_count() == 13 and figure.meshes.size() == 3,"whole painted body and arms use the thirteen-bone physical-compatible skeleton")
 	var weights_ok := true
 	for mesh in figure.meshes.values():

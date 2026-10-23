@@ -51,7 +51,7 @@ func run() -> void:
 		var defaults_match := true
 		for key in toggles: defaults_match = defaults_match and toggles[key].button_pressed == overlay.defaults.get(key)
 		check(covered_groups.size() == overlay.groups.size() and defaults_match,"every mechanic has a master switch with deliberate defaults, including opt-in noir: "+overlay.heading_text)
-	check(total == 40,"all 40 mechanic pages have switches")
+	check(total == 41,"all 41 mechanic pages, including indoor lighting and opt-in noir, have switches")
 	flag(move,"run_enabled",false)
 	Input.action_press("core_right")
 	await frames(30)

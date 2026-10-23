@@ -2,7 +2,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := OS.get_environment("TEMP").path_join("moon-forest-%d" % OS.get_process_id())
+var directory := (OS.get_environment("TEMP") if not OS.get_environment("TEMP").is_empty() else "/private/tmp").path_join("moon-forest-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -26,7 +26,7 @@ func run() -> void:
 	check(lab._overlays().all(func(overlay): return overlay.settings_path.begins_with(directory+"/")),"all five profile paths are isolated")
 	check(forest.visible and forest.opacity == 1 and forest.layer < 0,"animated art is behind gameplay at polygon spawn")
 	check(forest.picture.mouse_filter == Control.MOUSE_FILTER_IGNORE and forest.picture.size == root.get_visible_rect().size,"backdrop fits the viewport without consuming input")
-	check(lab.level.floors.size() == 2 and lab.level.enemies.size() == 6 and lab.level.transition_doors.size() == 4 and hero.is_on_floor(),"floor, enemies, transition doors and actor collision are preserved")
+	check(lab.level.floors.size() == 2 and lab.level.enemies.size() == 7 and lab.level.transition_doors.size() == 4 and hero.is_on_floor(),"floor, enemies, transition doors and actor collision are preserved")
 	check(lab.camera_overlay.groups == ["Камера","Визуал","Нуар","Окружение"],"original camera/visual pages remain with a separate environment page")
 	var balance := hero.tuning.as_dictionary()
 	var ammunition := hero.weapon.magazine_ammo

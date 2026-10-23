@@ -50,7 +50,7 @@ func run() -> void:
 	var zombie := lab.level.zombie
 	var dev := lab.developer_mode
 	var tools := dev.enemy_tools
-	check(enemies.size() == 6 and enemies.all(func(enemy): return enemy.health == 100 and enemy.maximum_health() == 100 and not enemy.invulnerable and not enemy.test_frozen),"all six opponents start with ordinary health and active simulation")
+	check(enemies.size() == 7 and enemies.all(func(enemy): return enemy.health == 100 and enemy.maximum_health() == 100 and not enemy.invulnerable and not enemy.test_frozen),"all seven opponents start with ordinary health and active simulation")
 	dev.set_enabled(true)
 	dev.show_section(CoreDeveloperMode.Section.TESTING)
 	check(tools.is_visible_in_tree() and tools.target_choice.item_count == enemies.size()+1,"testing includes global controls and a selector for each enemy")

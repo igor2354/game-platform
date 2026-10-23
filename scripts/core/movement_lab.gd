@@ -102,6 +102,7 @@ func _ready() -> void:
 		if enemy is CoreZombie:
 			enemy.tuning = zombie_settings
 			enemy.target = player
+			if is_instance_valid(level.indoor_lighting): level.indoor_lighting.observers.append(enemy)
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
@@ -206,7 +207,7 @@ func _ready() -> void:
 	zombie_overlay.defaults = zombie_defaults
 	zombie_overlay.settings_path = zombie_settings_path
 	zombie_overlay.params = CoreZombieSettings.PARAMS
-	zombie_overlay.groups = ["Зрение","Слух","Движение","Бой","Ползание","Сбрасывание","Попадания","Ошеломление"]
+	zombie_overlay.groups = ["Зрение","Слух","Движение","Бой","Ползание","Сбрасывание","Попадания","Ошеломление","Освещение"]
 	zombie_overlay.heading_text = "НАСТРОЙКА ЗОМБИ · F6"
 	zombie_overlay.help_text = "Обзор и скорость — сразу. Тайминги — с нового действия."
 	zombie_overlay.current_values_text = "Текущие настройки зомби · F1 — сектор и слух"
@@ -217,8 +218,16 @@ func _ready() -> void:
 	concept_zombie_teleport_button = zombie_overlay._button("К новому зомби-солдату · F10",func():
 		developer_mode._prepare_action()
 		_teleport_player(CoreMovementLevel.CONCEPT_ZOMBIE_TEST_SPAWN))
-	concept_zombie_teleport_button.tooltip_text = "Отдельная зона слева от подвесных грузов. Общие настройки F6 применяются к обоим зомби."
+	concept_zombie_teleport_button.tooltip_text = "Отдельная зона слева от подвесных грузов. Общие настройки F6 применяются ко всем зомби."
 	zombie_box.add_child(concept_zombie_teleport_button)
+	if is_instance_valid(level.indoor_lighting):
+		var lighting_box: VBoxContainer = zombie_overlay.tabs.get_child(8).get_child(0)
+		lighting_box.add_child(zombie_overlay._button("К помещению с лампой",func():
+			developer_mode._prepare_action()
+			_teleport_player(CoreIndoorLighting.TEST_SPAWN)))
+		lighting_box.add_child(zombie_overlay._button("Восстановить лампу",func():
+			developer_mode._prepare_action()
+			level.indoor_lighting.lamp.reset_lamp()))
 	ragdoll_overlay = CoreMovementOverlay.new()
 	ragdoll_overlay.settings = ragdoll_settings
 	ragdoll_overlay.defaults = ragdoll_defaults
@@ -346,6 +355,7 @@ func _reset_explosives() -> void:
 	for barrel in level.explosive_barrels: barrel.reset_barrel()
 
 func _zombie_settings_changed() -> void:
+	if is_instance_valid(level.indoor_lighting): level.indoor_lighting.apply_tuning(zombie_settings)
 	for enemy in level.enemies:
 		if enemy is CoreZombie: enemy.apply_tuning()
 	level.queue_redraw()
@@ -760,6 +770,7 @@ func _respawn_enemies() -> void:
 	player.allow_exit_overlapping_enemies()
 
 func _recover() -> void:
+	if is_instance_valid(level.indoor_lighting): level.indoor_lighting.lamp.reset_lamp()
 	for grenade in get_tree().get_nodes_in_group("core_grenades"):
 		grenade.set_physics_process(false)
 		grenade.queue_free()
