@@ -26,8 +26,11 @@ func run() -> void:
 	check(lab._overlays().all(func(overlay): return overlay.settings_path.begins_with(directory+"/")),"all five profile paths are isolated")
 	check(forest.visible and forest.opacity == 1 and forest.layer < 0,"animated art is behind gameplay at polygon spawn")
 	check(forest.picture.mouse_filter == Control.MOUSE_FILTER_IGNORE and forest.picture.size == root.get_visible_rect().size,"backdrop fits the viewport without consuming input")
+	check(forest.left_picture.texture.resource_path == "res://resources/campaign/prologue_forest_4k.png" and forest.left_picture.mouse_filter == Control.MOUSE_FILTER_IGNORE,"the left panel reuses the requested 4K asset without consuming input")
+	check(is_equal_approx(forest.left_rect.size.y,forest.night_rect.size.y) and is_equal_approx(forest.left_rect.size.x/forest.left_rect.size.y,3840.0/2160.0),"both pictures share a height and the new source keeps its aspect ratio")
+	check(forest.left_rect.position.x < forest.night_rect.position.x and is_equal_approx(forest.left_rect.end.x,forest.night_rect.position.x+forest.night_rect.size.x*.025),"the new panel sits on the left behind the original soft edge")
 	check(lab.level.floors.size() == 2 and lab.level.enemies.size() == 7 and lab.level.transition_doors.size() == 4 and hero.is_on_floor(),"floor, enemies, transition doors and actor collision are preserved")
-	check(lab.camera_overlay.groups == ["Камера","Визуал","Нуар","Окружение"],"original camera/visual pages remain with a separate environment page")
+	check(lab.camera_overlay.groups == ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня"],"original camera/visual pages remain with a separate environment page")
 	var balance := hero.tuning.as_dictionary()
 	var ammunition := hero.weapon.magazine_ammo
 	lab.camera_overlay.feature_toggles.forest_enabled.button_pressed = false
@@ -56,6 +59,21 @@ func run() -> void:
 	for i in 3: await process_frame
 	check(is_equal_approx(mat.get_shader_parameter("water_strength"),2.2),"live controls still refresh on pause")
 	paused = false
+	lab.camera_settings.look_ahead = 0
+	lab._update_camera(true)
+	await frames(3)
+	var initial_x: float = forest.night_rect.position.x
+	hero.reset_to(Vector2(-1100,760))
+	lab._update_camera(true)
+	await frames(3)
+	check(forest.visible and forest.opacity == 1 and forest.left_rect.intersects(Rect2(Vector2.ZERO,root.get_visible_rect().size)),"moving left reveals the neighboring picture at full opacity")
+	check(absf(forest.night_rect.position.x-initial_x-1260*lab.camera_settings.zoom) < 1,"the two-panel background travels with the horizontal camera instead of following the player on screen")
+	lab.camera_settings.zoom = 2
+	lab._update_camera(true)
+	await frames(3)
+	check(is_equal_approx(forest.left_rect.size.y,forest.night_rect.size.y) and is_equal_approx(forest.left_rect.size.x/forest.left_rect.size.y,3840.0/2160.0),"zoom preserves the panels' shared height and source proportions")
+	lab.camera_settings.zoom = 1
+	lab._update_camera(true)
 	hero.reset_to(Vector2(4980,760))
 	await frames(3)
 	check(not forest.visible and lab.level.atmosphere_opacity == 0,"outside the local area original polygon visuals remain")

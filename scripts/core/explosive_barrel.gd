@@ -112,6 +112,7 @@ func take_projectile_damage(amount: float,attacker: Node) -> bool:
 	health = maxf(0,health-amount)
 	if contents == Contents.FUEL:
 		if projectile_hits >= roundi(tuning.barrel_leak_hits): leaking = true
+		if tuning.fuel_projectile_detonation_enabled and projectile_hits >= roundi(tuning.fuel_projectile_detonation_hits): arm()
 	elif contents == Contents.EXPLOSIVE:
 		if health <= 0: arm()
 	else:

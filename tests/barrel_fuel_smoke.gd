@@ -66,6 +66,8 @@ func run() -> void:
 	check(get_nodes_in_group("core_explosions").is_empty(),"destroying nonfuel barrels creates no explosion")
 	await clean()
 	lab.ragdoll_settings.fuel_capacity = 300
+	# Isolate the optional spill/fire path from direct bullet detonation.
+	lab.ragdoll_settings.fuel_projectile_detonation_enabled = false
 	var fuel := barrel_at(Vector2(-1100,732))
 	lab.ragdoll_settings.barrel_leak_hits = 2
 	hero.reset_to(Vector2(-1280,760))

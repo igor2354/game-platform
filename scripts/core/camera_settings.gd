@@ -7,11 +7,13 @@ const SWITCHES := [
 	["map_enabled", "Карта уровня включена", "Визуал", "Выключено: карта не открывается по M. Схема строится по геометрии уровня и сохраняет настройки отображения."],
 	["visual_enabled", "Эффекты героя включены", "Визуал", "Отключает блюр и сглаживание героя, сохраняя их настройки."],
 	["pixel_enabled", "Пиксельный фильтр", "Визуал", "Размер пикселя задаётся ниже. Работает отдельно и вместе с нуаром; интерфейс остаётся чётким."],
+	["world_pixel_enabled", "Пиксели закреплены за уровнем", "Сетка уровня", "Постоянная плотность в координатах мира. Приоритет над экранным фильтром и режимом целевой высоты. Интерфейс — полное разрешение."],
+	["stable_pixel_enabled", "Стабильный пиксельный мир", "Пиксельный мир", "Низкое разрешение мира и целочисленное увеличение. Интерфейс и все меню — в полном разрешении. Приоритет над старым пиксельным фильтром."],
 	["scale_reference_enabled", "Линейка и образцы масштаба на полигоне", "Визуал", "Рабочая сверка по Софии и коллажу. В прологе не создаётся. Размеры образцов ещё не утверждены."],
 	["noir_enabled", "Чёрно-белый нуар · красные акценты", "Нуар", "Обрабатывает игровой мир; интерфейс и прицел сохраняют цвет. Выключение сохраняет параметры фильтра."],
 	["deform_skin_enabled", "Гарри: деформируемый рисунок", "Визуал", "Цельные рукава и ноги на сетке. Выключение возвращает прежний сегментный облик и сохраняет параметры."],
 	["sofia_cels_enabled", "София: рисованные кадры", "Визуал", "Цельные кадры с собственной анатомией на полигоне и в кампании; физика получает их текущую позу. Выключение возвращает прежний облик."],
-	["forest_enabled", "Лунный лес у старта полигона", "Окружение", "Анимированный присланный арт. Коллизии и геометрия прежние. Выключение сохраняет все параметры."],
+	["forest_enabled", "Лесные фоны у старта полигона", "Окружение", "4K-лес слева и анимированный лунный лес справа. Коллизии и геометрия прежние. Выключение сохраняет все параметры."],
 	["forest_wind_enabled", "Ветер только в листве", "Окружение", "Колебания красной листвы. Стволы, крупные ветви и цельные силуэты елей неподвижны."],
 	["forest_clouds_enabled", "Движение облаков", "Окружение", "Мягкая деформация неба; луна остаётся неподвижной."],
 	["forest_smoke_enabled", "Движение дыма", "Окружение", "Завихрения трёх нарисованных столбов дыма."],
@@ -23,6 +25,8 @@ const SWITCHES := [
 @export var visual_enabled := true
 @export var noir_enabled := false
 @export var pixel_enabled := false
+@export var stable_pixel_enabled := false
+@export var world_pixel_enabled := false
 @export var scale_reference_enabled := false
 @export var deform_skin_enabled := true
 @export var deform_mesh_debug := false
@@ -44,6 +48,8 @@ const PARAMS := [
 	["follow_speed","Плавность: скорость слежения",0.0,30.0,.5,"/с","Камера"],
 	["look_turn_duration","Плавность смены стороны · время",0.0,1.5,.05,"с","Камера"],
 	["pixel_size","Размер пикселя",1.0,16.0,1.0,"px экрана","Визуал"],
+	["world_pixel_size","Размер клетки на уровне",.5,8.0,.25,"ед./пиксель","Сетка уровня"],
+	["stable_pixel_height","Детализация мира · целевая высота",180.0,1080.0,180.0,"px буфера","Пиксельный мир"],
 	["character_blur_strength","Интенсивность блюра героя",0.0,1.0,.05,"×","Визуал"],
 	["character_blur_length","Максимальное размытие",0.0,32.0,1.0,"px экрана","Визуал"],
 	["character_blur_start_speed","Блюр от скорости",0.0,1000.0,10.0,"px/с","Визуал"],
@@ -82,6 +88,8 @@ const PARAMS := [
 @export var limit_to_level := true
 @export_category("Визуал")
 @export var pixel_size := 3.0
+@export var stable_pixel_height := 360.0
+@export var world_pixel_size := 2.0
 @export var character_blur_strength := 0.0
 @export var character_blur_length := 12.0
 @export var character_blur_start_speed := 80.0
@@ -147,7 +155,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	if result != OK: return result
 	var values := {}
 	for key in as_dictionary(): values[key] = config.get_value("camera",key,get(key))
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["noir_enabled","pixel_enabled","scale_reference_enabled"] else true)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
 	apply_values(values)
 	return OK
 func as_text() -> String:

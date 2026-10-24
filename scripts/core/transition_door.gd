@@ -40,5 +40,4 @@ func _draw() -> void:
 	draw_circle(Vector2(23,-45),3,frame_color)
 	var font := ThemeDB.fallback_font
 	draw_string(font,Vector2(-70,-124),destination_label,HORIZONTAL_ALIGNMENT_CENTER,140,13,frame_color)
-	if player_nearby:
-		draw_string(font,Vector2(-48,-146),"E · ПРОЙТИ",HORIZONTAL_ALIGNMENT_CENTER,96,14,Color("f3e7c7"))
+	# The E interaction prompt already lives in the native-resolution HUD.

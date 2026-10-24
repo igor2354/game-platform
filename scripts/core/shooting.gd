@@ -795,29 +795,33 @@ func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal:
 	canvas.draw_line(breech+visual_direction*(4+bolt)-normal*3,breech+visual_direction*(8+bolt)-normal*3,Color("a9b6b6"),1.5,true)
 	canvas.draw_line(breech+visual_direction*3,breech+visual_direction*3+normal*5,Color("34434d"),3,true)
 
-func _draw() -> void:
+func draw_reticle(canvas: Node2D,projection: Transform2D) -> void:
+	canvas.draw_set_transform_matrix(projection)
 	var center := to_local(aim_point)
 	var color := Color("81c6a7") if aiming else Color("f0c96a")
 	if aiming:
-		draw_circle(center,2,color)
-		draw_arc(center,9,0,TAU,24,color,1.5)
+		canvas.draw_circle(center,2,color)
+		canvas.draw_arc(center,9,0,TAU,24,color,1.5)
 		if spread_degrees() > 0:
 			var radius := clampf(pivot().distance_to(aim_point)*tan(deg_to_rad(spread_degrees())),9,95)
-			draw_arc(center,radius,0,TAU,32,Color(color,.45),1)
+			canvas.draw_arc(center,radius,0,TAU,32,Color(color,.45),1)
 	else:
 		var radius := clampf(pivot().distance_to(aim_point)*tan(deg_to_rad(spread_degrees())),7,95)
 		for direction in [Vector2.LEFT,Vector2.RIGHT,Vector2.UP,Vector2.DOWN]:
-			draw_line(center+direction*radius,center+direction*(radius+6),color,2)
-		draw_circle(center,1.5,color)
+			canvas.draw_line(center+direction*radius,center+direction*(radius+6),color,2)
+		canvas.draw_circle(center,1.5,color)
 	if kill_marker_left > 0:
 		var kill_color := Color("ff997d")
 		for direction in [Vector2(1,1),Vector2(-1,1),Vector2(1,-1),Vector2(-1,-1)]:
-			draw_line(center+direction*5,center+direction*13,kill_color,3)
-		draw_arc(center,19+(1-kill_marker_left/.32)*10,0,TAU,32,kill_color,1.5)
-		draw_string(ThemeDB.fallback_font,center+Vector2(21,-19),"УБИТ",HORIZONTAL_ALIGNMENT_LEFT,-1,16,kill_color)
+			canvas.draw_line(center+direction*5,center+direction*13,kill_color,3)
+		canvas.draw_arc(center,19+(1-kill_marker_left/.32)*10,0,TAU,32,kill_color,1.5)
+		canvas.draw_string(ThemeDB.fallback_font,center+Vector2(21,-19),"УБИТ",HORIZONTAL_ALIGNMENT_LEFT,-1,16,kill_color)
 	elif hit_marker_left > 0:
 		for direction in [Vector2(1,1),Vector2(-1,1),Vector2(1,-1),Vector2(-1,-1)]:
-			draw_line(center+direction*4,center+direction*8,Color("fff0bd"),2)
+			canvas.draw_line(center+direction*4,center+direction*8,Color("fff0bd"),2)
+	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+func _draw() -> void:
 	for effect in effects:
 		var point := to_local(effect.point)
 		if effect.get("kind","") == "magazine":

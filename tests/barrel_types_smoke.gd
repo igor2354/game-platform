@@ -19,6 +19,8 @@ func run() -> void:
 	lab.load_user_settings = false
 	root.add_child(lab)
 	var profile := lab.ragdoll_settings
+	# Verify the retained leak/fire-only option separately from the new default.
+	profile.fuel_projectile_detonation_enabled = false
 	profile.explosion_audio_enabled = false
 	profile.explosion_camera_enabled = false
 	profile.explosion_player_damage_enabled = false

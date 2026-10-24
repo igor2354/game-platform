@@ -28,8 +28,8 @@ func apply_settings(settings: CoreCameraSettings) -> void:
 	for parameter in PARAMETERS:
 		shader_material.set_shader_parameter(parameter,settings.get("noir_"+parameter))
 	shader_material.set_shader_parameter("strength",settings.noir_strength if settings.noir_enabled else 0.0)
-	shader_material.set_shader_parameter("pixel_size",roundf(settings.pixel_size) if settings.pixel_enabled else 1.0)
-	var active := (settings.noir_enabled and settings.noir_strength > 0.0) or (settings.pixel_enabled and roundf(settings.pixel_size) >= 2.0)
+	shader_material.set_shader_parameter("pixel_size",roundf(settings.pixel_size) if settings.pixel_enabled and not (settings.stable_pixel_enabled or settings.world_pixel_enabled) else 1.0)
+	var active := (settings.noir_enabled and settings.noir_strength > 0.0) or (settings.pixel_enabled and not (settings.stable_pixel_enabled or settings.world_pixel_enabled) and roundf(settings.pixel_size) >= 2.0)
 	surface.visible = active
 	# The character CanvasGroup can already have read the screen this frame.
 	# Explicitly refresh after the world, before our own fullscreen shader.

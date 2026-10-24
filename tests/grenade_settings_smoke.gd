@@ -28,7 +28,7 @@ func run() -> void:
 	await frames(8)
 	var profile := lab.ragdoll_settings
 	var ui := lab.ragdoll_overlay
-	check(ui.groups == ["Манекен","Взрывы","Бочки","Подвесные грузы","Гранаты","Ударная волна"] and ui.rows.size() == 77 and profile.as_dictionary().size() == 98,"physics preserves previous pages and adds grenade and shockwave controls")
+	check(ui.groups == ["Манекен","Взрывы","Бочки","Подвесные грузы","Гранаты","Ударная волна"] and ui.rows.size() == 78 and profile.as_dictionary().size() == 100,"physics preserves previous pages and adds grenade and shockwave controls")
 	check(ui.feature_toggles.has("grenades_enabled") and ui.feature_toggles.has("grenade_trajectory_enabled") and ui.feature_toggles.has("grenade_impact_enabled") and ui.feature_toggles.has("explosion_ragdoll_enabled"),"grenades, trajectory, direct hit and ragdoll have separate switches")
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_section(CoreDeveloperMode.Section.PHYSICS)

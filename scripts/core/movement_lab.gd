@@ -26,6 +26,7 @@ var shooting_overlay: CoreMovementOverlay
 var camera_overlay: CoreMovementOverlay
 var camera_settings: CoreCameraSettings
 var noir_filter: CoreNoirFilter
+var stable_pixels: CoreStablePixelRenderer
 var scale_reference: CoreScaleReference
 var scale_reference_button: Button
 
@@ -184,7 +185,7 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
@@ -301,6 +302,10 @@ func _ready() -> void:
 	player.weapon.aim_cursor = aim_cursor
 	cursor_layer.add_child(aim_cursor)
 	_build_level_map()
+	stable_pixels = CoreStablePixelRenderer.new()
+	stable_pixels.name = "StablePixels"
+	stable_pixels.lab = self
+	add_child(stable_pixels)
 	_camera_settings_changed()
 
 func _blocks_keyboard() -> bool:
@@ -650,6 +655,7 @@ func _close_level_map() -> void:
 	get_tree().paused = map_was_paused
 
 func _camera_settings_changed() -> void:
+	if stable_pixels: stable_pixels.apply_settings()
 	if noir_filter: noir_filter.apply_settings(camera_settings)
 	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
 	if map_button:

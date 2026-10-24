@@ -132,7 +132,7 @@ func _ready() -> void:
 			box.add_child(visual_noir_toggle)
 			box.move_child(visual_noir_toggle,0)
 			box.move_child(feature_toggles.pixel_enabled,1)
-			var pixel_hint := _label("1 px — исходная детализация; больше — крупнее пиксели.\nМожно сочетать с нуаром; его параметры — во вкладке «Нуар».",14)
+			var pixel_hint := _label("1 px — исходная детализация; больше — крупнее пиксели.\nСтабильный режим — во вкладке «Пиксельный мир».",14)
 			pixel_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(pixel_hint)
 			box.move_child(pixel_hint,2)
@@ -149,6 +149,14 @@ func _ready() -> void:
 			box.add_child(mesh_debug)
 			feature_toggles["deform_mesh_debug"] = mesh_debug
 			var hint := _label("Для тестов: интенсивность 0 и сглаживание выключено.\nБлюр затрагивает тело, руки и оружие героя.\nПрицел, интерфейс и окружение остаются чёткими.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
+		if settings is CoreCameraSettings and group == "Сетка уровня":
+			var hint := _label("Меньше клетка — больше деталей. Камера показывает постоянную сетку уровня.\nФон закрепляется в мире при первом включении; при зуме он приближается вместе с уровнем.\nУ произвольного зума ширина клетки на экране округляется.\nФизика, анимации и управление прежние. Все меню, HUD и прицел — полное разрешение.\nИмеет приоритет над двумя экранными режимами.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
+		if settings is CoreCameraSettings and group == "Пиксельный мир":
+			var hint := _label("Мир рисуется отдельно и увеличивается целыми пикселями.\n360 / 540 — варианты детализации; больше — мельче пиксели.\nHUD, прицел и все меню остаются в полном разрешении.\nСтарый пиксельный фильтр временно обойдён; нуар работает.\nПерсонаж, руки и оружие пока в общем слое мира.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreCameraSettings and group == "Нуар":
@@ -245,6 +253,7 @@ func _ready() -> void:
 			if settings is CoreRagdollSettings and group == "Бочки":
 				match param[0]:
 					"barrel_health": _add_section(box,"Корпус и детонация","Красная — взрывная; коричневая — топливная; серая — пустая; синяя — негорючая.")
+					"fuel_projectile_detonation_hits": _add_section(box,"Топливо: взрыв от пуль","Считаются попадания с положительным уроном. Порог утечки независим; запал — общий. Изменение порога действует со следующего попадания.")
 					"barrel_leak_hits": _add_section(box,"Топливо и огонь","Пули пробивают бак. Выстрел в лужу поджигает связанный след.")
 					"barrel_tip_duration": _add_section(box,"G · укладка и перекатывание","Повторное G отпускает бочку; физика остаётся активной.")
 					"barrel_impact_min_speed": _add_section(box,"Столкновения","Медленный контакт безопасен. Скорость определяет урон и сбивание.")
@@ -280,6 +289,7 @@ func _ready() -> void:
 				box.add_child(slide_knockdown_toggle)
 			_add_row(box,param)
 			if settings is CoreCameraSettings and param[0] == "pixel_size": box.move_child(box.get_child(-1),2)
+			if settings is CoreCameraSettings and param[0] == "world_pixel_size": box.move_child(box.get_child(-1),1)
 	readout = _label("",16)
 	readout.add_theme_color_override("font_color",Color("91c6de"))
 	content.add_child(readout)
@@ -530,8 +540,14 @@ func _update_readout_values() -> void:
 		if tabs.get_tab_title(tabs.current_tab) == "Нуар":
 			readout.text = "Нуар: %s · сила %.0f%%\nТени: %.3f · предел бликов: %.2f\nКрасный: ±%.0f° · насыщенность от %.0f%%\nСохранение — в профиле камеры и общем JSON." % ["включён" if settings.noir_enabled else "выключен",settings.noir_strength*100,settings.noir_shadow_lift,settings.noir_highlight_cap,settings.noir_red_width,settings.noir_red_saturation*100]
 			return
+		if tabs.get_tab_title(tabs.current_tab) == "Сетка уровня":
+			readout.text = "Сетка уровня: %s · %.2f ед./пиксель\nПлотность не зависит от камеры; меньше — детальнее.\nИнтерфейс и все меню — полное разрешение." % ["вкл." if settings.world_pixel_enabled else "выкл.",settings.world_pixel_size]
+			return
+		if tabs.get_tab_title(tabs.current_tab) == "Пиксельный мир":
+			readout.text = "Стабильный мир: %s · цель %.0f px высоты.\nИнтерфейс, прицел и все меню — полное разрешение." % ["вкл." if settings.stable_pixel_enabled else "выкл.",settings.stable_pixel_height]
+			return
 		if tabs.get_tab_title(tabs.current_tab) == "Визуал":
-			readout.text = "Пиксели: %s · размер %.0f px · Нуар: %s\nБлюр героя: %.0f%% · радиус до %.0f px\nФильтры мира не затрагивают интерфейс и прицел." % ["вкл." if settings.pixel_enabled else "выкл.",settings.pixel_size,"вкл." if settings.noir_enabled else "выкл.",settings.character_blur_strength*100,settings.character_blur_length]
+			readout.text = "Пиксели: %s · размер %.0f px · Нуар: %s\nБлюр героя: %.0f%% · радиус до %.0f px\nИнтерфейс, прицел и все меню — полное разрешение." % ["вкл." if settings.pixel_enabled else "выкл.",settings.pixel_size,"вкл." if settings.noir_enabled else "выкл.",settings.character_blur_strength*100,settings.character_blur_length]
 			return
 		readout.text = "Масштаб: %.2f× · Видимая ширина %s\nX+: камера правее героя · Y+: ниже\nДопуск от вертикали вверх/вниз: ±%.0f°\nСмена стороны: %.2f с · 0 — мгновенно\nСкорость слежения 0 — без задержки за героем." % [settings.zoom,CoreWorldUnits.distance(get_viewport_rect().size.x/settings.zoom),settings.vertical_aim_deadzone,settings.look_turn_duration]
 		return

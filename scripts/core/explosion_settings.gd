@@ -10,6 +10,7 @@ static var BLAST_SWITCHES: Array = [
 	["explosion_camera_enabled","Тряска камеры от взрыва","Взрывы","Сила тряски уменьшается с расстоянием до игрока."],
 	["barrels_enabled","Механики бочек включены","Бочки","Физика и G остаются доступны. Выключение останавливает урон по бочкам, утечки и детонацию."],
 	["explosion_chain_enabled","Цепная детонация бочек","Бочки","Ударная волна может запустить запал взрывной или топливной бочки."],
+	["fuel_projectile_detonation_enabled","Топливная бочка: взрыв от пуль","Бочки","После заданного количества попаданий запускает обычный запал. Выключение сохраняет утечку, поджиг и порог; уже начатый запал не отменяется."],
 	["fuel_leak_enabled","Утечка топлива включена","Бочки","Пробитые бочки оставляют постоянные лужи и след. Выключение сохраняет уже разлитое топливо."],
 	["fuel_fire_enabled","Горение топлива включено","Бочки","Выключение приостанавливает огонь, распространение и урон, сохраняя топливо."],
 	["barrel_impact_enabled","Урон и сбивание бочкой","Бочки","Скорость столкновения определяет урон; быстрое столкновение сбивает персонажей с ног."]] + preload("res://scripts/core/grenade_settings.gd").SWITCHES
@@ -26,6 +27,7 @@ static var BLAST_PARAMS: Array = [
 	["explosion_camera_strength","Сила тряски камеры",0.0,30.0,.5,"px","Взрывы"],
 	["barrel_health","Прочность бочки",1.0,500.0,1.0,"HP","Бочки"],
 	["barrel_fuse","Задержка детонации",0.0,2.0,.01,"с","Бочки"],
+	["fuel_projectile_detonation_hits","Попаданий до взрыва топливной бочки",1.0,20.0,1.0,"","Бочки"],
 	["barrel_leak_hits","Попаданий до утечки",1.0,2.0,1.0,"","Бочки"],
 	["fuel_capacity","Запас топлива · 0 без ограничения",0.0,2000.0,10.0,"ед.","Бочки"],
 	["fuel_leak_rate","Скорость утечки",.5,30.0,.5,"ед./с","Бочки"],
@@ -61,6 +63,8 @@ static var BLAST_PARAMS: Array = [
 @export var explosion_camera_strength := 10.0
 @export var barrel_health := 50.0
 @export var barrel_fuse := .15
+@export var fuel_projectile_detonation_enabled := true
+@export var fuel_projectile_detonation_hits := 2.0
 @export var fuel_leak_enabled := true
 @export var fuel_fire_enabled := true
 @export var barrel_impact_enabled := true

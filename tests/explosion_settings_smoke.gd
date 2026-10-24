@@ -28,7 +28,7 @@ func run() -> void:
 	await frames(5)
 	var ui := lab.ragdoll_overlay
 	check(ui.groups == ["Манекен","Взрывы","Бочки","Подвесные грузы","Гранаты","Ударная волна"] and ui.feature_toggles.has("explosions_enabled") and ui.feature_toggles.has("barrels_enabled"),"Physics exposes separate explosion and barrel tabs with master switches")
-	check(ui.rows.size() == 77 and lab.ragdoll_settings.as_dictionary().size() == 98,"the physics profile preserves mannequin tuning and includes blasts, fuel and barrel interactions")
+	check(ui.rows.size() == 78 and lab.ragdoll_settings.as_dictionary().size() == 100,"the physics profile preserves mannequin tuning and includes blasts, fuel and barrel interactions")
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_section(CoreDeveloperMode.Section.PHYSICS)
 	ui.tabs.current_tab = 1
