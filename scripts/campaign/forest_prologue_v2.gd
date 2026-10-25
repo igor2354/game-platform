@@ -4,6 +4,7 @@ signal lethal_fall
 const DATA = preload("res://scripts/campaign/forest_prologue_v2_data.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const UPM: float = DATA.PLAN.units_per_meter
+const LADDER_WIDTH := LADDER.WIDTH*2.85
 const ORIGIN := Vector2(12000,760)
 const WIDTH := 484.0*UPM
 const BOUNDS := Rect2(12000,760-15*UPM,WIDTH,27*UPM)
@@ -25,12 +26,14 @@ static func point(x_m: float,height_m: float) -> Vector2:
 func _init() -> void:
 	name = "ForestPrologueVer2"
 	for n in DATA.PLAN.nodes:
-		for profile in n.ground: _terrain(n.start_m,profile)
+		for profile in n.ground: _terrain(n.start_m,_recovery_profile(n.id,profile))
 		for index in n.ledges.size():
 			var ledge: Array = n.ledges[index]
 			if n.id == "02":
 				var island := ledge.duplicate()
-				island.append([20,-4.8]);island.append([10.4,-4.8])
+				# A thin rock bridge, with a genuine passage beneath the upper route.
+				for i in range(ledge.size()-1,-1,-1):
+					island.append([ledge[i][0],float(ledge[i][1])-.15])
 				_polygon(n.start_m,island)
 				var edge := PackedVector2Array()
 				for p in ledge: edge.append(point(n.start_m+float(p[0]),float(p[1])))
@@ -44,12 +47,15 @@ func _init() -> void:
 		var middle: Array = n.route[n.route.size()/2]
 		sections.append({"id":n.id,"label":n.title,"start_m":n.start_m,"width_m":n.length_m,"position":point(n.start_m+float(middle[0]),float(middle[1])),"kind":"zone"})
 	# Positions and heights are in the blueprint's project meters, never legacy H=64.
-	_ladder("ravine_return",24+10,-4.8,-1.7)
+	_ladder("ravine_return",24+10,-5.05,-1.7)
+	_ladder("ravine_forward",24+22.1,-5.05,-2.2)
+	_deck("ravine_forward_landing",24+21.4,24+22.8,-2.2)
 	_ladder("wood_down",96+11,-1.2,2.4);_ladder("wood_up",96+33,-1.2,2.4)
 	_ladder("work_up",142+14,1.2,5.8);_ladder("work_down",142+32,1.2,5.8)
 	_ladder("tower",188+14,3,9)
 	_ladder("house_inner",296+12,.6,3.8);_ladder("house_outside",296+32,0,3.1)
-	_ladder("flank_up",338+10,-2,.8);_ladder("flank_down",338+22,-2,.8)
+	# Keep the full reference capsule clear of the terrain step beside this ladder.
+	_ladder("flank_up",338+10.6,-2,.8);_ladder("flank_down",338+22,-2,.8)
 	_ladder("basement_down",386+14,-2.8,.3);_ladder("basement_up",386+23,-2.8,.3)
 	_ladder("bunker_roof",386+12,.3,3.3);_ladder("bunker_rocks",386+33,0,1.9)
 	_ladder("log_down",430+13,0,3);_ladder("log_up",430+25,0,3)
@@ -80,6 +86,21 @@ func _physics_process(_delta: float) -> void:
 func set_debug_geometry(enabled: bool) -> void:
 	debug_geometry = enabled
 	queue_redraw()
+
+func _recovery_profile(section: String,profile: Array) -> Array:
+	# Local corrections after reported traps; keep the source V4 blueprint intact.
+	var result := profile.duplicate(true)
+	if section == "02":
+		for p in result:
+			if is_equal_approx(float(p[1]),-4.8):
+				p[1] = -5.05
+				if is_equal_approx(float(p[0]),21.4): p[0] = 22.8
+			elif is_equal_approx(float(p[0]),21.4) and is_equal_approx(float(p[1]),-2.2):
+				p[0] = 22.8
+	elif section == "03":
+		for p in result:
+			if is_equal_approx(float(p[1]),-1.5): p[1] = 0.0
+	return result
 
 func _terrain(start: float,profile: Array) -> void:
 	var points: Array = profile.duplicate()
@@ -122,7 +143,7 @@ func _segmented_floor(id: String,start: float,x0: float,x1: float,top: float,thi
 	_block(id+str(cursor),start+cursor,top-thickness,x1-cursor,thickness)
 
 func _ladder(id: String,x: float,bottom: float,top: float) -> void:
-	var rect := LADDER.make(point(x,top).x,point(x,top).y,(top-bottom)*UPM)
+	var rect := LADDER.make(point(x,top).x,point(x,top).y,(top-bottom)*UPM,LADDER_WIDTH)
 	ladders.append(rect);features[id+"_ladder"]=rect
 
 func map_landmarks() -> Array[Dictionary]:

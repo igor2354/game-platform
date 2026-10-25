@@ -10,6 +10,7 @@ const SCALED_MOTION_KEYS := ["run_speed","sprint_speed","slow_walk_speed","jump_
 	"slide_damage_min_speed","slide_knockdown_min_speed"]
 const SWITCHES := [
 	["parkour_enabled", "Паркур включён", "Паркур", "Лицом к краю удерживайте пробел для хвата. Повторное нажатие — подъём, C — прервать. Низкое узкое препятствие преодолевается сразу."],
+	["sprint_auto_parkour_enabled", "Автопаркур при спринте", "Паркур", "Shift + движение: автоматически преодолевать препятствия от колена до груди. Размеры считаются относительно роста героя; C — прервать."],
 	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],
 	["jump_enabled", "Прыжок включён", "Прыжок", "Запрещает новые прыжки; гравитация и уже начатый полёт сохраняются."],
 	["dash_enabled", "Дэш включён", "Дэш", "Запрещает новые дэши и завершает текущий с безопасным восстановлением коллизий."],
@@ -25,6 +26,7 @@ const SWITCHES := [
 	["push_enabled", "Захват и перемещение включены", "Толкание", "G — взять/отпустить предмет; A/D — толкать и тянуть. Выключение освобождает руки; гравитация и импульсы пуль сохраняются."]
 ]
 @export var parkour_enabled := true
+@export var sprint_auto_parkour_enabled := true
 @export var run_enabled := true
 @export var jump_enabled := true
 @export var dash_enabled := true
@@ -41,6 +43,10 @@ const SWITCHES := [
 
 # key, label, minimum, maximum, step, unit, group
 const PARAMS := [
+	["sprint_auto_min_height_ratio","Автопаркур · нижняя граница",.10,.50,.01,"× роста","Паркур"],
+	["sprint_auto_max_height_ratio","Автопаркур · верхняя граница",.50,.95,.01,"× роста","Паркур"],
+	["sprint_auto_max_width","Автопаркур · ширина при 1×",28.0,160.0,1.0,"px","Паркур"],
+	["sprint_auto_vault_time","Автопаркур · время преодоления",.15,1.2,.01,"с","Паркур"],
 	["parkour_reach","Дистанция захвата от тела",2.0,24.0,1.0,"px","Паркур"],
 	["parkour_ledge_height","Высота досягаемого уступа",48.0,100.0,1.0,"px","Паркур"],
 	["parkour_vault_height","Предел низкого препятствия",24.0,56.0,1.0,"px","Паркур"],
@@ -129,6 +135,10 @@ const PARAMS := [
 @export var parkour_vault_time := 0.55
 @export var parkour_regrab_delay := 0.25
 @export var parkour_drop_limit := 32.0
+@export var sprint_auto_min_height_ratio := .25
+@export var sprint_auto_max_height_ratio := .75
+@export var sprint_auto_max_width := 96.0
+@export var sprint_auto_vault_time := .32
 @export_category("Здоровье")
 @export var max_health := 100.0
 @export_category("Бег")

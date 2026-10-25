@@ -558,7 +558,7 @@ func _physics_process(delta: float) -> void:
 		elif dash_requested and dash_available():
 			_start_dash(axis)
 			_tick_dash(delta)
-		elif parkour.try_start(axis,jump_held):
+		elif parkour.try_start(axis,jump_held) or parkour.try_sprint(axis):
 			pass
 		else:
 			_tick_run(axis,delta,jump_held)

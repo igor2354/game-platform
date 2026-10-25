@@ -202,7 +202,7 @@ func _ready() -> void:
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Паркур":
-			var hint := _label("Смотрите лицом к краю и удерживайте пробел для хвата.\nПовиснув, отпустите пробел и нажмите снова для подъёма.\nC — прервать. Отпускание пробела сохраняет хват и движение.\nНизкий узкий блок преодолевается сразу. Нужен свободный путь.\nАнимации паркура будут добавлены позже.",14)
+			var hint := _label("Shift + движение — автопаркур от колена до груди.\nПробел — ручной хват; повторное нажатие — подъём.\nC — прервать. Нужны свободный путь и опора.\nАнимации паркура будут добавлены позже.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Толкание":

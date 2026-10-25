@@ -101,7 +101,7 @@ func run() -> void:
 	check(is_equal_approx(hero.body_scale,2.85) and hero.is_on_floor(),"Sofia starts at reference 2.85x on solid ground")
 	check(hero.tuning.run_speed==180 and hero.motion_value("run_speed")==513,"new level has reference base and derived run speed")
 	check(hero.fall_limit>FOREST.point(0,-8).y and lab.level_map._world_x_bounds().y==lab.level.right_bound(),"deep terrain and full map use new level bounds")
-	check(f.jump_catalog.size()==19 and f.ladders.size()==16,"nineteen jumps and all sixteen ladders connected")
+	check(f.jump_catalog.size()==19 and f.ladders.size()==17,"nineteen jumps and all seventeen ladders connected")
 	check(lab.camera_settings.zoom==lab.camera_overlay.defaults.zoom,"reference size does not change camera zoom")
 	# Deep natural floor must not trigger the old polygon fall recovery.
 	var recoveries=lab.respawns

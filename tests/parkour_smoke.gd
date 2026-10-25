@@ -64,7 +64,7 @@ func finish() -> void:
 	await frames(5)
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(directory)
-	for character in ["sofia","harry"]:
+	for character in (["sofia"] if "--sofia-only" in OS.get_cmdline_user_args() else ["sofia","harry"]):
 		app = preload("res://scripts/campaign/frontend.gd").new()
 		app.load_user_settings = false
 		app.test_settings_directory = directory.path_join(character)
