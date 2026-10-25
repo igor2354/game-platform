@@ -1,0 +1,5 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Use case: stylized-concept. Create a seamless horizontal backdrop plate for a detailed painterly realistic WWII European conifer forest tactical horror game, muted cold slate/olive autumn brown palette matching reference. Deep layered forests, atmospheric mist, rocky distant mountains and overcast sky. The camera looks level across an extensive wooded valley. VERY IMPORTANT: no foreground ground, no trail, no platforms, no bridges, no tree trunks rising out of a flat bottom edge, no buildings, no vehicle, no people, no text; this plate is ONLY distant environment behind independently rendered playable terrain. Bottom contains indistinct distant conifer crowns and blue-grey fog all the way down, no visible walkable horizontal ledge. Wide 2:1 composition, highest native resolution; both left and right edges similar fog density for horizontal joining. Soft ambient light, readable grey midtones, no extreme crushed blacks.",
+  "output": "Генерации/background.png"
+}

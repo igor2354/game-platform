@@ -4,7 +4,7 @@ signal lethal_fall
 const DATA = preload("res://scripts/campaign/forest_prologue_v2_data.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const UPM: float = DATA.PLAN.units_per_meter
-const LADDER_WIDTH := LADDER.WIDTH*2.85
+const LADDER_WIDTH := 51.3 # Fixed world width at normalized Sofia 1.00x.
 const ORIGIN := Vector2(12000,760)
 const WIDTH := 484.0*UPM
 const BOUNDS := Rect2(12000,760-15*UPM,WIDTH,27*UPM)
@@ -17,6 +17,7 @@ var platforms: Array[Rect2] = []
 var obstacles: Array[Rect2] = []
 var ladders: Array[Rect2] = []
 var features: Dictionary = {}
+var panorama:Node2D
 var jump_catalog: Array = DATA.PLAN.nodes.reduce(func(all,n): return all+n.jumps,[])
 var lethal_rect := Rect2(point(244,-8),Vector2(1.8*UPM,5*UPM))
 
@@ -59,12 +60,16 @@ func _init() -> void:
 	_ladder("basement_down",386+14,-2.8,.3);_ladder("basement_up",386+23,-2.8,.3)
 	_ladder("bunker_roof",386+12,.3,3.3);_ladder("bunker_rocks",386+33,0,1.9)
 	_ladder("log_down",430+13,0,3);_ladder("log_up",430+25,0,3)
-	_block("work_barrier",142+28,1.2,.7,.9)
-	_ramp(142,[[28.7,1.2],[28.7,2.1],[30,1.2]])
+	# Safe missed-jump pits need exits with the current 0.61 m jump.
+	_ladder("root_pit_exit",82.85,0,2.6)
+	_ladder("work_pit_exit",177.85,-1,.6)
+	_block("work_barrier",142+28,1.2,1.2,.9)
+	_ramp(142,[[29.2,1.2],[29.2,2.1],[30.5,1.2]])
+	_block("cover_approach_stone",361.4,-2,1.4,.55)
 	_block("cover_a",338+25,-2,1.5,1.4);_ramp(338,[[26.5,-2],[26.5,-.6],[28,-2]])
 	_block("cover_b",338+34,-2,1.5,.75);_ramp(338,[[35.5,-2],[35.5,-1.25],[37,-2]])
 	_block("tower_roof",188+13,11.4,6,.18)
-	# Solid ceilings with physical ladder openings; one-way decks cap those openings.
+	# Solid ceilings and their decks share the same physical ladder openings.
 	_segmented_floor("house_floor",296,10,26,3.8,.2,[12.0])
 	_block("house_roof",296+10,6.5,16,.18)
 	for x in [10.0,25.82]:
@@ -75,8 +80,25 @@ func _init() -> void:
 	_ramp(430,[[38,5],[40,6.15],[40,5]])
 	_ramp(430,[[48.5,5],[48.5,6.15],[51.5,5]])
 	_block("wagon_roof",430+40,8.5,8.5,.16)
+	# Access wedges meet the retained 0.15 m wreck thresholds without an invisible step.
+	_ramp(0,[[468.8,5.46],[470,6.3],[470.18,6.3],[470.68,6.15]])
+	_ramp(0,[[477.82,6.15],[478.32,6.3],[478.5,6.3],[479.5,5.7666666667]])
+	# Approved spatial revision: closed cabin, house window, broken wagon ends.
+	_block("tower_left",201,9,.18,2.4)
+	_block("tower_right",206.82,9,.18,2.4)
+	_block("house_left_upper",306,3.8,.18,2.7)
+	_block("house_window_sill",321.82,3.8,.18,.35)
+	_block("house_window_head",321.82,6.35,.18,.15)
+	for x in [470.0,478.32]:
+		_block("wagon_sill_"+str(x),x,6.15,.18,.15)
+		_block("wagon_head_"+str(x),x,8.35,.18,.15)
+
 
 func _ready() -> void:
+	panorama=preload("res://scripts/campaign/prologue_v2_panorama.gd").new()
+	panorama.name="PrologueVer2Panorama";panorama.z_index=-1
+	add_child(panorama)
+	if not panorama.strips.is_empty():z_index=1
 	queue_redraw()
 
 func _physics_process(_delta: float) -> void:
@@ -153,10 +175,12 @@ func map_landmarks() -> Array[Dictionary]:
 	return result
 
 func _draw() -> void:
+	if is_instance_valid(panorama) and not panorama.strips.is_empty() and not debug_geometry:return
 	for polygon in terrain: draw_colored_polygon(polygon,Color("3b4c52"))
 	for edge in surfaces: draw_polyline(edge,Color("8fa7ac"),3,true)
-	for r in platforms:
-		draw_rect(r,Color("627b82"));draw_line(r.position,Vector2(r.end.x,r.position.y),Color("b2c9c8"),3)
+	for source_rect in platforms:
+		for r in preload("res://scripts/core/platform_surfaces.gd").split(source_rect,ladders):
+			draw_rect(r,Color("627b82"));draw_line(r.position,Vector2(r.end.x,r.position.y),Color("b2c9c8"),3)
 	for r in obstacles:
 		draw_rect(r,Color("596a6d"));draw_rect(r,Color("9eafaf"),false,2)
 	for r in ladders: LADDER.draw(self,r,Color("c1b68a"))
@@ -172,12 +196,24 @@ func _draw() -> void:
 	draw_line(point(142+16,9.5),point(142+20,9.5),frame,4)
 	draw_rect(Rect2(point(142+19.6,8.9),Vector2(1,.8)*UPM),frame,false,2)
 	for x in [430+41.5,430+47]: draw_circle(point(x,5.5),.45*UPM,frame,false,3)
+	# Thin rear supports describe an open working frame, not an enclosed room.
+	for x in [156.5,163.4,166.0,173.5]:
+		draw_line(point(x,1.2),point(x,5.64),frame,6)
 	draw_rect(lethal_rect,Color(.7,.12,.09,.55))
 	var font := ThemeDB.fallback_font
+	draw_string(font,point(157,7.0),"ОТКРЫТЫЙ РАБОЧИЙ НАСТИЛ",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("9bb1b8"))
+	draw_string(font,point(201,12.2),"СМОТРОВАЯ КАБИНА · ВХОД ЧЕРЕЗ ЛЮК",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("c4c7b1"))
+	draw_string(font,point(322.3,6.7),"ОКНО → БАЛКОН · Shift + Space",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("d8c793"))
+	draw_line(point(322,5.25),point(323,5.25),Color("d8c793"),2)
+	draw_string(font,point(414.5,3.7),"ПОД СКАЛОЙ · C",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("c1b68a"))
+	draw_string(font,point(397,4.5),"БУНКЕР · ДВЕРИ / ЛЮКИ В ПОДВАЛ",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("c4c7b1"))
+	draw_string(font,point(470,9.2),"ПОВРЕЖДЁННЫЙ ВАГОН · ПРОЛОМЫ ТОРЦОВ",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("d8c793"))
+	draw_string(font,point(81.2,3.6),"ВЫХОД ИЗ ЯМЫ · W",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("c1b68a"))
+	draw_string(font,point(176,2.3),"ВЫХОД ИЗ ЯМЫ · W",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("c1b68a"))
 	for n in DATA.PLAN.nodes:
 		var anchor: Array = n.route[0]
 		draw_string(font,point(n.start_m+1,float(anchor[1])+3.5),n.id+" · "+n.title,HORIZONTAL_ALIGNMENT_LEFT,-1,22,Color("bccfd0"))
-	draw_string(font,point(238,6),"ОБРЫВ · ПАДЕНИЕ СМЕРТЕЛЬНО · Space с разбега",HORIZONTAL_ALIGNMENT_LEFT,-1,21,Color("eea497"))
+	draw_string(font,point(238,6),"ОБРЫВ · ПАДЕНИЕ СМЕРТЕЛЬНО · Shift + Space с разбега",HORIZONTAL_ALIGNMENT_LEFT,-1,21,Color("eea497"))
 	draw_string(font,point(3,2.7),"ПРОЛОГ ver2 · W/S — лестница · C — присед · F8 — на старт",HORIZONTAL_ALIGNMENT_LEFT,-1,20,Color("d0c5a4"))
 	draw_string(font,point(475,8),"КОНЕЦ ПРОЛОГА ver2",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("91c7ad"))
 	if debug_geometry:

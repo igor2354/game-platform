@@ -78,7 +78,7 @@ func update_effect() -> void:
 	if not player or not player.body: return
 	player.body.sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if settings.visual_enabled and settings.character_linear_filter else CanvasItem.TEXTURE_FILTER_NEAREST
 	var speed := player.velocity.length()
-	var ramp := clampf((speed-settings.character_blur_start_speed)/maxf(1,player.tuning.sprint_speed-settings.character_blur_start_speed),0,1)
+	var ramp := clampf((speed-settings.character_blur_start_speed)/maxf(1,player.tuning.sprint_speed/CoreWorldUnits.LEGACY_SOFIA_SCALE-settings.character_blur_start_speed),0,1)
 	var length := settings.character_blur_length*settings.character_blur_strength*ramp
 	if not settings.visual_enabled or get_tree().paused or player.health <= 0: length = 0
 	blur_offset = player.velocity.normalized()*length if length > 0 else Vector2.ZERO

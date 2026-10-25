@@ -1,8 +1,11 @@
 class_name CoreCameraSettings
 extends Resource
 
+@export var scale_basis_version := 2
+
 const SAVE_PATH := "user://core_camera.cfg"
 const SWITCHES := [
+	["blocking_overlay_enabled", "Блокинг поверх окружения", "Визуал", "Бирюзовый контур — реальные неподвижные коллизии; жёлтый — зоны лестниц и односторонние платформы. Заливка регулируется ниже. Не меняет физику и не включает остальную отладку F1."],
 	["player_scale_enabled", "Изменять общий размер героя", "Размер героя", "Равномерно меняет тело, оружие, коллизии и параметры движения. Базовые числа профиля сохраняются; уровень и камера прежние. Под тесным потолком или во время падения изменение ждёт безопасного места."],
 	["camera_enabled", "Слежение камеры включено", "Камера", "Выключено: камера остаётся на месте. Настройки сохраняются до повторного включения."],
 	["map_enabled", "Карта уровня включена", "Визуал", "Выключено: карта не открывается по M. Схема строится по геометрии уровня и сохраняет настройки отображения."],
@@ -26,6 +29,8 @@ const SWITCHES := [
 @export var player_scale := 1.0
 @export var map_enabled := true
 @export var visual_enabled := true
+@export var blocking_overlay_enabled := false
+@export var blocking_overlay_opacity := .18
 @export var noir_enabled := false
 @export var pixel_enabled := false
 @export var stable_pixel_enabled := false
@@ -43,7 +48,8 @@ const SWITCHES := [
 
 # Offset and look-ahead use screen pixels, so zoom keeps the chosen framing.
 const PARAMS := [
-	["player_scale","Общий масштаб героя",.5,4.0,.05,"×","Размер героя"],
+	["blocking_overlay_opacity","Прозрачная заливка блокинга",0.0,1.0,.05,"×","Визуал"],
+	["player_scale","Общий масштаб героя",.5/CoreWorldUnits.LEGACY_SOFIA_SCALE,4.0/CoreWorldUnits.LEGACY_SOFIA_SCALE,.01,"×","Размер героя"],
 	["zoom","Приближение",.5,3.0,.05,"×","Камера"],
 	["offset_x","Камера от героя · X",-600.0,600.0,1.0,"px экрана","Камера"],
 	["offset_y","Камера от героя · Y",-450.0,450.0,1.0,"px экрана","Камера"],
@@ -129,7 +135,7 @@ func framing_values() -> Dictionary:
 	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled}
 
 func as_dictionary() -> Dictionary:
-	var values := {"limit_to_level":limit_to_level,"character_linear_filter":character_linear_filter,"deform_mesh_debug":deform_mesh_debug}
+	var values := {"scale_basis_version":2,"limit_to_level":limit_to_level,"character_linear_filter":character_linear_filter,"deform_mesh_debug":deform_mesh_debug}
 	for entry in SWITCHES: values[entry[0]] = get(entry[0])
 	for param in PARAMS: values[param[0]] = get(param[0])
 	return values
@@ -157,11 +163,21 @@ func load_saved(path := SAVE_PATH) -> Error:
 	var config := ConfigFile.new()
 	var result := config.load(path)
 	if result != OK: return result
-	var values := {}
-	for key in as_dictionary(): values[key] = config.get_value("camera",key,get(key))
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
-	apply_values(values)
+	var version = config.get_value("camera","scale_basis_version",1)
+	if version != 1 and version != 2: return ERR_INVALID_DATA
+	var values := {"scale_basis_version":version}
+	for key in as_dictionary():
+		if config.has_section_key("camera",key): values[key] = config.get_value("camera",key)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["blocking_overlay_enabled","player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
+	apply_values(migrate_profile(values))
 	return OK
+static func migrate_profile(source: Dictionary) -> Dictionary:
+	var values := source.duplicate(true)
+	if values.get("scale_basis_version",1) == 1 and (values.get("player_scale") is float or values.get("player_scale") is int):
+		values.player_scale = float(values.player_scale)/CoreWorldUnits.LEGACY_SOFIA_SCALE
+	values["scale_basis_version"] = 2
+	return values
+
 func as_text() -> String:
 	var lines := PackedStringArray()
 	for key in as_dictionary(): lines.append("%s = %s" % [key,str(get(key))])

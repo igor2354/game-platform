@@ -4,16 +4,24 @@
 
 [resource]
 script = ExtResource("1")
-run_speed = 180.0
-slow_walk_speed = 60.0
-sprint_speed = 250.0
-acceleration = 800.0
-braking = 900.0
-jump_speed = 540.0
-jump_cut_speed = 200.0
-gravity = 1800.0
-fall_speed = 1150.0
-dash_speed = 350.0
+run_speed = 327.75
+slow_walk_speed = 128.25
+sprint_speed = 555.75
+acceleration = 855.0
+braking = 1282.5
+jump_speed = 342.0
+jump_cut_speed = 142.5
+gravity = 997.5
+fall_speed = 3277.5
+dash_speed = 997.5
 dash_duration = 0.32
-climb_speed = 60.0
-crouch_height = 44.0
+climb_speed = 171.0
+crouch_height = 125.4
+crouch_speed_multiplier = 0.3
+air_acceleration = 228.0
+slow_walk_acceleration = 570.0
+slow_walk_braking = 855.0
+slow_walk_air_acceleration = 171.0
+walk_jump_multiplier = 1.0
+sprint_jump_multiplier = 1.0
+slow_walk_jump_multiplier = 1.0

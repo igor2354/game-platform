@@ -311,7 +311,10 @@ func run() -> void:
 		var root_rect: Rect2 = lab.level.forest.features.root
 		await place(Vector2(root_rect.position.x-18,760))
 		Input.action_press("core_jump")
-		await frames(7)
+		# The new jump has a different ascent time; wait for the catch rather than an old frame number.
+		for tick in 60:
+			await frames(1)
+			if hero.parkour_active(): break
 		check(hero.parkour_active(),character+" held jump catches actual forest trunk after take-off")
 		await finish()
 		check(hero.is_on_floor() and absf(hero.position.y-root_rect.position.y)<1,character+" forest trunk completes mantle in campaign")

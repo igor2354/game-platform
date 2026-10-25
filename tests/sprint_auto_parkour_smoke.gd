@@ -39,7 +39,7 @@ func course(ratio:float,width:=40.0,factor:=2.85,face:=1.0,ceiling:=false) -> vo
 	hero.tuning.parkour_enabled=true;hero.tuning.sprint_auto_parkour_enabled=true
 	hero.tuning.sprint_enabled=true;hero.tuning.sprint_duration=10
 	hero.tuning.sprint_auto_min_height_ratio=.25;hero.tuning.sprint_auto_max_height_ratio=.75
-	hero.tuning.sprint_auto_max_width=96;hero.tuning.sprint_auto_vault_time=.32
+	hero.tuning.sprint_auto_max_width=96*CoreWorldUnits.LEGACY_SOFIA_SCALE;hero.tuning.sprint_auto_vault_time=.32
 	seen=false;hung=false;exit_speed=0;kind=""
 	await frames(8)
 func drive(face:float,sprint:=true,ticks:=260) -> bool:

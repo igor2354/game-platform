@@ -150,7 +150,7 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 		jump_was_held = true
 		climb_requested = false
 		hang_time = player.tuning.parkour_hang_time if kind == "mantle" else 0.0
-		duration = (player.tuning.parkour_mantle_time if kind == "mantle" else player.tuning.parkour_vault_time)/player.body_scale
+		duration = (player.tuning.parkour_mantle_time if kind == "mantle" else player.tuning.parkour_vault_time)/player.motion_scale()
 		if automatic: duration = player.tuning.sprint_auto_vault_time
 		waypoint = 0
 		_begin_segment()
@@ -162,7 +162,7 @@ func _vault_landing(automatic := false) -> Vector2:
 	# Find a far edge on the same static obstacle, with bounded work per attempt.
 	var previous := 2.0
 	var distance := 8.0
-	var limit: float = player.tuning.sprint_auto_max_width*player.body_scale if automatic else player.tuning.parkour_vault_width
+	var limit: float = player.tuning.sprint_auto_max_width*player.motion_scale() if automatic else player.tuning.parkour_vault_width
 	while distance <= limit+8:
 		var x := ledge.x+direction*distance
 		var hit := _ray(Vector2(x,ledge.y-2),Vector2(x,ledge.y+4))
