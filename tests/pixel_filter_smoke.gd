@@ -54,8 +54,8 @@ func run() -> void:
 	var effect := lab.noir_filter
 	var forest = lab.level.forest
 	check(not s.pixel_enabled and s.pixel_size == 3 and not effect.surface.visible,"pixel filter starts disabled with size 3")
-	check(forest.backdrop.texture.get_size() == Vector2(3840,2160),"prologue uses the supplied native 4K image")
-	check((forest.backdrop.position+forest.ROAD_PIXEL*forest.backdrop.scale).is_equal_approx(lab.level.player_spawn()),"source road landmark is aligned exactly with the existing spawn floor")
+	check(forest.panorama_strips.size() == 11 and forest.PANORAMA_SIZE == Vector2(21120,1152),"prologue uses full-level panorama as GPU-sized strips")
+	check((forest.backdrop.position+Vector2(400,768)).is_equal_approx(lab.level.player_spawn()),"panorama walking plane is aligned exactly with the existing spawn floor")
 	check(forest.surfaces.size() == 12 and lab.level.slopes.size() == 14 and lab.player.is_on_floor(),"background does not change terrain, colliders or spawn grounding")
 	check(forest.backdrop.z_index < lab.player.z_index and forest.backdrop.get_parent() == forest,"background is world anchored behind the player")
 	lab.developer_mode.set_enabled(true)

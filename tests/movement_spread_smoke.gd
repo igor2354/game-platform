@@ -6,7 +6,7 @@ var gun: CoreShootingController
 var checks := 0
 var failures := 0
 var shots: Array[Dictionary] = []
-var directory := "/private/tmp/movement-spread-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("movement-spread-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -78,7 +78,8 @@ func run() -> void:
 	hero.tuning.run_speed = 200
 	gun.tuning.movement_spread_full_speed = 400
 	Input.action_press("core_right")
-	await frames(30)
+	# Acceleration smoothing approaches the requested speed over several frames.
+	await frames(60)
 	check(is_equal_approx(gun.movement_spread,2),"half of full movement speed produces half of the forward penalty")
 	gun.tuning.movement_spread_start_speed = 250
 	await frames(2)

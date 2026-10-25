@@ -5,7 +5,7 @@ var hero: CoreMovementPlayer
 var crate: RigidBody2D
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/pushing-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("pushing-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1

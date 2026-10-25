@@ -7,6 +7,8 @@ signal settings_changed
 signal toggle_requested
 
 var settings: Resource
+var motion_player: CoreMovementPlayer
+var displayed_motion_scale := NAN
 var defaults: Resource
 var profile_owner: CoreMovementOverlay
 var params: Array = CoreMovementSettings.PARAMS
@@ -200,7 +202,7 @@ func _ready() -> void:
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Паркур":
-			var hint := _label("Смотрите лицом к краю и удерживайте пробел для хвата.\nПовиснув, отпустите пробел и нажмите снова для подъёма.\nC — прервать. Отпускание пробела сохраняет хват и движение.\nНизкий узкий блок преодолевается сразу. Нужен свободный путь.\nАнимации паркура будут добавлены позже.",14)
+			var hint := _label("Shift + движение — автопаркур от колена до груди.\nПробел — ручной хват; повторное нажатие — подъём.\nC — прервать. Нужны свободный путь и опора.\nАнимации паркура будут добавлены позже.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
 		if settings is CoreMovementSettings and group == "Толкание":
@@ -496,6 +498,14 @@ func _update_readout() -> void:
 	_update_readout_values()
 	if not settings is CoreCameraSettings:
 		readout.text = readout.text.replace("px/с²","ед./с²").replace("px/с","ед./с").replace(" px"," ед.")
+	if is_instance_valid(motion_player):
+		displayed_motion_scale = motion_player.body_scale
+		for key in CoreMovementSettings.SCALED_MOTION_KEYS:
+			if not rows.has(key) or not rows[key].metric: continue
+			var baseline := CoreWorldUnits.format(float(settings.get(key)),rows[key].metric_kind)
+			rows[key].metric.text = baseline if is_equal_approx(displayed_motion_scale,1.0) else "База 1×: %s\nПри %.2f×: %s" % [baseline,displayed_motion_scale,CoreWorldUnits.format(motion_player.motion_value(key),rows[key].metric_kind)]
+		if not is_equal_approx(displayed_motion_scale,1.0):
+			readout.text = "Базовые расчёты 1×; движение ×%.2f\n" % displayed_motion_scale+readout.text
 
 func _update_readout_values() -> void:
 	if acceleration_preview: acceleration_preview.queue_redraw()
@@ -605,6 +615,7 @@ func _update_status() -> void:
 
 func _process(delta: float) -> void:
 	if not visible: return
+	if is_instance_valid(motion_player) and not is_equal_approx(displayed_motion_scale,motion_player.body_scale): _update_readout()
 	flash_left = maxf(0,flash_left-delta)
 	_update_status()
 

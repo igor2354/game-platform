@@ -98,7 +98,8 @@ func grab_hand_point(side: String,_actor_position: Vector2,direction: float) -> 
 	return global_position+Vector2(-direction*sqrt(24*24-y*y),y)
 func move_grabbed(delta: float,axis: float,actor_position: Vector2,direction: float,force_limit: float,response: float) -> void:
 	if not can_grab() or is_tipping(): return
-	var error := actor_position.x+direction*(CoreMovementPlayer.RADIUS+28)-global_position.x
+	var radius: float = grabbed_by.world_radius() if is_instance_valid(grabbed_by) and grabbed_by is CoreMovementPlayer else CoreMovementPlayer.RADIUS
+	var error := actor_position.x+direction*(radius+28)-global_position.x
 	var desired := clampf(axis*tuning.barrel_roll_speed+error*8,-tuning.barrel_roll_speed,tuning.barrel_roll_speed)
 	var force := clampf((desired-linear_velocity.x)*minf(response,mass*.6/delta),-force_limit,force_limit)
 	apply_central_impulse(Vector2(force*delta,0))

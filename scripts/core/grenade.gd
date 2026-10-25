@@ -4,6 +4,7 @@ extends RigidBody2D
 var tuning: CoreRagdollSettings
 var instigator: Node
 var controller: Node2D
+var body_scale := 1.0
 var held := true
 var fuse_left := 4.0
 var fuse_duration := 4.0
@@ -46,7 +47,7 @@ func start_fuse() -> void:
 	if not detonated: fuse_started = true
 func apply_tuning() -> void:
 	mass = tuning.grenade_mass
-	(collider.shape as CircleShape2D).radius = tuning.grenade_radius
+	(collider.shape as CircleShape2D).radius = tuning.grenade_radius*body_scale
 	var material := PhysicsMaterial.new()
 	material.bounce = tuning.grenade_bounce
 	material.friction = tuning.grenade_friction
@@ -139,6 +140,7 @@ func explode() -> void:
 	CoreExplosion.spawn(get_parent(),global_position,profile,self,instigator if is_instance_valid(instigator) else null)
 	queue_free()
 func _draw() -> void:
+	draw_set_transform(Vector2.ZERO,0,Vector2.ONE*body_scale)
 	var radius := tuning.grenade_radius if tuning else 5.0
 	draw_circle(Vector2.ZERO,radius,Color("687451"))
 	draw_arc(Vector2.ZERO,radius,0,TAU,18,Color("25323b"),1.4,true)

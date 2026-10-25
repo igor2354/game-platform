@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal fell
 signal noise_emitted(point: Vector2,loudness: float,kind: String)
 const MAX_HEALTH := 100.0
+var fall_limit := CoreMovementLevel.FALL_LIMIT
 var health := MAX_HEALTH
 var invulnerable := false
 var hurt_left := 0.0
@@ -15,12 +16,55 @@ const ENEMY_MASK := 4
 @export var tuning: CoreMovementSettings
 @export var character_id := "" # Empty preserves the original polygon hero.
 @export var sofia_cel_variant := false # Selected Sofia uses the same painted skin in both modes.
+var requested_body_scale := 1.0
+var body_scale := 1.0
+
+func motion_value(key: String) -> float:
+	return float(tuning.get(key))*body_scale
+
+func world_height() -> float:
+	return collision_height()*body_scale
+
+func world_radius() -> float:
+	return RADIUS*body_scale
+
+func scaled_pose(source: Dictionary,factor := -1.0) -> Dictionary:
+	if factor < 0: factor = body_scale
+	var pose := source.duplicate(true)
+	for part in pose.parts.values():
+		part.position *= factor
+		part.dimensions *= factor
+	for key in pose.joints: pose.joints[key] *= factor
+	pose.pelvis_offset *= factor
+	return pose
+
+func request_body_scale(value: float) -> void:
+	requested_body_scale = clampf(value,.5,4.0) if is_finite(value) else 1.0
+	_apply_body_scale()
+
+func _apply_body_scale() -> void:
+	if is_equal_approx(body_scale,requested_body_scale) or not movement_shape: return
+	# Keep the complete physical rig/held grips stable until its action ends.
+	if parkour_active() or climbing or pushing or (blast_ragdoll and blast_ragdoll.active) or (grenades and grenades.busy()): return
+	if requested_body_scale > body_scale and not _fits_height(collision_height(),requested_body_scale): return
+	var ratio := requested_body_scale/body_scale
+	velocity *= ratio
+	ground_speed *= ratio
+	ground_acceleration *= ratio
+	air_move_speed *= ratio
+	slide_speed *= ratio
+	body_scale = requested_body_scale
+	scale = Vector2.ONE*body_scale
+	if weapon:
+		weapon._aim_solution_key = 0
+		weapon._visual_pose_key = 0
+	queue_redraw()
 
 func uses_deformed_skin() -> bool:
 	return character_id == "harry" and is_instance_valid(visuals) and visuals.settings.deform_skin_enabled
 
 func ragdoll_recovery_pose(_prone := false) -> Dictionary:
-	return body.ragdoll_pose(true)
+	return scaled_pose(body.ragdoll_pose(true))
 
 func uses_painted_cels() -> bool:
 	return sofia_cel_variant and character_id == "sofia" and is_instance_valid(visuals) and visuals.settings.sofia_cels_enabled
@@ -29,6 +73,15 @@ func uses_smooth_recovery() -> bool:
 	return uses_deformed_skin() or uses_painted_cels()
 
 func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
+	# Anatomy solvers work in original concept units, independently of world size.
+	if body_scale != 1.0:
+		for key in points:
+			points[key] = _feet+(points[key]-_feet)/body_scale
+	_constrain_unscaled_recovery(points,_feet)
+	if body_scale != 1.0:
+		for key in points: points[key] = _feet+(points[key]-_feet)*body_scale
+
+func _constrain_unscaled_recovery(points: Dictionary,_feet: Vector2) -> void:
 	if uses_deformed_skin():
 		preload("res://scripts/campaign/harry_anatomy.gd").constrain_recovery(points,body.facing)
 		return
@@ -119,7 +172,7 @@ func _ready() -> void:
 	parkour = preload("res://scripts/core/parkour.gd").new(self)
 	slide_rng.randomize()
 	if tuning == null: tuning = CoreMovementSettings.new()
-	air_move_speed = tuning.run_speed
+	air_move_speed = motion_value("run_speed")
 	collision_layer = 2
 	collision_mask = WORLD_MASK
 	floor_snap_length = 24
@@ -180,7 +233,7 @@ func reset_to(point: Vector2) -> void:
 	walking = false
 	walk_requested = false
 	movement_axis = 0
-	air_move_speed = tuning.run_speed
+	air_move_speed = motion_value("run_speed")
 	crouching = false
 	if movement_shape:
 		movement_shape.shape = standing_capsule
@@ -260,15 +313,16 @@ func transition_to(point: Vector2) -> void:
 func collision_height() -> float:
 	return (movement_shape.shape as CapsuleShape2D).height if movement_shape else HEIGHT
 
-func _fits_height(height: float) -> bool:
+func _fits_height(height: float,factor := -1.0) -> bool:
+	if factor < 0: factor = body_scale
 	var capsule := CapsuleShape2D.new()
-	capsule.radius = RADIUS
-	capsule.height = height
+	capsule.radius = RADIUS*factor
+	capsule.height = height*factor
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = capsule
 	# Ignore the tiny floor-contact overlap retained by CharacterBody2D. Moving
 	# the probe up by the skin width keeps the headroom check conservative.
-	query.transform = Transform2D(0,global_position-Vector2(0,height*.5+safe_margin+.02))
+	query.transform = Transform2D(0,global_position-Vector2(0,height*factor*.5+safe_margin+.02))
 	# One-way platforms are passable from below. Feet stay in the same place.
 	query.collision_mask = collision_mask & ~8
 	var excluded: Array[RID] = [get_rid()]
@@ -390,15 +444,16 @@ func _tick_barrel_knockdown(delta: float) -> void:
 	shove_left = maxf(0,shove_left-delta)
 	weapon.update_state(delta,false)
 	velocity.x = move_toward(velocity.x,0,(400 if is_on_floor() else 30)*delta)
-	velocity.y = minf(velocity.y+tuning.gravity*delta,tuning.fall_speed)
+	velocity.y = minf(velocity.y+motion_value("gravity")*delta,motion_value("fall_speed"))
 	move_and_slide()
 	if is_on_floor(): apply_floor_snap()
 	mode = "knocked_down"
 	body.advance(delta)
 	if barrel_knockdown_left <= 0: _try_stand()
-	if global_position.y > CoreMovementLevel.FALL_LIMIT: fell.emit()
+	if global_position.y > fall_limit: fell.emit()
 
 func _physics_process(delta: float) -> void:
+	_apply_body_scale()
 	if blast_ragdoll and blast_ragdoll.active:
 		mode = "ragdoll"
 		blast_ragdoll.tick(delta)
@@ -426,9 +481,9 @@ func _physics_process(delta: float) -> void:
 		body.update_arms()
 		if shove_left > 0: shove_left = maxf(0,shove_left-delta)
 		else: velocity.x = 0
-		velocity.y = minf(velocity.y+tuning.gravity*delta,tuning.fall_speed)
+		velocity.y = minf(velocity.y+motion_value("gravity")*delta,motion_value("fall_speed"))
 		move_and_slide()
-		if global_position.y > CoreMovementLevel.FALL_LIMIT: fell.emit()
+		if global_position.y > fall_limit: fell.emit()
 		return
 	var input_allowed := not input_blocker.is_valid() or not bool(input_blocker.call())
 	if barrel_knockdown_left > 0:
@@ -481,7 +536,7 @@ func _physics_process(delta: float) -> void:
 			_tick_dash(delta)
 		else:
 			shove_left = maxf(0,shove_left-delta)
-			velocity.y = minf(velocity.y+tuning.gravity*delta,tuning.fall_speed)
+			velocity.y = minf(velocity.y+motion_value("gravity")*delta,motion_value("fall_speed"))
 			move_and_slide()
 	elif dash_left > 0:
 		_tick_dash(delta)
@@ -503,13 +558,13 @@ func _physics_process(delta: float) -> void:
 		elif dash_requested and dash_available():
 			_start_dash(axis)
 			_tick_dash(delta)
-		elif parkour.try_start(axis,jump_held):
+		elif parkour.try_start(axis,jump_held) or parkour.try_sprint(axis):
 			pass
 		else:
 			_tick_run(axis,delta,jump_held)
 	if pushing: _move_grabbed_body(delta,axis,(global_position.x-previous_position.x)/delta)
 	_scatter_debris(previous_position,delta)
-	if global_position.y > CoreMovementLevel.FALL_LIMIT: fell.emit()
+	if global_position.y > fall_limit: fell.emit()
 	_tick_sprint_reserve(delta,was_dashing,was_sliding)
 	_update_mode()
 	if dash_left > 0 or slide_left > 0 or climbing: weapon.cancel_reload()
@@ -524,8 +579,8 @@ func _scatter_debris(from: Vector2,delta: float) -> void:
 	if not get_tree().has_group("crate_debris"): return
 	# Query the swept body bounds: fast dashes should also scatter small chips,
 	# even when neither the previous nor current capsule overlaps their centre.
-	var size := Vector2(RADIUS*2,collision_height())
-	var offset := Vector2(RADIUS,collision_height())
+	var size := Vector2(world_radius()*2,world_height())
+	var offset := Vector2(world_radius(),world_height())
 	var bounds := Rect2(from-offset,size).merge(Rect2(global_position-offset,size))
 	var shape := RectangleShape2D.new()
 	shape.size = bounds.size
@@ -536,7 +591,7 @@ func _scatter_debris(from: Vector2,delta: float) -> void:
 	var speed := (global_position.x-from.x)/delta
 	for hit in get_world_2d().direct_space_state.intersect_shape(query,128):
 		if hit.collider is CoreCrateDebris:
-			hit.collider.scatter_from_player(global_position-Vector2(0,collision_height()*.5),speed)
+			hit.collider.scatter_from_player(to_global(Vector2(0,-collision_height()*.5)),speed)
 
 func stop_pushing() -> void:
 	if is_instance_valid(push_target) and push_target.has_method("end_grab"): push_target.call("end_grab")
@@ -565,8 +620,8 @@ func _update_push_contact(axis: float,delta: float,input_allowed: bool) -> void:
 		var preferred := signf(axis) if axis != 0 else body.facing
 		for direction in [preferred,-preferred]:
 			for height in [HEIGHT*.5,tuning.push_hand_height,HEIGHT*.75,20.0,12.0]:
-				var origin := global_position-Vector2(0,height)
-				var query := PhysicsRayQueryParameters2D.create(origin,origin+Vector2(direction*(RADIUS+tuning.push_contact_distance+2),0),1,[get_rid()])
+				var origin := to_global(Vector2(0,-height))
+				var query := PhysicsRayQueryParameters2D.create(origin,origin+Vector2(direction*(world_radius()+tuning.push_contact_distance+2),0),1,[get_rid()])
 				var hit := get_world_2d().direct_space_state.intersect_ray(query)
 				var prop := hit.get("collider") as RigidBody2D
 				if not _can_grab(prop): continue
@@ -597,13 +652,13 @@ func _update_push_contact(axis: float,delta: float,input_allowed: bool) -> void:
 		stop_pushing()
 
 func _tick_grab(axis: float,delta: float) -> void:
-	var target_speed := axis*tuning.push_speed
+	var target_speed := axis*motion_value("push_speed")
 	if push_target.has_method("move_grabbed"):
 		target_speed = axis*push_target.tuning.barrel_roll_speed
 		if push_target.is_tipping(): target_speed = 0
 	if push_contact_time < tuning.push_activation_delay: target_speed = 0
 	ground_acceleration = 0
-	ground_speed = move_toward(ground_speed,target_speed,tuning.acceleration*delta)
+	ground_speed = move_toward(ground_speed,target_speed,motion_value("acceleration")*delta)
 	var tangent := Vector2(-get_floor_normal().y,get_floor_normal().x)
 	velocity = tangent*ground_speed
 	if axis*push_direction < 0:
@@ -648,7 +703,7 @@ func _move_grabbed_body(delta: float,axis: float,actual_speed: float) -> void:
 	push_target.apply_impulse(Vector2(force*delta,0),radius)
 
 func push_hand_point(side: String) -> Vector2:
-	if not is_instance_valid(push_target): return global_position+Vector2(push_direction*RADIUS,-tuning.push_hand_height)
+	if not is_instance_valid(push_target): return to_global(Vector2(push_direction*RADIUS,-tuning.push_hand_height))
 	if push_target.has_method("grab_hand_point"): return push_target.grab_hand_point(side,global_position,push_direction)
 	# Discover the collider instead of depending on a scene-specific child name;
 	# dynamically generated ragdoll limbs use the same interaction contract.
@@ -672,7 +727,7 @@ func push_hand_point(side: String) -> Vector2:
 		bottom = maxf(bottom,point.y)
 	var height := tuning.push_hand_height+(tuning.push_hand_spacing*.5 if side == "far" else -tuning.push_hand_spacing*.5)
 	var inset := minf(4,(bottom-top)*.25)
-	var y := clampf(global_position.y-height,top+inset,bottom-inset)
+	var y := clampf(global_position.y-height*body_scale,top+inset,bottom-inset)
 	var start := Vector2(global_position.x,y)
 	var end := Vector2(push_target.global_position.x+push_direction*1000,y)
 	var nearest := push_target.global_position
@@ -692,7 +747,7 @@ func _emit_movement_noise(previous_position: Vector2,was_grounded: bool,fall_spe
 		ladder_noise_distance += travel
 		if ladder_noise_distance >= 48:
 			ladder_noise_distance = fmod(ladder_noise_distance,48)
-			noise_emitted.emit(global_position-Vector2(0,HEIGHT*.5),.7,"ladder")
+			noise_emitted.emit(to_global(Vector2(0,-HEIGHT*.5)),.7,"ladder")
 		return
 	ladder_noise_distance = 0
 	if dash_left > 0 or was_dashing: return
@@ -731,7 +786,7 @@ func _tick_sprint_reserve(delta: float,was_dashing: bool,was_sliding := false) -
 
 func slide_available(axis: float) -> bool:
 	if grenades.busy(): return false
-	return tuning.slide_enabled and health > 0 and is_on_floor() and sprinting and _can_sprint(axis) and slide_left <= 0 and slide_cooldown_left <= 0 and dash_left <= 0 and not climbing and shove_left <= 0 and velocity.length() >= tuning.slide_min_speed
+	return tuning.slide_enabled and health > 0 and is_on_floor() and sprinting and _can_sprint(axis) and slide_left <= 0 and slide_cooldown_left <= 0 and dash_left <= 0 and not climbing and shove_left <= 0 and velocity.length() >= motion_value("slide_min_speed")
 
 func _slide_posture() -> void:
 	var height := tuning.slide_height
@@ -759,14 +814,14 @@ func _start_slide() -> void:
 
 func _finish_slide() -> void:
 	slide_left = 0
-	air_move_speed = maxf(tuning.run_speed,absf(velocity.x)) if not is_on_floor() else tuning.run_speed
+	air_move_speed = maxf(motion_value("run_speed"),absf(velocity.x)) if not is_on_floor() else motion_value("run_speed")
 	ground_speed = slide_direction*slide_speed
 	_update_crouch(Input.is_action_pressed("core_crouch"))
 
 func _tick_slide(delta: float) -> void:
 	_slide_posture()
 	var tick_time := minf(delta,slide_left)
-	var next_speed := maxf(0,slide_speed-tuning.slide_braking*tick_time)
+	var next_speed := maxf(0,slide_speed-motion_value("slide_braking")*tick_time)
 	var tangent := Vector2(-get_floor_normal().y,get_floor_normal().x)
 	velocity = tangent*slide_direction*(slide_speed+next_speed)*.5*(tick_time/delta)
 	var ordinary_snap := floor_snap_length
@@ -802,9 +857,9 @@ func _slide_impact(enemy: CoreEnemyDummy,impact_speed: float) -> void:
 	slide_hit_enemies[enemy.get_instance_id()] = true
 	slide_hits += 1
 	var direction := Vector2(slide_direction,0)
-	var damage := tuning.slide_damage if impact_speed >= tuning.slide_damage_min_speed else 0.0
+	var damage := tuning.slide_damage if impact_speed >= motion_value("slide_damage_min_speed") else 0.0
 	var killed := enemy.take_slide_hit(damage,direction,global_position)
-	if not killed and tuning.slide_knockdown_enabled and impact_speed >= tuning.slide_knockdown_min_speed and (tuning.slide_knockdown_chance >= 1 or slide_rng.randf() < tuning.slide_knockdown_chance):
+	if not killed and tuning.slide_knockdown_enabled and impact_speed >= motion_value("slide_knockdown_min_speed") and (tuning.slide_knockdown_chance >= 1 or slide_rng.randf() < tuning.slide_knockdown_chance):
 		var duration := tuning.slide_zombie_knockdown_duration if enemy is CoreZombie else tuning.slide_knockdown_duration
 		enemy.knock_down(duration,direction*tuning.slide_knockback_speed)
 	if damage > 0 or enemy.is_knocked_down(): weapon._on_impact(enemy.global_position-Vector2(0,12),true,killed,direction)
@@ -826,14 +881,14 @@ func _capture_ground_gait(axis: float) -> void:
 	# Crouching keeps its own speed; Ctrl never scales the crouch speed again.
 	walking = walk_requested and not crouching and not pushing
 	sprinting = _can_sprint(axis)
-	air_move_speed = tuning.push_speed if pushing else (tuning.sprint_speed if sprinting else tuning.slow_walk_speed if walking else tuning.run_speed)*backward_speed_multiplier(axis)
+	air_move_speed = motion_value("push_speed") if pushing else (motion_value("sprint_speed") if sprinting else motion_value("slow_walk_speed") if walking else motion_value("run_speed"))*backward_speed_multiplier(axis)
 
 func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 	var grounded := is_on_floor()
 	if grounded:
 		_capture_ground_gait(axis)
 	if not tuning.run_enabled and not walking and not sprinting and not crouching and not pushing: axis = 0
-	var rate := (tuning.slow_walk_acceleration if axis != 0 else tuning.slow_walk_braking) if walking else (tuning.acceleration if axis != 0 else tuning.braking)
+	var rate := (motion_value("slow_walk_acceleration") if axis != 0 else motion_value("slow_walk_braking")) if walking else (motion_value("acceleration") if axis != 0 else motion_value("braking"))
 	var run_speed := air_move_speed*weapon.movement_multiplier
 	if crouching: run_speed *= tuning.crouch_speed_multiplier
 	if grounded:
@@ -851,9 +906,9 @@ func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 		velocity = tangent*ground_speed
 	else:
 		ground_acceleration = 0
-		rate = tuning.slow_walk_air_acceleration if walking else tuning.air_acceleration
+		rate = motion_value("slow_walk_air_acceleration") if walking else motion_value("air_acceleration")
 		velocity.x = move_toward(velocity.x,axis*run_speed,rate*delta)
-		velocity.y = minf(velocity.y+tuning.gravity*delta,tuning.fall_speed)
+		velocity.y = minf(velocity.y+motion_value("gravity")*delta,motion_value("fall_speed"))
 		ground_speed = velocity.x
 	if tuning.jump_enabled and jump_buffer > 0 and (is_on_floor() or coyote > 0):
 		_try_stand()
@@ -861,14 +916,14 @@ func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 		velocity.x *= jump_multiplier
 		air_move_speed *= jump_multiplier
 		ground_acceleration = 0
-		velocity.y = -tuning.jump_speed
+		velocity.y = -motion_value("jump_speed")
 		jump_buffer = 0
 		coyote = 0
 		jumps += 1
 		grounded = false
 	# Holding Space gives a full jump; releasing it early gives a short jump.
-	if not grounded and not jump_held and velocity.y < -tuning.jump_cut_speed:
-		velocity.y = -tuning.jump_cut_speed
+	if not grounded and not jump_held and velocity.y < -motion_value("jump_cut_speed"):
+		velocity.y = -motion_value("jump_cut_speed")
 	move_and_slide()
 	# Explicit snap follows downhill and convex crests; jumping never snaps back.
 	if grounded: apply_floor_snap()
@@ -895,7 +950,7 @@ func _start_dash(axis: float) -> void:
 	dash_origin = global_position
 	dashes += 1
 	set_collision_mask_value(3,false)
-	noise_emitted.emit(global_position-Vector2(0,HEIGHT*.5),2.0,"dash")
+	noise_emitted.emit(to_global(Vector2(0,-HEIGHT*.5)),2.0,"dash")
 
 func _tick_dash(delta: float) -> void:
 	# Enemy bodies are phased; swept movement still stops at world geometry.
@@ -903,7 +958,7 @@ func _tick_dash(delta: float) -> void:
 	var grounded := is_on_floor()
 	var direction := Vector2(-get_floor_normal().y,get_floor_normal().x) if grounded else Vector2.RIGHT
 	var multiplier := tuning.dash_slope_multiplier(rad_to_deg(get_floor_angle()),direction.y*dash_direction < 0) if grounded else 1.0
-	velocity = direction*dash_direction*tuning.dash_speed*multiplier*active_fraction
+	velocity = direction*dash_direction*motion_value("dash_speed")*multiplier*active_fraction
 	# Fast custom dashes can cross more than the usual snap distance in one
 	# tick at a crest. Follow the next surface only when starting grounded.
 	var ordinary_snap := floor_snap_length
@@ -920,7 +975,7 @@ func _tick_dash(delta: float) -> void:
 		# The stop is audible at the actual endpoint, including wall-shortened
 		# dashes. Otherwise an enemy keeps investigating the starting position
 		# after the player phases behind it and stands still.
-		noise_emitted.emit(global_position-Vector2(0,HEIGHT*.5),2.0,"dash")
+		noise_emitted.emit(to_global(Vector2(0,-HEIGHT*.5)),2.0,"dash")
 		dash_from_sprint = false
 		_finish_dash_collision()
 		if is_on_floor():
@@ -1018,7 +1073,7 @@ func ladder_here(vertical: float) -> Rect2:
 func _enter_ladder(candidate: Rect2) -> void:
 	walking = false
 	sprinting = false
-	air_move_speed = tuning.run_speed
+	air_move_speed = motion_value("run_speed")
 	climbing = true
 	ladder = candidate
 	ladder_side_view = candidate in side_ladders
@@ -1038,14 +1093,14 @@ func _leave_ladder() -> void:
 func _tick_climb(axis: float,vertical: float,delta: float) -> void:
 	if jump_buffer > 0:
 		_leave_ladder()
-		air_move_speed = tuning.run_speed*tuning.walk_jump_multiplier
-		velocity = Vector2(axis*air_move_speed,-tuning.jump_speed*.85)
+		air_move_speed = motion_value("run_speed")*tuning.walk_jump_multiplier
+		velocity = Vector2(axis*air_move_speed,-motion_value("jump_speed")*.85)
 		jump_buffer = 0
 		jumps += 1
 		move_and_slide()
 		return
-	velocity.x = clampf((ladder.get_center().x-global_position.x)/delta,-tuning.ladder_snap_speed,tuning.ladder_snap_speed)
-	velocity.y = vertical*tuning.climb_speed
+	velocity.x = clampf((ladder.get_center().x-global_position.x)/delta,-motion_value("ladder_snap_speed"),motion_value("ladder_snap_speed"))
+	velocity.y = vertical*motion_value("climb_speed")
 	move_and_slide()
 	if vertical < 0 and global_position.y <= ladder.position.y:
 		global_position.y = ladder.position.y

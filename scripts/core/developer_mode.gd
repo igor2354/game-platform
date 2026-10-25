@@ -270,6 +270,7 @@ func _apply_debug() -> void:
 	# Debug geometry is an independent test overlay, not the settings window.
 	lab.player.debug_shape = debug_toggle.button_pressed
 	lab.player.queue_redraw()
+	if lab.level.forest: lab.level.forest.set_debug_geometry(debug_toggle.button_pressed)
 	for enemy in lab.level.enemies:
 		enemy.debug_zones = lab.player.debug_shape
 		enemy.queue_redraw()

@@ -128,7 +128,7 @@ func advance(delta: float) -> void:
 		var travel := absf(player.global_position.x-push_last_position.x)
 		var effort := delta*.35 if player.movement_axis != 0 else 0.0
 		if player.movement_axis != 0:
-			phase = fposmod(phase+(effort+travel/110)*player.tuning.push_animation_rate,1)
+			phase = fposmod(phase+(effort+travel/(110*player.body_scale))*player.tuning.push_animation_rate,1)
 		push_last_position = player.global_position
 		frame = floori(phase*8) if player.movement_axis != 0 else 0
 		if is_instance_valid(player.push_target) and player.push_target.has_method("grab_pose"):
@@ -143,14 +143,14 @@ func advance(delta: float) -> void:
 	elif player.mode in ["jump","fall"]:
 		state = "jump"
 		if player.velocity.y < 0:
-			frame = clampi(floori((1+player.velocity.y/player.tuning.jump_speed)*4),0,3)
+			frame = clampi(floori((1+player.velocity.y/player.motion_value("jump_speed"))*4),0,3)
 		else:
-			frame = 4+clampi(floori(player.velocity.y/player.tuning.jump_speed*3),0,2)
+			frame = 4+clampi(floori(player.velocity.y/player.motion_value("jump_speed")*3),0,2)
 	elif player.mode in ["crouch","crouch_walk"]:
 		state = player.mode
 		if state == "crouch_walk":
 			var travel := player.velocity.length()*signf(player.velocity.x)*facing
-			phase = fposmod(phase+travel*delta/64.0,1)
+			phase = fposmod(phase+travel*delta/(64.0*player.body_scale),1)
 			frame = floori(phase*8)
 		else: frame = 0
 	elif landing_left > 0:
@@ -160,7 +160,7 @@ func advance(delta: float) -> void:
 		state = player.mode
 		var travel := player.velocity.length()*signf(player.velocity.x)*facing
 		var stride := (200.0 if state == "sprint" else 80.0 if state == "walk" else 160.0) if player.uses_painted_cels() else (128.0 if state == "sprint" else 64.0 if state == "walk" else RUN_STRIDE)
-		phase = fposmod(phase+travel*delta/stride,1)
+		phase = fposmod(phase+travel*delta/(stride*player.body_scale),1)
 		frame = floori(phase*8)
 	else:
 		state = "idle"
@@ -260,43 +260,44 @@ func update_arms() -> void:
 		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
 		near_arm.pose(shoulder("near"),player.grenades.hand_point("near"),facing,false)
 	elif state in ["push","pull","barrel_tip","barrel_roll"]:
-		far_arm.pose(shoulder("far"),player.push_hand_point("far")-player.global_position,facing,true)
-		near_arm.pose(shoulder("near"),player.push_hand_point("near")-player.global_position,facing,false)
+		far_arm.pose(shoulder("far"),player.to_local(player.push_hand_point("far")),facing,true)
+		near_arm.pose(shoulder("near"),player.to_local(player.push_hand_point("near")),facing,false)
 	elif state == "climb":
 		for side in ["far","near"]:
 			var arm := far_arm if side == "far" else near_arm
 			var desired_height := 33.0 if side == "far" else 45.0
 			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
 				desired_height = -shoulder(side).y+(-12 if side == "far" else 12)
-			var rungs_start := LADDER.rung_origin(player.ladder)
-			var step := LADDER.HAND_STRIDE
-			var cell := (player.global_position.y-desired_height-rungs_start)/step
+			var rungs_start := (LADDER.rung_origin(player.ladder)-player.global_position.y)/player.body_scale
+			var spacing := LADDER.RUNG_SPACING/player.body_scale
+			var step := LADDER.HAND_STRIDE/player.body_scale
+			var cell := (-desired_height-rungs_start)/step
 			var fraction := fposmod(cell,1)
 			var rung := rungs_start+floorf(cell)*step
 			# Move one hand to the next rung while the other supports the body.
 			rung -= (1-smoothstep(0,.30,fraction))*step
-			var last_rung := rungs_start+floorf((player.ladder.end.y-1-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
-			rung = clampf(rung,rungs_start-LADDER.TOP_EXTENSION,last_rung)
-			var hand := Vector2(LADDER.hand_x(player.ladder,side == "far",player.ladder_side_view),rung-player.global_position.y)
+			var last_rung := rungs_start+floorf(((player.ladder.end.y-player.global_position.y)/player.body_scale-1/player.body_scale-rungs_start)/spacing)*spacing
+			rung = clampf(rung,rungs_start-(LADDER.TOP_EXTENSION/player.body_scale),last_rung)
+			var hand := Vector2(LADDER.hand_x(player.ladder,side == "far",player.ladder_side_view)/player.body_scale,rung)
 			if player.uses_painted_cels() or player.uses_deformed_skin():
 				# Choose a reachable rung before IK, including the side-view cels.
 				# Clamping the arm alone leaves
 				# its painted glove floating between the character and the ladder.
 				var socket := shoulder(side)
 				var reach_y := sqrt(maxf(0,pow(arm.upper_length+arm.lower_length-.05,2)-pow(hand.x-socket.x,2)))
-				var low := rungs_start+ceilf((player.global_position.y+socket.y-reach_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
-				var high := rungs_start+floorf((player.global_position.y+socket.y+reach_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
-				hand.y = clampf(rung,low,high)-player.global_position.y
+				var low := rungs_start+ceilf((socket.y-reach_y-rungs_start)/spacing)*spacing
+				var high := rungs_start+floorf((socket.y+reach_y-rungs_start)/spacing)*spacing
+				hand.y = clampf(rung,low,high)
 				# A narrow rail can lie beside the shoulder. Pick another reachable
 				# hold instead of forcing an almost fully folded elbow (over 120°).
 				var minimum := sqrt(arm.upper_length*arm.upper_length+arm.lower_length*arm.lower_length-arm.upper_length*arm.lower_length)
 				if hand.distance_to(socket) < minimum:
 					var minimum_y := sqrt(maxf(0,minimum*minimum-pow(hand.x-socket.x,2)))
-					var above := rungs_start+floorf((player.global_position.y+socket.y-minimum_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
-					var below := rungs_start+ceilf((player.global_position.y+socket.y+minimum_y-rungs_start)/LADDER.RUNG_SPACING)*LADDER.RUNG_SPACING
+					var above := rungs_start+floorf((socket.y-minimum_y-rungs_start)/spacing)*spacing
+					var below := rungs_start+ceilf((socket.y+minimum_y-rungs_start)/spacing)*spacing
 					var chosen := above if above >= low else below
 					if below <= high and absf(below-rung) < absf(chosen-rung): chosen = below
-					hand.y = chosen-player.global_position.y
+					hand.y = chosen
 			arm.pose(shoulder(side),hand,-1 if side == "far" else 1,side == "far")
 	else:
 		var gun_pose := player.weapon.visual_pose()

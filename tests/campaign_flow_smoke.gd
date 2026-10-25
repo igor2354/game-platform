@@ -41,6 +41,8 @@ func run() -> void:
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/frontend.tscn","application boots into the main menu")
 	check(app.page == "main" and app.buttons.settings.disabled and not app.buttons.quit.disabled,"campaign, polygon and quit are enabled on the main menu")
 	await click(app.buttons.campaign)
+	check(app.page == "levels" and app.buttons.has("prologue") and app.buttons.has("prologue_v2"),"campaign opens the two prologue choices")
+	await click(app.buttons.prologue)
 	check(app.page == "characters","campaign button opens character selection")
 	await click(app.buttons.sofia)
 	check(app.selected_character == "sofia","Sofia is selectable through her actual button")

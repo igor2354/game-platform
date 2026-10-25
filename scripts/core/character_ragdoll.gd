@@ -27,7 +27,7 @@ var recovery_points: Dictionary = {}
 var joint_anchors: Dictionary = {}
 func capture_pose() -> Dictionary:
 	if actor.has_method("ragdoll_pose"): return actor.call("ragdoll_pose")
-	if actor is CoreMovementPlayer: return actor.body.ragdoll_pose()
+	if actor is CoreMovementPlayer: return actor.scaled_pose(actor.body.ragdoll_pose())
 	if actor is CoreZombie: return ZOMBIE_SKIN.capture_pose(actor)
 	return {}
 func start(impulse: Vector2,duration: float,tension: float,initial_pose: Dictionary = {}) -> void:
@@ -39,6 +39,7 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 	var pose: Dictionary = capture_pose() if initial_pose.is_empty() else initial_pose
 	if actor is CoreMovementPlayer and not actor.character_id.is_empty() and not actor.weapon.equipped_weapon_id.is_empty():
 		pose.weapon_pose = actor.weapon.visual_pose().duplicate(true)
+		for key in ["breech","rear_grip","front_grip"]: pose.weapon_pose[key] *= actor.body_scale
 	recovering = false
 	recovery_finished = false
 	active = true
@@ -52,7 +53,7 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 	actor.collision_mask = 0
 	actor.velocity = Vector2.ZERO
 	actor.rotation = 0
-	height = actor.collision_height() if actor is CoreMovementPlayer else actor.body_size.y
+	height = actor.world_height() if actor is CoreMovementPlayer else actor.body_size.y
 	if actor is CoreMovementPlayer:
 		if actor.parkour_active(): actor.parkour.cancel()
 		actor.stop_pushing()
@@ -77,7 +78,7 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 	rig.body_scale = height/94.0
 	pelvis_offset = height*44/94
 	if actor is CoreMovementPlayer:
-		rig.body_scale = CoreMovementPlayer.HEIGHT/94.0
+		rig.body_scale = CoreMovementPlayer.HEIGHT*actor.body_scale/94.0
 	if not pose.is_empty():
 		rig.initial_parts = pose.parts.duplicate(true)
 		rig.initial_joints = pose.joints.duplicate(true)
@@ -95,7 +96,8 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		player_skin.facing = pose.facing
 		player_skin.painted_head_stage = pose.get("painted_head_stage",0)
 		# Keep the exact painted phase as the physical mesh's bind pose.
-		player_skin.painted_cel_pose = pose.duplicate(true)
+		player_skin.painted_cel_pose = actor.scaled_pose(pose,1.0/actor.body_scale)
+		player_skin.scale = Vector2.ONE*actor.body_scale
 		rig.add_child(player_skin)
 	elif actor is CoreZombie:
 		zombie_skin = actor.call("create_ragdoll_skin") if actor.has_method("create_ragdoll_skin") else ZOMBIE_SKIN.new()
@@ -166,7 +168,8 @@ func tick(delta: float) -> void:
 	var pelvis: RigidBody2D = rig.parts.pelvis
 	actor.global_position = pelvis.global_position+Vector2(0,pelvis_offset)
 	actor.velocity = pelvis.linear_velocity
-	if actor.global_position.y > CoreMovementLevel.FALL_LIMIT:
+	var fall_limit: float = actor.fall_limit if actor is CoreMovementPlayer else CoreMovementLevel.FALL_LIMIT
+	if actor.global_position.y > fall_limit:
 		if actor is CoreMovementPlayer: actor.fell.emit()
 		else:
 			actor.take_damage(actor.health)
@@ -185,15 +188,15 @@ func _try_recover() -> void:
 	var ray := PhysicsRayQueryParameters2D.create(from,pelvis.global_position+Vector2(0,height),1|8,excluded)
 	var ground := get_world_2d().direct_space_state.intersect_ray(ray)
 	if ground.is_empty(): return
-	var size: Vector2 = Vector2(28,height) if actor is CoreMovementPlayer else actor.body_size
+	var size: Vector2 = Vector2(28*actor.body_scale,height) if actor is CoreMovementPlayer else actor.body_size
 	# Harry's target is a full standing pose, even if the hit began crouched.
-	if actor is CoreMovementPlayer and actor.uses_smooth_recovery(): size.y = CoreMovementPlayer.HEIGHT
+	if actor is CoreMovementPlayer and actor.uses_smooth_recovery(): size.y = CoreMovementPlayer.HEIGHT*actor.body_scale
 	if actor is CoreEnemyDummy:
 		var legless: bool = not actor.has_part("left_leg") and not actor.has_part("right_leg")
 		if actor is CoreZombie: legless = not actor.has_part("left_leg") or not actor.has_part("right_leg")
 		if legless: size = Vector2(24,24)
 	var shape := CapsuleShape2D.new()
-	shape.radius = minf(12,size.x*.4)
+	shape.radius = minf(12*actor.body_scale if actor is CoreMovementPlayer else 12.0,size.x*.4)
 	shape.height = maxf(size.y,shape.radius*2)
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape

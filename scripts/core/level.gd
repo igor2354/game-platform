@@ -2,17 +2,24 @@ class_name CoreMovementLevel
 extends Node2D
 
 @export var prologue_mode := false
+@export var prologue_version := 1
 const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
+const FOREST_V2 = preload("res://scripts/campaign/forest_prologue_v2.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const PROLOGUE_START := Vector2(12400,760)
-var forest: FOREST
+var forest: Node2D
 var atmosphere_opacity := 0.0
 
 func player_spawn() -> Vector2:
+	if prologue_mode and prologue_version == 2: return FOREST_V2.point(2,0)
 	return PROLOGUE_START if prologue_mode else SPAWN
 
 func right_bound() -> float:
+	if prologue_mode and prologue_version == 2: return FOREST_V2.BOUNDS.end.x
 	return FOREST.BOUNDS.end.x if prologue_mode else WIDTH
+
+func campaign_bounds() -> Rect2:
+	return FOREST_V2.BOUNDS if prologue_version == 2 else FOREST.BOUNDS
 
 func map_landmarks() -> Array[Dictionary]:
 	if prologue_mode:
@@ -79,14 +86,19 @@ func _ready() -> void:
 		ladders.append_array(side_ladders)
 		obstacles.append_array(CoreIndoorLighting.SOLIDS)
 	if prologue_mode:
-		forest = FOREST.new()
+		forest = FOREST_V2.new() if prologue_version == 2 else FOREST.new()
 		add_child(forest)
 		platforms.append_array(forest.platforms)
 		obstacles.append_array(forest.obstacles)
 		ladders.append_array(forest.ladders)
 		slopes.append_array(forest.terrain)
-		_solid(Rect2(FOREST.ORIGIN.x-40,-1500,40,3000),false)
-		_solid(Rect2(FOREST.BOUNDS.end.x,-1500,40,3000),false)
+		if prologue_version == 2:
+			var bounds := campaign_bounds()
+			_solid(Rect2(bounds.position.x-40,bounds.position.y,40,bounds.size.y),false)
+			_solid(Rect2(bounds.end.x,bounds.position.y,40,bounds.size.y),false)
+		else:
+			_solid(Rect2(FOREST.ORIGIN.x-40,-1500,40,3000),false)
+			_solid(Rect2(FOREST.BOUNDS.end.x,-1500,40,3000),false)
 	for rect in floors+obstacles: _solid(rect,false)
 	for rect in platforms: _solid(rect,true)
 	_solid(HANGING_BEAM,false)

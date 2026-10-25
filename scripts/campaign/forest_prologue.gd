@@ -1,6 +1,6 @@
 extends Node2D
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
-## Approved forest plan. The user-approved 4K backdrop covers the opening test area.
+## Current forest geometry with the user-selected full-level panorama.
 ## Heights are positive upwards; all measurements use the existing 64 px capsule.
 
 const H := 64.0
@@ -8,23 +8,56 @@ const ORIGIN := Vector2(12000,760)
 const WIDTH := 330.0*H
 const BOUNDS := Rect2(12000,80,WIDTH,1000)
 const SOIL_BOTTOM := 1280.0
-const BACKDROP = preload("res://resources/campaign/prologue_forest_4k.png")
-const BACKDROP_SCALE := .625
-# Source road at x=1440, y=1650, aligned to the existing spawn floor (not a collider).
-const ROAD_PIXEL := Vector2(1440,1650)
-var backdrop: Sprite2D
+const PANORAMA_SIZE := Vector2(21120,1152)
+const PANORAMA_ORIGIN := ORIGIN-Vector2(0,768)
+const PANORAMA_STRIDE := 2048
+const PANORAMA_GUTTER := 2
+const PANORAMA_TEXTURES := [
+	preload("res://resources/campaign/forest_panorama/strip_00.png"),
+	preload("res://resources/campaign/forest_panorama/strip_01.png"),
+	preload("res://resources/campaign/forest_panorama/strip_02.png"),
+	preload("res://resources/campaign/forest_panorama/strip_03.png"),
+	preload("res://resources/campaign/forest_panorama/strip_04.png"),
+	preload("res://resources/campaign/forest_panorama/strip_05.png"),
+	preload("res://resources/campaign/forest_panorama/strip_06.png"),
+	preload("res://resources/campaign/forest_panorama/strip_07.png"),
+	preload("res://resources/campaign/forest_panorama/strip_08.png"),
+	preload("res://resources/campaign/forest_panorama/strip_09.png"),
+	preload("res://resources/campaign/forest_panorama/strip_10.png")
+]
+var backdrop: Node2D
+var panorama_strips: Array[Sprite2D] = []
+var debug_geometry := false
 
 func _ready() -> void:
-	backdrop = Sprite2D.new()
-	backdrop.name = "ForestBackdrop"
-	backdrop.texture = BACKDROP
-	backdrop.centered = false
-	backdrop.scale = Vector2.ONE*BACKDROP_SCALE
-	backdrop.position = point(6.25,0)-ROAD_PIXEL*BACKDROP_SCALE
-	backdrop.z_index = -2
-	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# Images share the unchanged world's coordinates. Higher than the old level
+	# drawing, before the actor in tree order; collision nodes remain independent.
+	z_index = 1
+	backdrop = Node2D.new()
+	backdrop.name = "ForestPanorama"
+	backdrop.position = PANORAMA_ORIGIN
+	backdrop.z_index = -1
 	add_child(backdrop)
+	for index in PANORAMA_TEXTURES.size():
+		var width := mini(PANORAMA_STRIDE,int(PANORAMA_SIZE.x)-index*PANORAMA_STRIDE)
+		var region := AtlasTexture.new()
+		region.atlas = PANORAMA_TEXTURES[index]
+		region.region = Rect2(PANORAMA_GUTTER,0,width,PANORAMA_SIZE.y)
+		region.filter_clip = false
+		var strip := Sprite2D.new()
+		strip.name = "Strip%02d" % index
+		strip.texture = region
+		strip.centered = false
+		strip.position = Vector2(index*PANORAMA_STRIDE,0)
+		strip.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		backdrop.add_child(strip)
+		panorama_strips.append(strip)
 	queue_redraw()
+
+func set_debug_geometry(enabled: bool) -> void:
+	debug_geometry = enabled
+	queue_redraw()
+
 const SECTIONS := [
 	["01","Лес / заброшенная машина",24,[[0,0],[8,0],[12,.5],[18,.5],[24,0]]],
 	["02","Овраг",28,[[0,0],[4,0],[10,-3],[17,-3],[24,0],[28,0]]],
@@ -143,6 +176,7 @@ func map_landmarks() -> Array[Dictionary]:
 	return result
 
 func _draw() -> void:
+	if not debug_geometry: return
 	for x in range(int(ORIGIN.x),int(BOUNDS.end.x)+1,128):
 		if x < point(24,0).x: continue
 		draw_line(Vector2(x,100),Vector2(x,1080),Color("253239"),1)

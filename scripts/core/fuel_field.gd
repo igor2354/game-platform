@@ -173,7 +173,7 @@ func _apply_fire(damage_tick: bool) -> void:
 			if touched.has(body.get_instance_id()): continue
 			if not (body is CharacterBody2D or body.has_method("ignite_from_fire")): continue
 			var point: Vector2 = body.global_position
-			if body is CoreMovementPlayer: point.y -= minf(12,body.collision_height()*.5)
+			if body is CoreMovementPlayer: point.y -= minf(12,body.world_height()*.5)
 			elif body is CoreEnemyDummy: point = body.body_shape.global_position
 			if not _clear_path(cell.point+cell.normal*3,point):
 				# The barrel itself is a solid obstacle, so exclude it for its

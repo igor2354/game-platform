@@ -7,8 +7,8 @@ const TOP_EXTENSION := 72.0
 const HAND_STRIDE := RUNG_SPACING*2.0
 const CYCLE_DISTANCE := HAND_STRIDE*2.0
 
-static func make(center_x: float,top_y: float,height: float) -> Rect2:
-	return Rect2(center_x-WIDTH*.5,top_y,WIDTH,height)
+static func make(center_x: float,top_y: float,height: float,width := WIDTH) -> Rect2:
+	return Rect2(center_x-width*.5,top_y,width,height)
 
 static func rung_origin(ladder: Rect2) -> float:
 	return ladder.position.y+RUNG_SPACING*.5

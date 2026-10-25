@@ -239,7 +239,7 @@ func _tick_reload(delta: float) -> void:
 	if progress >= .42 and not old_magazine_dropped:
 		old_magazine_dropped = true
 		var pose := _reload_pose(.40)
-		effects.append({"kind":"magazine","point":player.global_position+pose.magazine_point,"target":false,"velocity":Vector2(-reload_facing*55,35),"rotation":0.0,"life":2.0})
+		effects.append({"kind":"magazine","point":player.to_global(pose.magazine_point),"target":false,"velocity":Vector2(-reload_facing*55,35),"rotation":0.0,"life":2.0})
 	if reload_left <= 0:
 		# Commit exactly once, only after the weapon is ready. Partial reloads
 		# retain remaining rounds; interruptions cannot duplicate ammunition.
@@ -256,7 +256,7 @@ func movement_spread_target() -> float:
 	if not tuning.movement_spread_enabled or not tuning.weapon_enabled or player.health <= 0 or not player.is_on_floor() or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or is_zero_approx(player.velocity.x): return 0.0
 	# Actual ground speed already includes backward, firing and slope modifiers.
 	# Use its tangent length so climbing a hill does not artificially improve aim.
-	var speed := player.velocity.length()
+	var speed := player.velocity.length()/player.body_scale
 	var weight := clampf((speed-tuning.movement_spread_start_speed)/maxf(1,tuning.movement_spread_full_speed-tuning.movement_spread_start_speed),0,1)
 	var amount := tuning.movement_spread_backward if player.velocity.x*look_facing() < 0 else tuning.movement_spread_forward
 	return amount*weight
@@ -271,8 +271,8 @@ func _tick_movement_spread(delta: float) -> void:
 	if absf(movement_spread-target) < .001: movement_spread = target
 func pivot() -> Vector2:
 	if player.body and not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
-		return player.global_position+visual_pose().breech
-	return player.global_position+local_pivot()
+		return player.to_global(visual_pose().breech)
+	return player.to_global(local_pivot())
 func local_pivot() -> Vector2:
 	if not player.body: return HIP_PIVOT
 	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
@@ -290,7 +290,7 @@ func requires_standing_for_down_aim() -> bool:
 	if equipped_weapon_id == "m1911" or not tuning.weapon_enabled: return false
 	if reloading or player.climbing or player.parkour_active() or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
 	if player.grenades and player.grenades.busy(): return false
-	var direction := (cursor_point()-player.global_position-Vector2(0,-42)).normalized()
+	var direction := (cursor_point()-player.to_global(Vector2(0,-42))).normalized()
 	return direction.y > .78
 
 func update_state(delta: float,input_allowed: bool) -> void:
@@ -396,7 +396,7 @@ func _update_aim() -> void:
 	# Hysteresis around both vertical axes preserves the last deliberate side.
 	# Use the raw cursor and a neutral body anchor, not sway or a mirrored gun
 	# mount: neither animation nor camera recoil may choose the opposite side.
-	var bearing := target-recoil_kick_offset-recoil_drift_offset-(player.global_position-Vector2(0,player.collision_height()*.5))
+	var bearing := target-recoil_kick_offset-recoil_drift_offset-(player.to_global(Vector2(0,-player.collision_height()*.5)))
 	var turn_threshold := maxf(1,absf(bearing.y)*tan(deg_to_rad(camera_settings.vertical_aim_deadzone)))
 	if absf(bearing.x) > turn_threshold: aim_facing = signf(bearing.x)
 	if aiming:
@@ -407,7 +407,7 @@ func _update_aim() -> void:
 		target = aim_cursor._bounded_point(target)
 	aim_point = target
 	var previous_facing := player.facing
-	var solution_key := hash([target,player.global_position,player.facing,_pose_inputs(),aim_facing]) if not equipped_weapon_id.is_empty() and not player.character_id.is_empty() else 0
+	var solution_key := hash([target,player.global_position,player.body_scale,player.facing,_pose_inputs(),aim_facing]) if not equipped_weapon_id.is_empty() and not player.character_id.is_empty() else 0
 	if solution_key != 0 and solution_key == _aim_solution_key and aim_direction == _solved_direction:
 		if aiming or firing: player.facing = look_facing()
 		return
@@ -426,7 +426,7 @@ func _update_aim() -> void:
 	# Facing may be updated by this solve itself. Cache the resulting state,
 	# otherwise the first unchanged draw/cursor query needlessly solves again.
 	if solution_key != 0 and player.facing != previous_facing:
-		solution_key = hash([target,player.global_position,player.facing,_pose_inputs(),aim_facing])
+		solution_key = hash([target,player.global_position,player.body_scale,player.facing,_pose_inputs(),aim_facing])
 	_aim_solution_key = solution_key
 	_solved_direction = aim_direction
 func finish_tick() -> void:
@@ -464,7 +464,7 @@ func _fire() -> void:
 	if tuning.magazine_enabled: magazine_ammo -= 1
 	last_shot_spread = spread_degrees()
 	last_shot_direction = aim_direction.rotated(deg_to_rad(rng.randf_range(-last_shot_spread,last_shot_spread))) if last_shot_spread > 0 else aim_direction
-	var muzzle := pivot()+aim_direction*muzzle_distance()
+	var muzzle := pivot()+aim_direction*muzzle_distance()*player.body_scale
 	var query := PhysicsRayQueryParameters2D.create(pivot(),muzzle,CoreProjectile.BULLET_MASK,[player.get_rid()])
 	query.collide_with_areas = true
 	query.hit_from_inside = true

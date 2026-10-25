@@ -117,7 +117,7 @@ func _resolve_blast() -> void:
 		if not is_instance_valid(body) or body.is_queued_for_deletion(): continue
 		var weight: float = contact.strength
 		var center := body.global_position
-		if body is CoreMovementPlayer: center -= Vector2(0,body.collision_height()*.5)
+		if body is CoreMovementPlayer: center -= Vector2(0,body.world_height()*.5)
 		elif body is CoreEnemyDummy and body.body_shape: center = body.body_shape.global_position
 		var direction := (center-global_position).normalized()
 		if direction == Vector2.ZERO: direction = Vector2.UP
