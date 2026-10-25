@@ -1,6 +1,8 @@
 extends Node2D
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
-## Approved forest plan. The user-approved 4K backdrop covers the opening test area.
+const ENVIRONMENT = preload("res://scripts/campaign/forest_environment.gd")
+const HUMAN_SCALE = preload("res://scripts/campaign/environment_scale.gd")
+## Approved route; buildings use the character's real-world scale.
 ## Heights are positive upwards; all measurements use the existing 64 px capsule.
 
 const H := 64.0
@@ -8,22 +10,12 @@ const ORIGIN := Vector2(12000,760)
 const WIDTH := 330.0*H
 const BOUNDS := Rect2(12000,80,WIDTH,1000)
 const SOIL_BOTTOM := 1280.0
-const BACKDROP = preload("res://resources/campaign/prologue_forest_4k.png")
-const BACKDROP_SCALE := .625
-# Source road at x=1440, y=1650, aligned to the existing spawn floor (not a collider).
-const ROAD_PIXEL := Vector2(1440,1650)
-var backdrop: Sprite2D
+var environment: ENVIRONMENT
 
 func _ready() -> void:
-	backdrop = Sprite2D.new()
-	backdrop.name = "ForestBackdrop"
-	backdrop.texture = BACKDROP
-	backdrop.centered = false
-	backdrop.scale = Vector2.ONE*BACKDROP_SCALE
-	backdrop.position = point(6.25,0)-ROAD_PIXEL*BACKDROP_SCALE
-	backdrop.z_index = -2
-	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	add_child(backdrop)
+	environment = ENVIRONMENT.new()
+	environment.configure(self)
+	add_child(environment)
 	queue_redraw()
 const SECTIONS := [
 	["01","Лес / заброшенная машина",24,[[0,0],[8,0],[12,.5],[18,.5],[24,0]]],
@@ -75,15 +67,30 @@ func _init() -> void:
 	_ladder("stone_down",175,-2,1)
 	_ladder("stone_up",181,-2,1)
 	# The floor is part of the solid terrain, so the cabin cannot be bypassed below.
-	_block("cabin_roof",222,6,12,.25)
-	_block("cabin_left_lintel",222,3.7,.25,2.3)
-	_block("cabin_right_lintel",233.75,3.7,.25,2.3)
+	var cabin_roof := HUMAN_SCALE.roof_height_h(2,HUMAN_SCALE.CABIN_CLEAR_M,H)
+	var cabin_ceiling := 2+HUMAN_SCALE.units(HUMAN_SCALE.CABIN_CLEAR_M)/H
+	var cabin_door := 2+HUMAN_SCALE.units(HUMAN_SCALE.DOOR_HEIGHT_M)/H
+	var cabin_width := HUMAN_SCALE.units(HUMAN_SCALE.CABIN_WIDTH_M)/H
+	var cabin_left := 228-cabin_width*.5
+	var post := HUMAN_SCALE.units(HUMAN_SCALE.TIMBER_POST_M)/H
+	_block("cabin_roof",cabin_left,cabin_ceiling,cabin_width,cabin_roof-cabin_ceiling)
+	_block("cabin_left_lintel",cabin_left,cabin_door,post,cabin_ceiling-cabin_door)
+	_block("cabin_right_lintel",cabin_left+cabin_width-post,cabin_door,post,cabin_ceiling-cabin_door)
 	_block("trench_cover_a",253,-1.5,.65,.55)
 	_block("trench_cover_b",261,ground_height(261),.65,.55)
-	_deck("bunker_roof",281,290.5,6)
-	_block("bunker_left_lintel",281,4.7,.25,1.3)
-	_block("bunker_right_lintel",288.75,4.7,.25,1.3)
-	_ladder("bunker",290,ground_height(290),6)
+	var bunker_roof := HUMAN_SCALE.roof_height_h(3,HUMAN_SCALE.BUNKER_CLEAR_M,H)
+	var bunker_ceiling := 3+HUMAN_SCALE.units(HUMAN_SCALE.BUNKER_CLEAR_M)/H
+	var bunker_door := 3+HUMAN_SCALE.units(HUMAN_SCALE.DOOR_HEIGHT_M)/H
+	var bunker_width := HUMAN_SCALE.units(HUMAN_SCALE.BUNKER_WIDTH_M)/H
+	var bunker_left := 285.5-bunker_width*.5
+	var bunker_right := bunker_left+bunker_width
+	var wall := HUMAN_SCALE.units(HUMAN_SCALE.BUNKER_WALL_M)/H
+	# Keep the climb outside the wall and provide a supported landing above it.
+	_deck("bunker_roof",bunker_left,bunker_right+HUMAN_SCALE.units(1.1)/H,bunker_roof,HUMAN_SCALE.units(HUMAN_SCALE.ROOF_THICKNESS_M))
+	_block("bunker_left_lintel",bunker_left,bunker_door,wall,bunker_ceiling-bunker_door)
+	_block("bunker_right_lintel",bunker_right-wall,bunker_door,wall,bunker_ceiling-bunker_door)
+	var bunker_ladder := bunker_right+HUMAN_SCALE.units(.6)/H
+	_ladder("bunker",bunker_ladder,ground_height(bunker_ladder),bunker_roof)
 	_deck("tree_bridge",303,319,1)
 	_block("wagon",324,ground_height(324),3,1.4)
 	_guide(2,3.8,"ПРОЛОГ · ЛЕСНОЙ УЧАСТОК")
@@ -123,8 +130,8 @@ func _block(id: String,x_H: float,bottom_H: float,width_H: float,height_H: float
 	obstacles.append(rect)
 	features[id] = rect
 
-func _deck(id: String,x0: float,x1: float,height_H: float) -> void:
-	var rect := Rect2(point(x0,height_H),Vector2((x1-x0)*H,14))
+func _deck(id: String,x0: float,x1: float,height_H: float,thickness := 14.0) -> void:
+	var rect := Rect2(point(x0,height_H),Vector2((x1-x0)*H,thickness))
 	platforms.append(rect)
 	features[id] = rect
 
@@ -143,6 +150,15 @@ func map_landmarks() -> Array[Dictionary]:
 	return result
 
 func _draw() -> void:
+	if is_instance_valid(environment):
+		var roof: Rect2 = features.bunker_roof
+		var wall_right: float = features.bunker_right_lintel.end.x
+		draw_rect(Rect2(wall_right,roof.position.y,roof.end.x-wall_right,roof.size.y),Color("635a48"))
+		draw_line(Vector2(wall_right,roof.position.y+46),Vector2(roof.end.x,roof.end.y),Color("514b3d"),4)
+		# Keep exact climb targets readable, including the existing hand overreach.
+		for rect in ladders:
+			LADDER.draw(self,rect,Color("776449"))
+		return
 	for x in range(int(ORIGIN.x),int(BOUNDS.end.x)+1,128):
 		if x < point(24,0).x: continue
 		draw_line(Vector2(x,100),Vector2(x,1080),Color("253239"),1)

@@ -54,10 +54,11 @@ func run() -> void:
 	var effect := lab.noir_filter
 	var forest = lab.level.forest
 	check(not s.pixel_enabled and s.pixel_size == 3 and not effect.surface.visible,"pixel filter starts disabled with size 3")
-	check(forest.backdrop.texture.get_size() == Vector2(3840,2160),"prologue uses the supplied native 4K image")
-	check((forest.backdrop.position+forest.ROAD_PIXEL*forest.backdrop.scale).is_equal_approx(lab.level.player_spawn()),"source road landmark is aligned exactly with the existing spawn floor")
+	check(forest.environment.panels.size() == 12 and forest.environment.panels[0].texture.get_size() == Vector2(1672,941),"prologue uses all twelve approved route paintings")
+	var source_floor: Array = forest.environment.column_anchors(0,557,lab.level.player_spawn().x)
+	check(is_equal_approx(source_floor[-2][1],lab.level.player_spawn().y),"painted road calibration is aligned with the existing spawn floor")
 	check(forest.surfaces.size() == 12 and lab.level.slopes.size() == 14 and lab.player.is_on_floor(),"background does not change terrain, colliders or spawn grounding")
-	check(forest.backdrop.z_index < lab.player.z_index and forest.backdrop.get_parent() == forest,"background is world anchored behind the player")
+	check(forest.environment.z_index < lab.player.z_index and forest.environment.get_parent() == forest,"background is world anchored behind the player")
 	lab.developer_mode.set_enabled(true)
 	lab.developer_mode.show_overlay(2)
 	ui.tabs.current_tab = 1

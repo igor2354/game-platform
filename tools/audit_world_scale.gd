@@ -38,8 +38,8 @@ func run() -> void:
 	paused = true
 	var result := {"date":"2026-10-23","viewport":Vector2(1600,900),"camera_copy":original_camera,
 		"hero_collision_height":CoreMovementPlayer.HEIGHT,"forest_unit_H":lab.level.forest.H,
-		"background_texture":lab.level.forest.BACKDROP.get_size(),"background_scale":lab.level.forest.BACKDROP_SCALE,
-		"background_world_size":lab.level.forest.BACKDROP.get_size()*lab.level.forest.BACKDROP_SCALE,
+		"background_texture":lab.level.forest.environment.PAINTINGS[0].get_size(),
+		"background_world_size":Vector2(lab.level.forest.sections[0].width_H*lab.level.forest.H,lab.level.forest.SOIL_BOTTOM-152),
 		"forest_length":lab.level.forest.WIDTH,"forest_length_in_hero_heights":lab.level.forest.WIDTH/CoreMovementPlayer.HEIGHT,
 		"frames":[]}
 	for zoom in [.75,1.5,2.25]:

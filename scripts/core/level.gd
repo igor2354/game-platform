@@ -206,6 +206,7 @@ func _draw() -> void:
 	for x in range(int(LEFT_BOUND),int(test_right)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)
 	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(test_right,y),grid_color,1)
 	for rect in floors+platforms+obstacles:
+		if prologue_mode and forest and (rect in forest.platforms or rect in forest.obstacles): continue
 		draw_rect(rect,Color("43525b"))
 		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("829398"),3)
 	draw_rect(HANGING_BEAM,Color("495d66"))
@@ -214,6 +215,7 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array(BARREL_RAMP),Color("43525b"))
 	for i in 2: draw_line(BARREL_RAMP[i],BARREL_RAMP[i+1],Color("81c6a7"),3)
 	for rect in ladders:
+		if prologue_mode and forest and rect in forest.ladders: continue
 		var profile := rect in side_ladders
 		LADDER.draw(self,rect,Color("88aeb9") if profile else Color("b4af83"),profile)
 	var font := ThemeDB.fallback_font

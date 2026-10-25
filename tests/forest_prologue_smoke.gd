@@ -112,6 +112,38 @@ func run() -> void:
 	check(lab.level.right_bound() == 33120 and FOREST.WIDTH == 21120,"forest retains the approved total width of 330H")
 	check(hero.is_on_floor() and hero.position.is_equal_approx(lab.level.PROLOGUE_START),"Sofia spawns safely on forest terrain")
 	check(hero.uses_painted_cels() and hero.weapon.equipped_weapon_id == "stg44","existing painted Sofia and chosen weapon remain connected")
+	check(forest.environment.panels.size() == 12,"all twelve approved environment panels are installed")
+	var fitted_roads := true
+	var valid_triangles := true
+	check(forest.environment.buildings.size() == 3 and forest.environment.buildings.all(func(item): return item.texture.get_image().detect_alpha() != Image.ALPHA_NONE),"three buildings have independent transparent layers")
+	for panel in forest.environment.panels+forest.environment.buildings:
+		var arrays: Array = panel.mesh.surface_get_arrays(0)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var index: int = forest.environment.panels.find(panel)
+		if index >= 0:
+			var rows: int = (forest.environment.FEATURES.get(index,[]).size()+2)*8+1
+			for col in vertices.size()/rows:
+				var ground_vertex := vertices[col*rows+rows-9]
+				var expected: Vector2 = forest.ground_point((ground_vertex.x-FOREST.ORIGIN.x)/FOREST.H)
+				fitted_roads = fitted_roads and absf(expected.y-ground_vertex.y) < .002
+		for j in range(0,indices.size(),3):
+			var a := Vector2(vertices[indices[j]].x,vertices[indices[j]].y)
+			var b := Vector2(vertices[indices[j+1]].x,vertices[indices[j+1]].y)
+			var c := Vector2(vertices[indices[j+2]].x,vertices[indices[j+2]].y)
+			valid_triangles = valid_triangles and a.is_finite() and b.is_finite() and c.is_finite() and (b-a).cross(c-a) > .001
+	check(fitted_roads,"every rendered road column is fitted to the actual collision surface")
+	check(valid_triangles,"environment meshes have no folded, empty or non-finite triangles")
+	check(absf(CoreWorldUnits.meters(forest.ground_point(222).y-forest.features.cabin_left_lintel.end.y)-2.1) < .001,"cabin door has a real 2.1 m clearance")
+	check(absf(CoreWorldUnits.meters(forest.ground_point(281).y-forest.features.bunker_left_lintel.end.y)-2.1) < .001,"bunker door has a real 2.1 m clearance")
+	check(absf(CoreWorldUnits.meters(forest.ground_point(225).y-forest.features.cabin_roof.end.y)-2.5) < .001,"cabin ceiling has a human-scale 2.5 m clearance")
+	check(absf(CoreWorldUnits.meters(forest.ground_point(285).y-forest.features.bunker_roof.end.y)-2.4) < .001,"bunker ceiling has a human-scale 2.4 m clearance")
+	var rail_sizes_ok := true
+	for pair in [["forest_bridge_rail","forest_bridge"],["stone_bridge_rail","stone_bridge"],["tower_rail","tower_deck"],["cabin_rail","cabin_roof"],["bunker_rail","bunker_roof"]]:
+		rail_sizes_ok = rail_sizes_ok and absf(CoreWorldUnits.meters(forest.features[pair[1]].position.y-forest.environment.landmark_y(pair[0]))-1.1) < .001
+	check(rail_sizes_ok,"all five railing anchors are 1.1 m above their walking surface")
+	check(absf(CoreWorldUnits.meters(forest.ground_point(225).y-forest.environment.landmark_y("cabin_table"))-.75) < .001 and absf(CoreWorldUnits.meters(forest.ground_point(285).y-forest.environment.landmark_y("bunker_table"))-.75) < .001,"both tabletop anchors are 0.75 m above their floor")
+	check(hero.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(CoreWorldUnits.REFERENCE_HEIGHT,63.42),"human artwork reference and player scale remain unchanged")
 	for i in range(1,forest.surfaces.size()):
 		check(forest.surfaces[i-1][-1].is_equal_approx(forest.surfaces[i][0]),"continuous terrain seam %02d" % i)
 	check(lab.level.floors.size() == 2 and lab.level.slopes.size() == 14,"old flat prologue floor is absent; polygon test geometry remains")
