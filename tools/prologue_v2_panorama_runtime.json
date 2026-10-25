@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-25",
+  "installation_authorization": "User explicitly requested creating this Prologue ver2 visual and then transferring it to the level.",
+  "artistic_reference_approval": "Not a final approved appearance standard; details remain subject to user review.",
+  "tiles": 19,
+  "master_size": [
+    38720,
+    2240
+  ],
+  "pixel_reconstruction": "identical",
+  "geometry_changes": false,
+  "manifest": {
+    "source_geometry_sha256": "84be3ed7a1b5a27e282196ce9a5637cfba4c90e922b01fbb1aa4731b1b525a6d",
+    "size": [
+      38720,
+      2240
+    ],
+    "pixels_per_meter": 80,
+    "pixels_per_world_unit": 0.7922676448295153,
+    "world_origin": [
+      12000,
+      -855.6156424580961
+    ],
+    "stride": 2048,
+    "gutter": 2,
+    "master_sha256": "dcbde254e47f11002eba0ac787a49f14ecbf256aba4df7543e313669dff8d4ef",
+    "tiles": [
+      {
+        "name": "strip_00.png",
+        "x": 0,
+        "width": 2048,
+        "sha256": "a426ba5dd1eecb75e3a5241c387d40c347489af1d648edc731bf3f364bb94ac3"
+      },
+      {
+        "name": "strip_01.png",
+        "x": 2048,
+        "width": 2048,
+        "sha256": "7715646225dab171fbdae0fb7988a66309e343c45d3364cd54b256cc611a3706"
+      },
+      {
+        "name": "strip_02.png",
+        "x": 4096,
+        "width": 2048,
+        "sha256": "b7590f3af12ecdbb491529e70e430e57b2363a5d123a65a658fbaad2092e4aa6"
+      },
+      {
+        "name": "strip_03.png",
+        "x": 6144,
+        "width": 2048,
+        "sha256": "29fb4f6ba6e23ce0f74595d18155f4d46947bf61286d55efb3fd41cc705f276d"
+      },
+      {
+        "name": "strip_04.png",
+        "x": 8192,
+        "width": 2048,
+        "sha256": "9a12a709125095ccaa1090f2ab51a83c4d44217629856b4109627c4bfc188992"
+      },
+      {
+        "name": "strip_05.png",
+        "x": 10240,
+        "width": 2048,
+        "sha256": "b6b5e8938f1800c8b57630300918408ca1908c09bf408d1c7e00d1d85c918863"
+      },
+      {
+        "name": "strip_06.png",
+        "x": 12288,
+        "width": 2048,
+        "sha256": "59a0ec8b8bddcdb927a37713df9ccc8626eae4f5f3c0e1fc31b6c4fa8c1f15fc"
+      },
+      {
+        "name": "strip_07.png",
+        "x": 14336,
+        "width": 2048,
+        "sha256": "9757e9e3b4c3706b254d2b874e57e2b2f1edda5d5148e199c431b82c91d749e8"
+      },
+      {
+        "name": "strip_08.png",
+        "x": 16384,
+        "width": 2048,
+        "sha256": "77e09d0b6d2cba831e6ce1e7592214c3900fb71051af69cc583d743882d97144"
+      },
+      {
+        "name": "strip_09.png",
+        "x": 18432,
+        "width": 2048,
+        "sha256": "629fb899a00d49ff0f230bd215e916872a236557b88828ce0231faf85903334d"
+      },
+      {
+        "name": "strip_10.png",
+        "x": 20480,
+        "width": 2048,
+        "sha256": "5c3300be16a9cf9de2cfca07753844dd2decf294a397583f604cec8fa67ab847"
+      },
+      {
+        "name": "strip_11.png",
+        "x": 22528,
+        "width": 2048,
+        "sha256": "798560444d07812b0b6b140f3b65d3492e846a7ac5d358b078c70c9cdd61a597"
+      },
+      {
+        "name": "strip_12.png",
+        "x": 24576,
+        "width": 2048,
+        "sha256": "168998ea52d9990188deda790aa6428689fe703263ea67d5e7efe5bc2468dfce"
+      },
+      {
+        "name": "strip_13.png",
+        "x": 26624,
+        "width": 2048,
+        "sha256": "6f11b5e4a9f738225de2e835d7fec67fb08c7a86570b8c86111115d189c4bfc1"
+      },
+      {
+        "name": "strip_14.png",
+        "x": 28672,
+        "width": 2048,
+        "sha256": "5e5063bc8f61ba4d715ce6410343ad2c754dd9a1cd6b2e55afef5df9045c1210"
+      },
+      {
+        "name": "strip_15.png",
+        "x": 30720,
+        "width": 2048,
+        "sha256": "d18226d4476fcb91bcc19dde9567ee7180d5ca612c9f13f0a79983a3475c6696"
+      },
+      {
+        "name": "strip_16.png",
+        "x": 32768,
+        "width": 2048,
+        "sha256": "299f89230ecd053bbdcc2a514ff13b33c5f2123ffd6f5ec1d96e9dba8dd90d47"
+      },
+      {
+        "name": "strip_17.png",
+        "x": 34816,
+        "width": 2048,
+        "sha256": "4cfa7d508d83f2fff53b39410d9a8f9e497184ef3404efc535d3c6710975ca43"
+      },
+      {
+        "name": "strip_18.png",
+        "x": 36864,
+        "width": 1856,
+        "sha256": "5d65e344ffa1158bae279812f0e12633018852242d3be33e7b67d1c0968ecef9"
+      }
+    ],
+    "reference_inputs": "original forest concepts and twelve background-only image_gen edits; tools/prologue_v2_backdrop_prompts.json",
+    "status": "candidate; installation explicitly requested by user; final details not an approved visual standard",
+    "backdrop_revision": "forest-to-village-2026-10-25"
+  }
+}

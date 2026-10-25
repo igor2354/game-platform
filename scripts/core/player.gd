@@ -19,8 +19,20 @@ const ENEMY_MASK := 4
 var requested_body_scale := 1.0
 var body_scale := 1.0
 
+func reference_body_scale() -> float:
+	return CoreWorldUnits.LEGACY_SOFIA_SCALE if character_id == "sofia" else 1.0
+
+func character_scale() -> float:
+	return body_scale/reference_body_scale()
+
+func motion_scale() -> float:
+	return body_scale/CoreWorldUnits.LEGACY_SOFIA_SCALE
+
+func request_character_scale(value: float) -> void:
+	request_body_scale((value if is_finite(value) else 1.0)*reference_body_scale())
+
 func motion_value(key: String) -> float:
-	return float(tuning.get(key))*body_scale
+	return float(tuning.get(key))*motion_scale()
 
 func world_height() -> float:
 	return collision_height()*body_scale
@@ -45,7 +57,7 @@ func request_body_scale(value: float) -> void:
 func _apply_body_scale() -> void:
 	if is_equal_approx(body_scale,requested_body_scale) or not movement_shape: return
 	# Keep the complete physical rig/held grips stable until its action ends.
-	if parkour_active() or climbing or pushing or (blast_ragdoll and blast_ragdoll.active) or (grenades and grenades.busy()): return
+	if parkour_active() or climbing or ladder_exit.is_finite() or pushing or (blast_ragdoll and blast_ragdoll.active) or (grenades and grenades.busy()): return
 	if requested_body_scale > body_scale and not _fits_height(collision_height(),requested_body_scale): return
 	var ratio := requested_body_scale/body_scale
 	velocity *= ratio
@@ -107,6 +119,7 @@ var facing := 1.0
 var mode := "idle"
 var climbing := false
 var ladder := Rect2()
+var ladder_exit := Vector2.INF
 var ladder_lock := 0.0
 var coyote := 0.0
 var jump_buffer := 0.0
@@ -185,7 +198,7 @@ func _ready() -> void:
 	standing_capsule = capsule
 	crouching_capsule = CapsuleShape2D.new()
 	crouching_capsule.radius = RADIUS
-	crouching_capsule.height = tuning.crouch_height
+	crouching_capsule.height = tuning.local_value("crouch_height")
 	var shape := CollisionShape2D.new()
 	shape.shape = capsule
 	shape.position.y = -HEIGHT/2
@@ -255,6 +268,7 @@ func reset_to(point: Vector2) -> void:
 	collision_mask = WORLD_MASK
 	climbing = false
 	ladder = Rect2()
+	ladder_exit = Vector2.INF
 	ladder_side_view = false
 	ladder_lock = 0
 	coyote = 0
@@ -296,6 +310,7 @@ func transition_to(point: Vector2) -> void:
 		movement_shape.position.y = -HEIGHT*.5
 	climbing = false
 	ladder = Rect2()
+	ladder_exit = Vector2.INF
 	ladder_side_view = false
 	ladder_lock = 0
 	coyote = 0
@@ -344,7 +359,7 @@ func _update_crouch(requested: bool) -> void:
 	var can_crouch := tuning.crouch_enabled and requested and not climbing and dash_left <= 0 and (is_on_floor() or crouching)
 	if not can_crouch and _try_stand(): return
 	# A forced crouch under a ceiling also accepts safe live height edits.
-	var height := tuning.crouch_height
+	var height := tuning.local_value("crouch_height")
 	if height <= collision_height() or _fits_height(height):
 		crouching = true
 		crouching_capsule.height = height
@@ -367,7 +382,9 @@ func apply_feature_settings() -> void:
 		velocity.x = 0
 		_finish_dash_collision()
 	if not tuning.slide_enabled and slide_left > 0: _finish_slide()
-	if not tuning.ladder_enabled and climbing: _leave_ladder()
+	if not tuning.ladder_enabled:
+		if climbing: _leave_ladder()
+		ladder_exit = Vector2.INF
 	if not tuning.crouch_enabled and crouching and slide_left <= 0: _try_stand()
 	if not tuning.jump_enabled: jump_buffer = 0
 	if not tuning.sprint_enabled: sprinting = false
@@ -545,6 +562,8 @@ func _physics_process(delta: float) -> void:
 			_finish_slide()
 			_tick_run(axis,delta,jump_held)
 		else: _tick_slide(delta)
+	elif ladder_exit.is_finite():
+		_tick_ladder_exit(delta)
 	elif climbing:
 		_tick_climb(axis,vertical,delta)
 	else:
@@ -619,7 +638,7 @@ func _update_push_contact(axis: float,delta: float,input_allowed: bool) -> void:
 		# Prefer the side being approached; a stationary hero uses the body gaze.
 		var preferred := signf(axis) if axis != 0 else body.facing
 		for direction in [preferred,-preferred]:
-			for height in [HEIGHT*.5,tuning.push_hand_height,HEIGHT*.75,20.0,12.0]:
+			for height in [HEIGHT*.5,tuning.local_value("push_hand_height"),HEIGHT*.75,20.0,12.0]:
 				var origin := to_global(Vector2(0,-height))
 				var query := PhysicsRayQueryParameters2D.create(origin,origin+Vector2(direction*(world_radius()+tuning.push_contact_distance+2),0),1,[get_rid()])
 				var hit := get_world_2d().direct_space_state.intersect_ray(query)
@@ -703,7 +722,7 @@ func _move_grabbed_body(delta: float,axis: float,actual_speed: float) -> void:
 	push_target.apply_impulse(Vector2(force*delta,0),radius)
 
 func push_hand_point(side: String) -> Vector2:
-	if not is_instance_valid(push_target): return to_global(Vector2(push_direction*RADIUS,-tuning.push_hand_height))
+	if not is_instance_valid(push_target): return to_global(Vector2(push_direction*RADIUS,-tuning.local_value("push_hand_height")))
 	if push_target.has_method("grab_hand_point"): return push_target.grab_hand_point(side,global_position,push_direction)
 	# Discover the collider instead of depending on a scene-specific child name;
 	# dynamically generated ragdoll limbs use the same interaction contract.
@@ -725,7 +744,7 @@ func push_hand_point(side: String) -> Vector2:
 	for point in corners:
 		top = minf(top,point.y)
 		bottom = maxf(bottom,point.y)
-	var height := tuning.push_hand_height+(tuning.push_hand_spacing*.5 if side == "far" else -tuning.push_hand_spacing*.5)
+	var height := tuning.local_value("push_hand_height")+(tuning.local_value("push_hand_spacing")*.5 if side == "far" else -tuning.local_value("push_hand_spacing")*.5)
 	var inset := minf(4,(bottom-top)*.25)
 	var y := clampf(global_position.y-height*body_scale,top+inset,bottom-inset)
 	var start := Vector2(global_position.x,y)
@@ -789,7 +808,7 @@ func slide_available(axis: float) -> bool:
 	return tuning.slide_enabled and health > 0 and is_on_floor() and sprinting and _can_sprint(axis) and slide_left <= 0 and slide_cooldown_left <= 0 and dash_left <= 0 and not climbing and shove_left <= 0 and velocity.length() >= motion_value("slide_min_speed")
 
 func _slide_posture() -> void:
-	var height := tuning.slide_height
+	var height := tuning.local_value("slide_height")
 	if height > collision_height() and not _fits_height(height): height = collision_height()
 	crouching = true
 	crouching_capsule.height = height
@@ -1063,7 +1082,10 @@ func _clear_dash_exceptions() -> void:
 func ladder_here(vertical: float) -> Rect2:
 	if not tuning.ladder_enabled: return Rect2()
 	for candidate in ladders:
-		if absf(global_position.x-candidate.get_center().x) > 28: continue
+		var entry_width := 28.0
+		if vertical > 0 and absf(global_position.y-candidate.position.y) < 8:
+			entry_width = preload("res://scripts/core/platform_surfaces.gd").SHAFT_HALF+world_radius()*2+6
+		if absf(global_position.x-candidate.get_center().x) > entry_width: continue
 		if global_position.y < candidate.position.y-6 or global_position.y > candidate.end.y+6: continue
 		if vertical < 0 and global_position.y <= candidate.position.y+4: continue
 		if vertical > 0 and global_position.y >= candidate.end.y-4: continue
@@ -1075,14 +1097,14 @@ func _enter_ladder(candidate: Rect2) -> void:
 	sprinting = false
 	air_move_speed = motion_value("run_speed")
 	climbing = true
+	ladder_exit = Vector2.INF
 	ladder = candidate
 	ladder_side_view = candidate in side_ladders
 	velocity = Vector2.ZERO
 	ground_acceleration = 0
 	ground_speed = 0
 	coyote = 0
-	# Only one-way platforms are ignored. Ground, walls and targets stay solid.
-	set_collision_mask_value(4,false)
+	# Ladder shafts are real openings; climbing keeps the full world mask.
 
 func _leave_ladder() -> void:
 	climbing = false
@@ -1106,10 +1128,33 @@ func _tick_climb(axis: float,vertical: float,delta: float) -> void:
 		global_position.y = ladder.position.y
 		velocity = Vector2.ZERO
 		_leave_ladder()
+		_begin_ladder_exit(axis)
 	elif vertical > 0 and global_position.y >= ladder.end.y-1:
 		global_position.y = ladder.end.y
 		velocity = Vector2.ZERO
 		_leave_ladder()
+
+func _begin_ladder_exit(axis: float) -> void:
+	var preferred := signf(axis) if axis != 0 else weapon.look_facing()
+	var feet := global_position-Vector2(0,.3)
+	# Search only a short step to the adjacent landing, with a full-body sweep.
+	for direction in [preferred,-preferred]:
+		for offset in range(8,221,8):
+			var target := feet+Vector2(direction*offset,0)
+			if parkour._supported(target) and parkour._clear_segment(feet,target):
+				global_position = feet
+				ladder_exit = target
+				return
+
+func _tick_ladder_exit(delta: float) -> void:
+	if not parkour._clear_segment(global_position,ladder_exit):
+		ladder_exit = Vector2.INF
+		return
+	velocity = (ladder_exit-global_position).limit_length(motion_value("ladder_snap_speed")*delta)/delta
+	move_and_slide()
+	if global_position.distance_to(ladder_exit) < 1:
+		ladder_exit = Vector2.INF
+		velocity = Vector2.ZERO
 
 func _update_mode() -> void:
 	if parkour_active(): mode = parkour.stage

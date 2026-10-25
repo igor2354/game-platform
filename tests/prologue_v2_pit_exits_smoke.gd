@@ -38,7 +38,13 @@ func run() -> void:
 	# Drop into the narrow root pit from its left ledge, as in the first screenshot.
 	await place(58+24.7,2.2);await frames(70)
 	check(hero.is_on_floor() and hero.position.y>FOREST.point(0,1).y,"root pit fall reaches a living floor")
-	check(await escape_right(58+26),"jump and mantle escape forward from root pit floor")
+	var root_exit:Rect2=lab.level.forest.features.root_pit_exit_ladder
+	await place((root_exit.get_center().x-FOREST.ORIGIN.x)/FOREST.UPM,0)
+	Input.action_press("core_up")
+	for i in 300:
+		await frames(1)
+		if hero.is_on_floor() and not hero.climbing and not hero.ladder_exit.is_finite() and absf(hero.position.y-root_exit.position.y)<3:break
+	release();check(hero.is_on_floor() and absf(hero.position.y-root_exit.position.y)<3,"planned ladder escapes root pit forward with current jump")
 	# Walk from the existing ladder through the bottom of the ravine.
 	await place(24+10,-4.8)
 	Input.action_press("core_right")
@@ -51,7 +57,7 @@ func run() -> void:
 		Input.action_press("core_up")
 		for tick in 260:
 			await frames(1)
-			if not hero.climbing and hero.position.y<FOREST.point(0,-2.3).y:break
+			if not hero.climbing and not hero.ladder_exit.is_finite() and hero.is_on_floor() and hero.position.y<FOREST.point(0,-2.3).y:break
 		release();await frames(4)
 		check(hero.is_on_floor() and hero.position.y<FOREST.point(0,-2.3).y,"forward ladder emerges onto the ravine right ledge")
 		Input.action_press("core_right");await frames(100);release()

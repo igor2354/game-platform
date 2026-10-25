@@ -28,6 +28,7 @@ var camera_settings: CoreCameraSettings
 var noir_filter: CoreNoirFilter
 var stable_pixels: CoreStablePixelRenderer
 var scale_reference: CoreScaleReference
+var blocking_overlay: Node2D
 var player_scale_readout: Label
 var scale_reference_button: Button
 
@@ -108,7 +109,7 @@ func _ready() -> void:
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
 	if level.prologue_mode and level.prologue_version == 2:
 		camera_defaults.player_scale_enabled = true
-		camera_defaults.player_scale = 2.85
+		camera_defaults.player_scale = 1.0
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
 	player.visuals.settings = camera_settings
@@ -125,7 +126,7 @@ func _ready() -> void:
 	if level.prologue_mode and level.prologue_version == 2:
 		# The new blockout starts at its approved reference size; do not write profiles.
 		camera_settings.player_scale_enabled = true
-		camera_settings.player_scale = 2.85
+		camera_settings.player_scale = 1.0
 		player.fall_limit = level.campaign_bounds().end.y
 		level.forest.actor = player
 		level.forest.lethal_fall.connect(_on_player_fell)
@@ -442,8 +443,10 @@ func _build_hud() -> void:
 	ammo_progress.show_percentage = false
 	ammo_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(ammo_progress)
-	telemetry = _label(layer,Vector2(30,764),"",16)
-	explosion_telemetry = _label(layer,Vector2(30,750),"",15)
+	telemetry = _label(layer,Vector2(30,718),"",14)
+	explosion_telemetry = _label(layer,Vector2(30,666),"",14)
+	explosion_telemetry.custom_minimum_size.x = 1540
+	explosion_telemetry.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explosion_telemetry.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	explosion_telemetry.hide()
 	explosion_debug = preload("res://scripts/core/explosion_telemetry.gd").new()
@@ -489,7 +492,7 @@ func _build_hud() -> void:
 	var interaction_control := "E — дверь · " if not campaign_mode else ""
 	notice = _label(layer,Vector2(30,850),"ЛКМ — огонь · ПКМ — прицел · " + interaction_control + "R — перезарядка · B — режим огня · T — граната · G — взять/отпустить · F2 — разработчик · F11 — полный экран",18)
 	interaction_hint = Label.new()
-	interaction_hint.position = Vector2(0,712)
+	interaction_hint.position = Vector2(0,616)
 	interaction_hint.size = Vector2(1600,44)
 	interaction_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	interaction_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -670,7 +673,14 @@ func _close_level_map() -> void:
 	get_tree().paused = map_was_paused
 
 func _camera_settings_changed() -> void:
-	player.request_body_scale(camera_settings.player_scale if camera_settings.player_scale_enabled else 1.0)
+	if not is_instance_valid(blocking_overlay):
+		blocking_overlay = preload("res://scripts/core/blocking_overlay.gd").new()
+		blocking_overlay.level = level
+		blocking_overlay.name = "BlockingOverlay"
+		blocking_overlay.z_index = 100
+		level.add_child(blocking_overlay)
+	blocking_overlay.apply_settings(camera_settings)
+	player.request_character_scale(camera_settings.player_scale if camera_settings.player_scale_enabled else 1.0)
 	if stable_pixels: stable_pixels.apply_settings()
 	if noir_filter: noir_filter.apply_settings(camera_settings)
 	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
@@ -891,7 +901,7 @@ func _update_camera(force_snap := false,delta := 0.0) -> void:
 
 func _process(delta: float) -> void:
 	if player_scale_readout:
-		player_scale_readout.text = "Применено: %.2f× · запрос: %.2f×\nФизическая высота: %s\n%s" % [player.body_scale,player.requested_body_scale,CoreWorldUnits.distance(player.world_height()),"Ожидание: закончите действие или выйдите из тесного места." if not is_equal_approx(player.body_scale,player.requested_body_scale) else ("Скорости движения ×%.2f. Базовые числа профиля сохраняются." % player.body_scale)]
+		player_scale_readout.text = "Применено: %.2f× · запрос: %.2f×\nФизическая высота: %s\n%s" % [player.character_scale(),player.requested_body_scale/player.reference_body_scale(),CoreWorldUnits.distance(player.world_height()),"Ожидание: закончите действие или выйдите из тесного места." if not is_equal_approx(player.body_scale,player.requested_body_scale) else ("Скорости движения ×%.2f. Базовые числа профиля сохраняются." % player.character_scale())]
 	_update_transition(delta)
 	_update_interaction_hint()
 	if not player.weapon.tuning.recoil_enabled:
@@ -910,7 +920,12 @@ func _process(delta: float) -> void:
 	hud.text = ("ПОГИБ · F8 — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/%.0f" % [player.health,player.maximum_health()])+(" · БЕССМЕРТИЕ" if player.invulnerable else "")+(" · ПАУЗА" if get_tree().paused else "")
 	var dash_status := "граната в руке" if player.grenades.busy() else "готов" if player.dash_available() else ("в подкате" if player.slide_left > 0 else "на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")
 	var sprint_status := "восст. %.1f с" % player.sprint_recovery_left() if player.sprint_exhausted else "%.1f / %.1f с" % [player.sprint_seconds_left(),player.tuning.sprint_duration]
-	telemetry.text = "Состояние: %s · Скорость: %s · Возвраты: %d\nX/Y: %.1f / %.1f ед./с · Спринт: %s · Дэш: %s (%s)" % [names[player.mode],CoreWorldUnits.speed(player.velocity.length()),respawns,player.velocity.x,player.velocity.y,sprint_status,dash_status,CoreWorldUnits.distance(player.last_dash_distance)]
+	var origin := Vector2(12000,CoreMovementLevel.FLOOR) if level.prologue_mode else Vector2(0,CoreMovementLevel.FLOOR)
+	var position := player.global_position-origin
+	telemetry.text = "Состояние: %s · Размер: %.2f× · Скорость: %s · Возвраты: %d" % [names[player.mode],player.character_scale(),CoreWorldUnits.speed(player.velocity.length()),respawns]
+	telemetry.text += "\nVx: %s · Vy: %s" % [CoreWorldUnits.speed(player.velocity.x),CoreWorldUnits.speed(player.velocity.y)]
+	telemetry.text += "\nОт начала уровня: X %s · H %s · g %s" % [CoreWorldUnits.distance(position.x),CoreWorldUnits.distance(-position.y),CoreWorldUnits.acceleration(player.motion_value("gravity"))]
+	telemetry.text += "\nКапсула В×Ш: %s × %s · Спринт: %s · Дэш: %s (%s)" % [CoreWorldUnits.distance(player.world_height()),CoreWorldUnits.distance(player.world_radius()*2),sprint_status,dash_status,CoreWorldUnits.distance(player.last_dash_distance)]
 	var weapon := player.weapon
 	ammo_label.text = "Патроны: %d/%d · Запас: %d%s" % [weapon.magazine_ammo,weapon.capacity(),weapon.reserve_ammo," · ПЕРЕЗАРЯДКА %.0f%%" % (weapon.reload_progress()*100) if weapon.reloading else " · ПУСТО — R" if weapon.magazine_ammo == 0 and weapon.reserve_ammo > 0 else " · НЕТ ПАТРОНОВ" if weapon.magazine_ammo == 0 else ""]
 	ammo_label.text += " · Гранаты: %d · T" % player.grenades.count

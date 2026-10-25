@@ -44,6 +44,10 @@ static func read_file(path: String,defaults: Dictionary) -> Dictionary:
 		var source = data.get(section,{}) if section in ["zombie","ragdoll"] else data.get(section)
 		if not source is Dictionary:
 			return {"error":"В файле отсутствует раздел %s." % section}
+		if section in ["movement","camera"]:
+			var basis = source.get("scale_basis_version",1)
+			if basis != 1 and basis != 2: return {"error":"Неизвестная версия размерной базы: "+section}
+			source = CoreMovementSettings.migrate_profile(source) if section=="movement" else CoreCameraSettings.migrate_profile(source)
 		var candidate: Resource = defaults[section].duplicate()
 		var merged: Dictionary = candidate.as_dictionary()
 		for key in merged:

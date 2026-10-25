@@ -499,16 +499,18 @@ func _update_readout() -> void:
 	if not settings is CoreCameraSettings:
 		readout.text = readout.text.replace("px/с²","ед./с²").replace("px/с","ед./с").replace(" px"," ед.")
 	if is_instance_valid(motion_player):
-		displayed_motion_scale = motion_player.body_scale
-		for key in CoreMovementSettings.SCALED_MOTION_KEYS:
+		displayed_motion_scale = motion_player.motion_scale()
+		for key in CoreMovementSettings.SCALED_MOTION_KEYS+CoreMovementSettings.LOCAL_GEOMETRY_KEYS:
 			if not rows.has(key) or not rows[key].metric: continue
 			var baseline := CoreWorldUnits.format(float(settings.get(key)),rows[key].metric_kind)
-			rows[key].metric.text = baseline if is_equal_approx(displayed_motion_scale,1.0) else "База 1×: %s\nПри %.2f×: %s" % [baseline,displayed_motion_scale,CoreWorldUnits.format(motion_player.motion_value(key),rows[key].metric_kind)]
+			rows[key].metric.text = baseline if is_equal_approx(displayed_motion_scale,1.0) else "База 1×: %s\nПри %.2f×: %s" % [baseline,displayed_motion_scale,CoreWorldUnits.format(float(settings.get(key))*displayed_motion_scale,rows[key].metric_kind)]
 		if not is_equal_approx(displayed_motion_scale,1.0):
-			readout.text = "Базовые расчёты 1×; движение ×%.2f\n" % displayed_motion_scale+readout.text
+			readout.text = "Расчёт при размере %.2f×\n" % displayed_motion_scale+readout.text
 
 func _update_readout_values() -> void:
-	if acceleration_preview: acceleration_preview.queue_redraw()
+	if acceleration_preview:
+		acceleration_preview.player = motion_player
+		acceleration_preview.queue_redraw()
 	if settings is CoreRagdollSettings:
 		if tabs.get_tab_title(tabs.current_tab) == "Гранаты":
 			readout.text = "T — достать · ЛКМ — зарядить и отпустить\nЗапал %.2f с начинается в руке · бросок %.0f–%.0f px/с\nВзрыв %.0f px · внешняя волна %.0f px · F8 — пополнить" % [settings.grenade_fuse,settings.grenade_min_speed,settings.grenade_max_speed,settings.grenade_blast_radius,settings.grenade_shockwave_radius]
@@ -559,7 +561,7 @@ func _update_readout_values() -> void:
 		if tabs.get_tab_title(tabs.current_tab) == "Визуал":
 			readout.text = "Пиксели: %s · размер %.0f px · Нуар: %s\nБлюр героя: %.0f%% · радиус до %.0f px\nИнтерфейс, прицел и все меню — полное разрешение." % ["вкл." if settings.pixel_enabled else "выкл.",settings.pixel_size,"вкл." if settings.noir_enabled else "выкл.",settings.character_blur_strength*100,settings.character_blur_length]
 			return
-		readout.text = "Масштаб: %.2f× · Видимая ширина %s\nX+: камера правее героя · Y+: ниже\nДопуск от вертикали вверх/вниз: ±%.0f°\nСмена стороны: %.2f с · 0 — мгновенно\nСкорость слежения 0 — без задержки за героем." % [settings.zoom,CoreWorldUnits.distance(get_viewport_rect().size.x/settings.zoom),settings.vertical_aim_deadzone,settings.look_turn_duration]
+		readout.text = "Приближение камеры: %.2f× · Видимая ширина %s\nX+: камера правее героя · Y+: ниже\nДопуск от вертикали вверх/вниз: ±%.0f°\nСмена стороны: %.2f с · 0 — мгновенно\nСкорость слежения 0 — без задержки за героем." % [settings.zoom,CoreWorldUnits.distance(get_viewport_rect().size.x/settings.zoom),settings.vertical_aim_deadzone,settings.look_turn_duration]
 		return
 	if settings is CoreShootingSettings:
 		readout.text = "От бедра: %.1f–%.1f° · Темп: %.0f/мин\nСкорость очереди: %.0f%% · В прицеле: %.0f%%" % [settings.hip_spread,settings.hip_max_spread,settings.rounds_per_minute,settings.hip_move_multiplier*100,settings.ads_move_multiplier*100]
@@ -578,35 +580,39 @@ func _update_readout_values() -> void:
 		if tabs.get_tab_title(tabs.current_tab) == "Урон":
 			readout.text = "Урон: голова %.1f · корпус %.1f HP\nРуки %.1f · ноги %.1f HP в здоровье\nОтрыв: рука %.0f · нога %.0f базового урона\nПрочность снимается без множителя зоны." % [settings.damage*settings.head_damage_multiplier,settings.damage*settings.torso_damage_multiplier,settings.damage*settings.arm_damage_multiplier,settings.damage*settings.leg_damage_multiplier,settings.arm_durability,settings.leg_durability]
 		return
-	var height: float = settings.jump_speed*settings.jump_speed/(2*settings.gravity)
-	if tabs.get_tab_title(tabs.current_tab) == "Толкание":
-		readout.text = "Скорость до %.0f px/с · усилие до %.0f Н\nG — взять / отпустить · A/D — толкать / тянуть\nВес и трение влияют на фактическую скорость.\nДва цикла по восемь кадров; обе руки на предмете." % [settings.push_speed,settings.push_force]
+	var size_factor: float = motion_player.motion_scale() if is_instance_valid(motion_player) else 1.0
+	var height: float = settings.jump_speed*settings.jump_speed/(2*settings.gravity)*size_factor
+	if tabs.get_tab_title(tabs.current_tab) == "Паркур" and is_instance_valid(motion_player):
+		readout.text = "Ручной захват: %s\nАвтопаркур: от %s до %s\nШирина насквозь: %s · время %.2f с\nРучной подъём %.2f с · перелезание %.2f с" % [CoreWorldUnits.distance(settings.parkour_ledge_height),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_min_height_ratio),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_max_height_ratio),CoreWorldUnits.distance(settings.sprint_auto_max_width*size_factor),settings.sprint_auto_vault_time,settings.parkour_mantle_time/size_factor,settings.parkour_vault_time/size_factor]
 		return
-	var distance: float = settings.dash_speed*settings.dash_duration
-	var braking: float = settings.run_speed*settings.run_speed/(2*settings.braking)
+	if tabs.get_tab_title(tabs.current_tab) == "Толкание":
+		readout.text = "Скорость до %.0f px/с · усилие до %.0f Н\nG — взять / отпустить · A/D — толкать / тянуть\nВес и трение влияют на фактическую скорость.\nДва цикла по восемь кадров; обе руки на предмете." % [settings.push_speed*size_factor,settings.push_force]
+		return
+	var distance: float = settings.dash_speed*settings.dash_duration*size_factor
+	var braking: float = settings.run_speed*settings.run_speed/(2*settings.braking)*size_factor
 	readout.text = "Высота прыжка %s\nДэш %s\nРазгон ≈ %.2f с · Тормозной путь %s" % [CoreWorldUnits.distance(height),CoreWorldUnits.distance(distance),settings.acceleration_time(settings.run_speed,settings.acceleration),CoreWorldUnits.distance(braking)]
 	if tabs.get_tab_title(tabs.current_tab) == "Дэш":
-		readout.text = "Дэш в воздухе: %s · Дэш ≈ %.0f px\n%s\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nДлительность общая: %.2f с; начатый дэш сохраняет её." % ["включён" if settings.air_dash_enabled else "выключен",distance,"Один дэш до приземления, с учётом восстановления." if settings.air_dash_enabled else "Начать дэш можно только с земли.",settings.dash_speed*settings.dash_slope_multiplier(20,true),settings.dash_speed*settings.dash_slope_multiplier(20,false),settings.dash_speed*settings.dash_slope_multiplier(35,true),settings.dash_speed*settings.dash_slope_multiplier(35,false),settings.dash_duration]
+		readout.text = "Дэш в воздухе: %s · Дэш ≈ %.0f px\n%s\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nДлительность общая: %.2f с; начатый дэш сохраняет её." % ["включён" if settings.air_dash_enabled else "выключен",distance,"Один дэш до приземления, с учётом восстановления." if settings.air_dash_enabled else "Начать дэш можно только с земли.",settings.dash_speed*size_factor*settings.dash_slope_multiplier(20,true),settings.dash_speed*size_factor*settings.dash_slope_multiplier(20,false),settings.dash_speed*size_factor*settings.dash_slope_multiplier(35,true),settings.dash_speed*size_factor*settings.dash_slope_multiplier(35,false),settings.dash_duration]
 	if tabs.get_tab_title(tabs.current_tab) in ["Бег","Спринт"]:
-		readout.text = "Бег: %.0f · спринт: %.0f px/с\nПолный прыжок по X: ≈ %.0f / %.0f px\nВысота прыжка общая: ≈ %.0f px\nДальность: полный разгон, без стрельбы и стен." % [settings.run_speed,settings.sprint_speed,settings.jump_range(false),settings.jump_range(true),height]
+		readout.text = "Бег: %s\nСпринт: %s\nПрыжок X: бег %s · спринт %s\nВысота: %s" % [CoreWorldUnits.speed(settings.run_speed*size_factor),CoreWorldUnits.speed(settings.sprint_speed*size_factor),CoreWorldUnits.distance(settings.jump_range(false)*size_factor),CoreWorldUnits.distance(settings.jump_range(true)*size_factor),CoreWorldUnits.distance(height)]
 		if tabs.get_tab_title(tabs.current_tab) == "Спринт":
-			readout.text += "\nЗапас %.1f с · полное восстановление %.1f с" % [settings.sprint_duration,settings.sprint_recovery_time]
+			readout.text += "\nЗапас %.1f с · восстановление %.1f с" % [settings.sprint_duration,settings.sprint_recovery_time]
 	if tabs.get_tab_title(tabs.current_tab) == "Ходьба":
-		readout.text = "Ctrl — ходьба стоя; C — присед; шум шагов %.0f%%\nРазгон ≈ %.2f с · тормозной путь ≈ %.0f px\nПрыжок по X ≈ %.0f px · высота ≈ %.0f px" % [settings.slow_walk_noise_multiplier*100,settings.acceleration_time(settings.slow_walk_speed,settings.slow_walk_acceleration),settings.slow_walk_speed*settings.slow_walk_speed/(2*settings.slow_walk_braking),settings.slow_walk_jump_range(),height]
+		readout.text = "Ctrl — ходьба стоя; C — присед; шум шагов %.0f%%\nСкорость: %s\nРазгон ≈ %.2f с · тормозной путь %s\nПрыжок X: %s · высота: %s" % [settings.slow_walk_noise_multiplier*100,CoreWorldUnits.speed(settings.slow_walk_speed*size_factor),settings.acceleration_time(settings.slow_walk_speed,settings.slow_walk_acceleration),CoreWorldUnits.distance(settings.slow_walk_speed*settings.slow_walk_speed/(2*settings.slow_walk_braking)*size_factor),CoreWorldUnits.distance(settings.slow_walk_jump_range()*size_factor),CoreWorldUnits.distance(height)]
 	if tabs.get_tab_title(tabs.current_tab) == "Движение задом":
-		readout.text = "На ровном полу задом, без стрельбы:\nБег %.0f · ходьба %.0f · присед %.1f px/с\nИтог: скорость × движение задом × стрельба × склон.\nСпринт: %.0f px/с, всегда лицом по движению." % [settings.run_speed*settings.run_backward_multiplier,settings.slow_walk_speed*settings.slow_walk_backward_multiplier,settings.run_speed*settings.crouch_speed_multiplier*settings.crouch_backward_multiplier,settings.sprint_speed]
+		readout.text = "На ровном полу задом, без стрельбы:\nБег %.0f · ходьба %.0f · присед %.1f px/с\nИтог: скорость × движение задом × стрельба × склон.\nСпринт: %.0f px/с, всегда лицом по движению." % [settings.run_speed*size_factor*settings.run_backward_multiplier,settings.slow_walk_speed*size_factor*settings.slow_walk_backward_multiplier,settings.run_speed*size_factor*settings.crouch_speed_multiplier*settings.crouch_backward_multiplier,settings.sprint_speed*size_factor]
 	if tabs.get_tab_title(tabs.current_tab) == "Разгон":
 		readout.text = "Разгон с места на ровном полу, без стрельбы:\nБег ≈ %.2f с · спринт ≈ %.2f с · ходьба ≈ %.2f с\nПлавность общая; темп у бега и ходьбы раздельный.\nГрафик: скорость по времени; серый — бег при 0 с." % [settings.acceleration_time(settings.run_speed,settings.acceleration),settings.acceleration_time(settings.sprint_speed,settings.acceleration),settings.acceleration_time(settings.slow_walk_speed,settings.slow_walk_acceleration)]
 	if tabs.get_tab_title(tabs.current_tab) == "Здоровье":
 		readout.text = "Возрождение: %.0f HP\nТекущее здоровье не сохраняется в профиле.\nБессмертие — временный инструмент тестирования." % settings.max_health
 	if tabs.get_tab_title(tabs.current_tab) == "Приседание":
-		readout.text = "C — удерживать приседание\nВысота: %.0f px · скорость: %.0f px/с\nШум шагов: %.0f%% · стрельба: ЛКМ / ПКМ\nПод низким потолком встать нельзя." % [settings.crouch_height,settings.run_speed*settings.crouch_speed_multiplier,settings.crouch_noise_multiplier*100]
+		readout.text = "C — удерживать приседание\nВысота капсулы: %s\nСкорость: %s\nШум шагов: %.0f%% · под потолком встать нельзя." % [CoreWorldUnits.distance(settings.crouch_height*size_factor),CoreWorldUnits.speed(settings.run_speed*settings.crouch_speed_multiplier*size_factor),settings.crouch_noise_multiplier*100]
 	if tabs.get_tab_title(tabs.current_tab) == "Склоны":
-		readout.text = "Скорость по поверхности, без стрельбы:\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nЗамедление от стрельбы умножается на эти скорости." % [settings.run_speed*settings.slope_multiplier(20,true),settings.run_speed*settings.slope_multiplier(20,false),settings.run_speed*settings.slope_multiplier(35,true),settings.run_speed*settings.slope_multiplier(35,false)]
+		readout.text = "Скорость по поверхности, без стрельбы:\n20°: вверх ≈ %.0f · вниз ≈ %.0f px/с\n35°: вверх ≈ %.0f · вниз ≈ %.0f px/с\nЗамедление от стрельбы умножается на эти скорости." % [settings.run_speed*size_factor*settings.slope_multiplier(20,true),settings.run_speed*size_factor*settings.slope_multiplier(20,false),settings.run_speed*size_factor*settings.slope_multiplier(35,true),settings.run_speed*size_factor*settings.slope_multiplier(35,false)]
 	if tabs.get_tab_title(tabs.current_tab) == "Подкат":
-		var speed: float = settings.sprint_speed*settings.slide_speed_multiplier
-		var time: float = minf(settings.slide_duration,speed/settings.slide_braking) if settings.slide_braking > 0 else settings.slide_duration
-		readout.text = "С полного спринта: %.0f px/с · путь ≈ %.0f px\nДлительность %.2f с · восстановление %.2f с\nВысота %.0f px · урон %.0f HP от %.0f px/с\nСбивание: %s · шанс %.0f%% · от %.0f px/с\nЛежит: человек %.1f с · зомби %.1f с · толчок %.0f px/с" % [speed,speed*time-settings.slide_braking*time*time*.5,settings.slide_duration,settings.slide_cooldown,settings.slide_height,settings.slide_damage,settings.slide_damage_min_speed,"включено" if settings.slide_knockdown_enabled else "выключено",settings.slide_knockdown_chance*100,settings.slide_knockdown_min_speed,settings.slide_knockdown_duration,settings.slide_zombie_knockdown_duration,settings.slide_knockback_speed]
+		var speed: float = settings.sprint_speed*settings.slide_speed_multiplier*size_factor
+		var time: float = minf(settings.slide_duration,speed/(settings.slide_braking*size_factor)) if settings.slide_braking > 0 else settings.slide_duration
+		readout.text = "С полного спринта: %.0f px/с · путь ≈ %.0f px\nДлительность %.2f с · восстановление %.2f с\nВысота %.0f px · урон %.0f HP от %.0f px/с\nСбивание: %s · шанс %.0f%% · от %.0f px/с\nЛежит: человек %.1f с · зомби %.1f с · толчок %.0f px/с" % [speed,speed*time-settings.slide_braking*size_factor*time*time*.5,settings.slide_duration,settings.slide_cooldown,settings.slide_height*size_factor,settings.slide_damage,settings.slide_damage_min_speed*size_factor,"включено" if settings.slide_knockdown_enabled else "выключено",settings.slide_knockdown_chance*100,settings.slide_knockdown_min_speed*size_factor,settings.slide_knockdown_duration,settings.slide_zombie_knockdown_duration,settings.slide_knockback_speed]
 
 func _update_status() -> void:
 	if flash_left > 0: return
@@ -615,7 +621,7 @@ func _update_status() -> void:
 
 func _process(delta: float) -> void:
 	if not visible: return
-	if is_instance_valid(motion_player) and not is_equal_approx(displayed_motion_scale,motion_player.body_scale): _update_readout()
+	if is_instance_valid(motion_player) and not is_equal_approx(displayed_motion_scale,motion_player.motion_scale()): _update_readout()
 	flash_left = maxf(0,flash_left-delta)
 	_update_status()
 

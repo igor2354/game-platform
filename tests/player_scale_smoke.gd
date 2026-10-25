@@ -32,6 +32,15 @@ func block(rect: Rect2) -> StaticBody2D:
 	body.add_child(shape)
 	lab.add_child(body)
 	return body
+func same_values(a: Dictionary,b: Dictionary) -> bool:
+	if a.size()!=b.size():return false
+	for key in a:
+		if not b.has(key):return false
+		if (a[key] is float or a[key] is int) and (b[key] is float or b[key] is int):
+			if absf(float(a[key])-float(b[key]))>.000001:return false
+		elif a[key]!=b[key]:return false
+	return true
+
 func run() -> void:
 	var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("player-scale-%d" % OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(directory)
@@ -51,28 +60,30 @@ func run() -> void:
 	var initial_level_transform := lab.level.transform
 	var initial_ladders := hero.ladders.duplicate()
 	var framing := lab.camera_settings.framing_values().duplicate()
+	var initial_movement := hero.tuning.as_dictionary().duplicate()
 	hero.weapon.tuning.sound_enabled = false
 	hero.weapon.tuning.recoil_enabled = false
 	CATALOG.equip(hero.weapon,"stg44")
 	# A profile round-trip and old-profile default must preserve the independent switch.
 	var settings := CoreCameraSettings.new()
 	settings.player_scale_enabled = true
-	settings.player_scale = 2.75
+	settings.player_scale = 2.75/CoreWorldUnits.LEGACY_SOFIA_SCALE
 	settings.save_saved(directory.path_join("scale.cfg"))
 	var loaded := CoreCameraSettings.new()
 	loaded.load_saved(directory.path_join("scale.cfg"))
-	check(loaded.player_scale_enabled and loaded.player_scale == 2.75,"scale CFG roundtrip")
+	check(loaded.player_scale_enabled and is_equal_approx(loaded.player_scale,2.75/CoreWorldUnits.LEGACY_SOFIA_SCALE),"scale CFG roundtrip")
 	var old := ConfigFile.new()
 	old.set_value("camera","zoom",1.5)
 	old.save(directory.path_join("old.cfg"))
 	loaded.load_saved(directory.path_join("old.cfg"))
 	check(not loaded.player_scale_enabled,"old profiles do not enable scale")
+	# Preserve the original physical fixture sizes; UI factors now use the normalized baseline.
 	for factor in [.5,1.0,2.0,4.0]:
 		await place()
 		var feet := hero.global_position
 		var target := lab.camera_target(1)
 		lab.camera_settings.player_scale_enabled = true
-		lab.camera_settings.player_scale = factor
+		lab.camera_settings.player_scale = factor/CoreWorldUnits.LEGACY_SOFIA_SCALE
 		lab._camera_settings_changed()
 		await frames(4)
 		check(is_equal_approx(hero.body_scale,factor) and hero.scale.is_equal_approx(Vector2.ONE*factor),"uniform root scale "+str(factor))
@@ -101,14 +112,14 @@ func run() -> void:
 		check(is_equal_approx(hero.grenades.held_grenade.collider.shape.radius,hero.grenades.tuning.grenade_radius*factor),"grenade contact scales with equipment "+str(factor))
 		hero.grenades.holster()
 		hero._update_crouch(true)
-		check(hero.crouching and is_equal_approx(hero.world_height(),hero.tuning.crouch_height*factor),"crouch scales physical body "+str(factor))
+		check(hero.crouching and is_equal_approx(hero.world_height(),hero.tuning.local_value("crouch_height")*factor),"crouch scales physical body "+str(factor))
 		hero._try_stand()
 		var start := hero.position
 		Input.action_press("core_right")
-		await frames(15)
+		await frames(60)
 		check(hero.position.x > start.x+10,"running functional "+str(factor))
 		Input.action_press("core_jump")
-		await frames(5)
+		await frames(8)
 		check(hero.position.y < start.y-5,"jump functional "+str(factor))
 		release()
 		await place()
@@ -191,17 +202,17 @@ func run() -> void:
 	ceiling.queue_free()
 	await frames(5)
 	check(hero.body_scale == 2,"pending growth applies after ceiling removed")
-	lab.camera_settings.player_scale = 2
+	lab.camera_settings.player_scale = 1.3
 	lab.camera_settings.player_scale_enabled = false
 	lab._camera_settings_changed()
-	check(hero.body_scale == 1 and lab.camera_settings.player_scale == 2,"disable restores 1x without erasing slider")
+	check(is_equal_approx(hero.character_scale(),1) and lab.camera_settings.player_scale == 1.3,"disable restores new 1x without erasing slider")
 	lab.camera_overlay.feature_toggles.player_scale_enabled.button_pressed = true
-	lab.camera_overlay.rows.player_scale.slider.value = 1.5
-	check(hero.body_scale == 1.5,"actual developer controls apply scale")
+	lab.camera_overlay.rows.player_scale.slider.value = 1.2
+	check(is_equal_approx(hero.character_scale(),1.2),"actual developer controls apply scale")
 	check(lab.export_settings_file(directory.path_join("balance.json")),"scale settings export with full balance")
 	lab.camera_overlay.rows.player_scale.slider.value = 1.0
-	check(lab.import_settings_file(directory.path_join("balance.json")) and hero.body_scale == 1.5,"JSON import reapplies requested scale")
-	check(hero.tuning.run_speed == 320 and hero.tuning.jump_speed == 720,"movement tuning unchanged")
+	check(lab.import_settings_file(directory.path_join("balance.json")) and is_equal_approx(hero.character_scale(),1.2),"JSON import reapplies requested scale")
+	check(same_values(hero.tuning.as_dictionary(),initial_movement),"movement tuning unchanged")
 	floor.queue_free()
 	app.queue_free()
 	await frames(3)
@@ -215,10 +226,10 @@ func run() -> void:
 	await frames(6)
 	var prologue_feet := campaign.player.global_position
 	var prologue_camera := campaign.camera_target(1)
-	campaign.camera_settings.apply_values({"player_scale_enabled":true,"player_scale":2.0})
+	campaign.camera_settings.apply_values({"player_scale_enabled":true,"player_scale":1.2})
 	campaign._camera_settings_changed()
 	await frames(3)
-	check(campaign.player.body_scale == 2 and campaign.player.global_position.distance_to(prologue_feet) < .2,"Sofia scale applies in prologue")
+	check(is_equal_approx(campaign.player.character_scale(),1.2) and campaign.player.global_position.distance_to(prologue_feet) < .2,"Sofia scale applies in prologue")
 	check(campaign.camera_target(1).distance_to(prologue_camera) < .2,"prologue camera stays independent")
 	campaign.queue_free()
 	await frames(3)

@@ -57,6 +57,7 @@ const FAR_LEFT_DOOR := Vector2(LEFT_BOUND+180,FLOOR)
 const FAR_RIGHT_DOOR := Vector2(BASE_WIDTH-180,FLOOR)
 const ZOMBIE_TEST_SPAWN := Vector2(4980,760)
 var floors: Array[Rect2] = [Rect2(LEFT_BOUND,760,960-LEFT_BOUND,100),Rect2(1160,760,BASE_WIDTH-1160,100)]
+var solid_platforms: Array[Rect2] = []
 var platforms: Array[Rect2] = [Rect2(1340,540,420,20),Rect2(1780,540,460,20),Rect2(1780,350,460,20)]
 var obstacles: Array[Rect2] = [Rect2(640,690,90,70),Rect2(800,712,56,48)]
 var ladders: Array[Rect2] = [LADDER.make(1446,540,220),LADDER.make(2018,350,410)]
@@ -100,7 +101,9 @@ func _ready() -> void:
 			_solid(Rect2(FOREST.ORIGIN.x-40,-1500,40,3000),false)
 			_solid(Rect2(FOREST.BOUNDS.end.x,-1500,40,3000),false)
 	for rect in floors+obstacles: _solid(rect,false)
-	for rect in platforms: _solid(rect,true)
+	for rect in platforms:
+		solid_platforms.append_array(preload("res://scripts/core/platform_surfaces.gd").split(rect,ladders))
+	for rect in solid_platforms: _solid(rect,false)
 	_solid(HANGING_BEAM,false)
 	for points in slopes:
 		var body := StaticBody2D.new()
@@ -217,7 +220,7 @@ func _draw() -> void:
 	var test_right := BASE_WIDTH if prologue_mode else WIDTH
 	for x in range(int(LEFT_BOUND),int(test_right)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)
 	for y in range(192,901,64): draw_line(Vector2(LEFT_BOUND,y),Vector2(test_right,y),grid_color,1)
-	for rect in floors+platforms+obstacles:
+	for rect in floors+solid_platforms+obstacles:
 		draw_rect(rect,Color("43525b"))
 		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("829398"),3)
 	draw_rect(HANGING_BEAM,Color("495d66"))

@@ -24,8 +24,8 @@ func clear() -> void:
 
 func summary() -> String:
 	if report.is_empty(): return "Взрыв · F1: данных пока нет"
-	var text := "Последний взрыв: радиус %.0f px" % report.radius
-	if report.wave > 0: text += " · волна %.0f px" % report.wave
+	var text := "Последний взрыв: радиус "+CoreWorldUnits.distance(report.radius)
+	if report.wave > 0: text += " · волна "+CoreWorldUnits.distance(report.wave)
 	var shown := 0
 	# Keep the player visible in the HUD, even if several enemies were closer.
 	for target in report.targets:
@@ -38,7 +38,7 @@ func summary() -> String:
 	return text+" (в момент взрыва)"
 
 func target_text(target: Dictionary) -> String:
-	return "%s: %.1f px%s" % [target.label,target.distance," · укрытие" if target.covered else " · вне зоны" if target.outside else ""]
+	return "%s: %s%s" % [target.label,CoreWorldUnits.distance(target.distance)," · укрытие" if target.covered else " · вне зоны" if target.outside else ""]
 
 func _process(_delta: float) -> void:
 	visible = lab.player.debug_shape
@@ -60,10 +60,10 @@ func _draw() -> void:
 	var origin: Vector2 = report.origin
 	var color := Color("ffbd73")
 	draw_arc(to_local(origin),report.radius,0,TAU,96,Color(color,.65),1.2,true)
-	_tag(origin+Vector2(report.radius,0),"Взрыв · %.0f px" % report.radius,color)
+	_tag(origin+Vector2(report.radius,0),"Взрыв · "+CoreWorldUnits.distance(report.radius),color)
 	if report.wave > 0 and not is_equal_approx(report.wave,report.radius):
 		draw_arc(to_local(origin),report.wave,0,TAU,96,Color("80cce080"),1.0,true)
-		_tag(origin+Vector2(0,-report.wave),"Ударная волна · %.0f px" % report.wave,Color("80cce0"))
+		_tag(origin+Vector2(0,-report.wave),"Ударная волна · "+CoreWorldUnits.distance(report.wave),Color("80cce0"))
 	draw_circle(to_local(origin),3,color)
 	for target in report.targets:
 		var target_color := Color("aeb7b8") if target.covered or target.outside else Color("f0c96a") if target.player else Color("a0bb87")

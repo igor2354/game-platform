@@ -60,12 +60,19 @@ func _draw() -> void:
 
 func _draw_grid(plot: Rect2) -> void:
 	var bounds := _world_x_bounds()
-	var x_step := 1000.0
-	var first_x := ceilf(bounds.x/x_step)*x_step
-	for world_x in range(int(first_x),int(bounds.y)+1,int(x_step)):
+	var origin_x := 12000.0 if level.prologue_mode else 0.0
+	var needed_step := CoreWorldUnits.meters(bounds.y-bounds.x)/maxf(1,plot.size.x/150)
+	var meters_step := 1000.0
+	for candidate in [1.0,2.0,5.0,10.0,20.0,50.0,100.0,200.0,500.0]:
+		if candidate >= needed_step:
+			meters_step=candidate;break
+	var x_step := CoreWorldUnits.units(meters_step)
+	var world_x := origin_x+ceilf((bounds.x-origin_x)/x_step)*x_step
+	while world_x <= bounds.y:
 		var point := _map_point(Vector2(world_x,_world_y_bounds().x),plot)
 		draw_line(Vector2(point.x,plot.position.y),Vector2(point.x,plot.end.y),Color(.28,.36,.4,.24),1)
-		draw_string(ThemeDB.fallback_font,Vector2(point.x+4,plot.end.y-8),str(world_x),HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color(.60,.68,.70,.72))
+		draw_string(ThemeDB.fallback_font,Vector2(point.x+4,plot.end.y-8),"%.0f м / %.0f ед." % [CoreWorldUnits.meters(world_x-origin_x),world_x-origin_x],HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color(.60,.68,.70,.72))
+		world_x+=x_step
 	draw_rect(plot,Color("718087"),false,1)
 
 func _draw_level_geometry(plot: Rect2) -> void:
@@ -76,7 +83,7 @@ func _draw_level_geometry(plot: Rect2) -> void:
 	var boundary_color := Color("9c7570") if level.prologue_mode else Color("64747a")
 	for world_x in [_world_x_bounds().x,_world_x_bounds().y]:
 		draw_line(_map_point(Vector2(world_x,_world_y_bounds().x),plot),_map_point(Vector2(world_x,_world_y_bounds().y),plot),boundary_color,2)
-	for rect in level.platforms:
+	for rect in level.solid_platforms:
 		_draw_horizontal(rect.position.x,rect.end.x,rect.position.y,plot,platform_color,4)
 	for rect in level.obstacles:
 		if _is_revealed(rect.get_center().x):

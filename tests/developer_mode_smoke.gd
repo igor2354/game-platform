@@ -25,6 +25,18 @@ func snapshot() -> Dictionary:
 	var result := {}
 	for key in lab._settings_resources(): result[key] = lab._settings_resources()[key].as_dictionary()
 	return result
+func same_snapshot(a: Dictionary,b: Dictionary) -> bool:
+	if a.size()!=b.size():return false
+	for section in a:
+		if not b.has(section) or a[section].size()!=b[section].size():return false
+		for key in a[section]:
+			if not b[section].has(key):return false
+			var left=a[section][key];var right=b[section][key]
+			if (left is float or left is int) and (right is float or right is int):
+				if absf(float(left)-float(right))>.000001:return false
+			elif left!=right:return false
+	return true
+
 func new_lab(saved := false) -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = saved
@@ -33,6 +45,8 @@ func new_lab(saved := false) -> void:
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
+	lab.get_node("World/Player").character_id = "sofia"
+	lab.get_node("World/Player").sofia_cel_variant = true
 	root.add_child(lab)
 func run() -> void:
 	root.gui_embed_subwindows = true
@@ -47,8 +61,8 @@ func run() -> void:
 	check(not dev.enabled and not dev.visible and lab.telemetry.visible and lab.shooting_telemetry.visible and not hero.debug_shape,"normal startup shows telemetry with developer settings and debug geometry hidden")
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
-	for values in defaults.values(): total += values.size()
-	check(total == 380 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 380 balance values, including sprint auto-parkour, remain in the four-section workspace")
+	for values in defaults.values(): total += values.size()-(1 if values.has("scale_basis_version") else 0)
+	check(total == 382 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 382 values, including blocking overlay visibility and opacity, remain in the four-section workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")
 	check(dev.player_tabs.get_tab_count() == 4 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье","Player groups movement, shooting, camera and health")
@@ -97,11 +111,12 @@ func run() -> void:
 	lab.camera_overlay.rows.zoom.slider.value = 1.25
 	lab.zombie_overlay.zombie_toggles.hearing_enabled.button_pressed = false
 	check(hero.tuning.run_speed == 430 and hero.weapon.tuning.rounds_per_minute == 1100 and lab.camera_settings.zoom == 1.25 and not lab.level.zombie.tuning.hearing_enabled,"all hosted controls edit the same live player, weapon, camera and zombie resources")
-	# Measure horizontal speed on the flat start, not on the new prologue's first slope.
-	hero.reset_to(lab.level.player_spawn()-Vector2(240,0))
+	# Use the inherited flat test floor; allow the selected profile its full acceleration time.
+	hero.reset_to(Vector2(100,760))
+	hero.weapon.aim_override=hero.position+Vector2(1000,-100)
 	await frames(4)
 	Input.action_press("core_right")
-	await frames(30)
+	await frames(ceili(hero.tuning.acceleration_time(430,hero.tuning.acceleration)*60)+6)
 	Input.action_release("core_right")
 	check(absf(hero.velocity.x-430) < 1,"movement continues using live balance with the developer workspace open")
 	await frames(16)
@@ -173,7 +188,7 @@ func run() -> void:
 	for i in 4: untouched = FileAccess.get_file_as_string(lab._overlays()[i].settings_path) == persisted[i] and untouched
 	check(untouched,"Reset All does not overwrite saved balance profiles")
 	dev.load_button.pressed.emit()
-	check(snapshot() == saved and lab.movement_overlay.rows.run_speed.number.value == 490,"Load All restores settings and their hosted controls")
+	check(same_snapshot(snapshot(),saved) and lab.movement_overlay.rows.run_speed.number.value == 490,"Load All restores settings and their hosted controls")
 	var bad := FileAccess.open(lab.camera_settings_path,FileAccess.WRITE)
 	bad.store_string("[broken\n")
 	bad.close()
@@ -203,7 +218,7 @@ func run() -> void:
 	dev.import_button.pressed.emit()
 	await process_frame
 	lab.settings_dialog.file_selected.emit(directory+"/balance.json")
-	check(snapshot() == saved and not paused and dev.enabled,"common JSON import restores all original settings and retains developer mode")
+	check(same_snapshot(snapshot(),saved) and not paused and dev.enabled,"common JSON import restores all original settings and retains developer mode")
 	# Every part of the common workspace, including navigation and toolbar,
 	# must suppress shooting and avoid reusing held UI clicks after closing.
 	var motion := InputEventMouseMotion.new()
@@ -237,7 +252,7 @@ func run() -> void:
 	await process_frame
 	new_lab(true)
 	await frames(8)
-	check(snapshot() == saved and not lab.developer_mode.enabled and not lab.player.debug_shape,"a new launch loads balance but starts outside developer mode")
+	check(same_snapshot(snapshot(),saved) and not lab.developer_mode.enabled and not lab.player.debug_shape,"a new launch loads balance but starts outside developer mode")
 	lab.queue_free()
 	await process_frame
 	for filename in DirAccess.get_files_at(directory): DirAccess.remove_absolute(directory+"/"+filename)

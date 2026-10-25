@@ -25,6 +25,7 @@ func walk_to(x: float,crouch := false,max_ticks := 600,steps := false) -> bool:
 	if crouch:Input.action_press("core_crouch")
 	var sign_x := signf(x-hero.position.x)
 	Input.action_press("core_right" if sign_x>0 else "core_left")
+	if steps: Input.action_press("core_sprint")
 	var previous := hero.position.x
 	var stalled := 0
 	for tick in max_ticks:
@@ -42,39 +43,11 @@ func walk_to(x: float,crouch := false,max_ticks := 600,steps := false) -> bool:
 	release();return false
 func traverse_main() -> bool:
 	await place(lab.level.player_spawn())
-	var jumps: Array=[]
-	for n in FOREST.DATA.PLAN.nodes:
-		for j in n.jumps:
-			if j.route=="main":jumps.append([n.start_m+float(j.a[0]),n.start_m+float(j.b[0])])
-	var next_jump := 0
-	var stalled := 0
-	var previous := hero.position.x
-	var jump_age := 100
-	var last_section := 0
-	Input.action_press("core_right")
-	for tick in 16000:
-		await frames(1);jump_age+=1
-		var x_m := (hero.position.x-FOREST.ORIGIN.x)/FOREST.UPM
-		hero.weapon.aim_override=hero.position+Vector2(700,-100)
-		if x_m>=483:return true
-		if hero.health<=0:break
-		while next_jump<jumps.size() and x_m>jumps[next_jump][1]+.35:next_jump+=1
-		stalled=stalled+1 if absf(hero.position.x-previous)<.1 else 0
-		previous=hero.position.x
-		if x_m>72 and x_m<78:Input.action_press("core_crouch")
-		else:Input.action_release("core_crouch")
-		if hero.mode=="ledge_hang":
-			Input.action_release("core_jump");await frames(2);Input.action_press("core_jump");jump_age=0
-		elif not hero.parkour_active() and hero.is_on_floor():
-			if jump_age>8:Input.action_release("core_jump")
-			var near_gap: bool = next_jump<jumps.size() and x_m>jumps[next_jump][0]-.55 and x_m<jumps[next_jump][0]+.15
-			if (near_gap or stalled>8) and jump_age>8:
-				Input.action_release("core_jump");await frames(2);Input.action_press("core_jump");jump_age=0
-		if stalled>240:break
-		if last_section<12 and x_m>=FOREST.DATA.PLAN.nodes[last_section].end_m:
-			print("ROUTE SECTION ",last_section+1," ticks=",tick);last_section+=1
-	print("ROUTE STOP ",hero.position," mode=",hero.mode," health=",hero.health," next_jump=",next_jump)
-	return false
+	var navigation:=preload("res://tests/support/prologue_v2_navigation.gd").new(self,hero,lab.level.forest)
+	var completed:bool=await navigation.complete()
+	print("ROUTE SECONDS ",navigation.ticks/60.0," completed=",completed)
+	return completed
+
 func run() -> void:
 	app=FRONTEND.new();app.load_user_settings=false
 	app.test_settings_directory=OS.get_environment("TEMP").path_join("prologue-v2-%d"%OS.get_process_id())
@@ -86,7 +59,7 @@ func run() -> void:
 	await frames(10)
 	check(app.game.level.prologue_version==1 and app.game.level.right_bound()==33120,"original prologue remains the original 21120-unit forest")
 	check(app.game.level.forest.panorama_strips.size()==11,"original prologue retains its panorama")
-	check(is_equal_approx(app.game.player.body_scale,1),"new blockout reference does not change original size defaults")
+	check(is_equal_approx(app.game.player.character_scale(),1),"original prologue uses normalized Sofia baseline")
 	app.return_to_menu();await frames(5)
 	app.buttons.campaign.pressed.emit();app.buttons.prologue_v2.pressed.emit()
 	check(app.page=="characters" and app.selected_level=="prologue_v2","new level choice precedes loadout")
@@ -97,11 +70,11 @@ func run() -> void:
 	var f=lab.level.forest
 	check(lab.level.prologue_version==2 and f.sections.size()==12,"separate prologue ver2 contains twelve V4 sections")
 	check(is_equal_approx(lab.level.right_bound()-FOREST.ORIGIN.x,484*FOREST.UPM),"new bounds retain all 484 project meters")
-	check(f.get_children().is_empty(),"new forest contains no panorama or texture nodes")
+	check(f.panorama.strips.size()==19,"ver2 loads nineteen strips of its own continuous panorama")
 	check(is_equal_approx(hero.body_scale,2.85) and hero.is_on_floor(),"Sofia starts at reference 2.85x on solid ground")
-	check(hero.tuning.run_speed==180 and hero.motion_value("run_speed")==513,"new level has reference base and derived run speed")
+	check(is_equal_approx(hero.tuning.run_speed,327.75) and is_equal_approx(hero.motion_value("run_speed"),327.75),"new level has reference base and derived run speed")
 	check(hero.fall_limit>FOREST.point(0,-8).y and lab.level_map._world_x_bounds().y==lab.level.right_bound(),"deep terrain and full map use new level bounds")
-	check(f.jump_catalog.size()==19 and f.ladders.size()==17,"nineteen jumps and all seventeen ladders connected")
+	check(f.jump_catalog.size()==19 and f.ladders.size()==19,"nineteen transitions and all nineteen ladders connected")
 	check(lab.camera_settings.zoom==lab.camera_overlay.defaults.zoom,"reference size does not change camera zoom")
 	# Deep natural floor must not trigger the old polygon fall recovery.
 	var recoveries=lab.respawns
@@ -117,11 +90,20 @@ func run() -> void:
 		for j in n.jumps:
 			var a=FOREST.point(n.start_m+float(j.a[0]),float(j.a[1]))
 			var b=FOREST.point(n.start_m+float(j.b[0]),float(j.b[1]))
-			await place(a-Vector2(FOREST.UPM*2.0,0))
+			if j.id=="J18":
+				var exit:Rect2=f.features.log_up_ladder
+				await place(Vector2(exit.get_center().x,exit.end.y))
+				Input.action_press("core_up")
+				for t in 300:
+					await frames(1)
+					if hero.is_on_floor() and not hero.climbing and not hero.ladder_exit.is_finite() and absf(hero.position.y-exit.position.y)<3:break
+				release()
+			else:await place(a-Vector2(FOREST.UPM*(3.5 if j.id=="J11" else 2.0),0))
 			# The last 0.5m before the edge is the launch point; enough capsule clearance.
-			var running=await walk_to(a.x-.5*FOREST.UPM,false,240,true)
+			var running=true if j.id=="J18" else await walk_to(a.x-(1.5 if j.id=="J11" else .5)*FOREST.UPM,false,240,true)
 			await frames(2)
-			Input.action_press("core_right");Input.action_press("core_jump")
+			Input.action_press("core_right");Input.action_press("core_sprint")
+			if j.id not in ["J07","J12","J18"]:Input.action_press("core_jump")
 			var landed := false
 			for tick in 150:
 				await frames(1)

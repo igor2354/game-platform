@@ -164,7 +164,7 @@ func _levels() -> void:
 		var id := "prologue" if index == 0 else "prologue_v2"
 		var card := _button(id,"",Rect2(250,230+index*230,1100,180),func(): select_level(id),selected_level == id)
 		_label("Пролог" if index == 0 else "Пролог ver2",Rect2(35,24,1000,58),40,card)
-		_label("Первоначальный уровень" if index == 0 else "Новый лесной маршрут · геометрия без текстур",Rect2(38,100,1000,40),25,card,Color("bdb29e"))
+		_label("Первоначальный уровень" if index == 0 else "Новый лесной маршрут · окружение по блокингу",Rect2(38,100,1000,40),25,card,Color("bdb29e"))
 	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("main"))
 
 func select_level(id: String) -> void:

@@ -203,9 +203,10 @@ func _draw() -> void:
 	draw_line(point(125,7),point(125,5.2),Color("647d82"),2)
 	var monument := Rect2(point(201,2.1),Vector2(H*.6,H*1.6))
 	draw_rect(monument,Color("738184"))
-	for rect in platforms:
-		draw_rect(rect,Color("637c82"))
-		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("a3bebd"),3)
+	for source_rect in platforms:
+		for rect in preload("res://scripts/core/platform_surfaces.gd").split(source_rect,ladders):
+			draw_rect(rect,Color("637c82"))
+			draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("a3bebd"),3)
 	for rect in obstacles:
 		draw_rect(rect,Color("667272"))
 		draw_rect(rect,Color("a6b5b0"),false,2)
