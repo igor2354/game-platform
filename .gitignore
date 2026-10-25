@@ -8,3 +8,6 @@ assets/thirdparty/
 # Blender incremental saves; keep the actual editable .blend source.
 *.blend1
 *.blend2
+# Python tool caches are local build products.
+__pycache__/
+*.pyc

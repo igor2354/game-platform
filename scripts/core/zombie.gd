@@ -167,7 +167,7 @@ func sees_player(radius: float) -> bool:
 	if is_stunned(): return false
 	if not tuning.vision_enabled: return false
 	if not is_instance_valid(target) or target.health <= 0: return false
-	var point := target.global_position-Vector2(0,target.collision_height()*.5)
+	var point := target.global_position-Vector2(0,target.world_height()*.5)
 	var origin := vision_origin()
 	var offset := point-origin
 	radius = vision_radius(radius)
@@ -215,7 +215,7 @@ func within_melee_reach() -> bool:
 	var dx := target.global_position.x-global_position.x
 	if absf(dx) > tuning.attack_range or dx*facing < -4: return false
 	var origin := to_global(Vector2(0,-12 if is_prone() else -38)*body_size.y/64)
-	var top := target.global_position.y-target.collision_height()
+	var top := target.global_position.y-target.world_height()
 	if origin.y < top-6 or origin.y > target.global_position.y+6: return false
 	var point := Vector2(target.global_position.x,clampf(origin.y,top,target.global_position.y))
 	return _clear_sight(origin,point)
@@ -269,10 +269,10 @@ func _sees_tracked_close_player() -> bool:
 	# not its chest alone. The low head must not lose a nearby jumper in the
 	# blind spot above/behind the cone. This cannot initially reveal a target.
 	var origin := eye_point()
-	var point := Vector2(target.global_position.x,clampf(origin.y,target.global_position.y-target.collision_height()+CoreMovementPlayer.RADIUS,target.global_position.y-CoreMovementPlayer.RADIUS))
+	var point := Vector2(target.global_position.x,clampf(origin.y,target.global_position.y-target.world_height()+target.world_radius(),target.global_position.y-target.world_radius()))
 	var offset := point-origin
-	if offset.length() > CoreMovementPlayer.RADIUS:
-		point -= offset.normalized()*CoreMovementPlayer.RADIUS
+	if offset.length() > target.world_radius():
+		point -= offset.normalized()*target.world_radius()
 	if origin.distance_to(point) > tuning.attack_range: return false
 	return _clear_sight(origin,point)
 
@@ -368,7 +368,7 @@ func _player_on_top() -> bool:
 	if health <= 0 or not is_prone() or arm_count() == 0 or not is_instance_valid(target) or target.health <= 0: return false
 	if target.climbing or target.dash_left > 0 or self in target.dash_overlap_exceptions or not target.is_on_floor(): return false
 	var feet := to_local(target.global_position)
-	if feet.y > -12*body_size.y/64 or feet.y < -24*body_size.y/64-8 or absf(feet.x) > 12*body_size.y/64+CoreMovementPlayer.RADIUS: return false
+	if feet.y > -12*body_size.y/64 or feet.y < -24*body_size.y/64-8 or absf(feet.x) > 12*body_size.y/64+target.world_radius(): return false
 	# Require actual support from this body, not proximity to its side or head.
 	for index in target.get_slide_collision_count():
 		var contact := target.get_slide_collision(index)
@@ -415,7 +415,7 @@ func _remember_contact(side: float) -> void:
 func _player_touching_body() -> bool:
 	if health <= 0 or is_knocked_down() or arm_count() == 0 or not is_instance_valid(target) or target.health <= 0: return false
 	if target.dash_left > 0 or target.climbing or self in target.dash_overlap_exceptions: return false
-	if global_position.distance_to(target.global_position) > body_size.length()+target.collision_height()+4: return false
+	if global_position.distance_to(target.global_position) > body_size.length()+target.world_height()+4: return false
 	# The solid collider can stop a crouched capsule where the animated shins
 	# and hands leave a gap. Initial standing awareness needs this solid contact;
 	# an existing engagement also retains contact with extended head/limbs.
@@ -435,7 +435,7 @@ func _player_touching_body() -> bool:
 		for hit in get_world_2d().direct_space_state.intersect_shape(query,4):
 			if hit.collider != target: continue
 			var origin := to_global(Vector2(0,-12 if is_prone() else -38)*body_size.y/64)
-			var point := Vector2(target.global_position.x,clampf(origin.y,target.global_position.y-target.collision_height(),target.global_position.y))
+			var point := Vector2(target.global_position.x,clampf(origin.y,target.global_position.y-target.world_height(),target.global_position.y))
 			return _clear_sight(origin,point)
 	return false
 
@@ -755,7 +755,7 @@ func _draw() -> void:
 	if is_stunned(): color = Color("e5ce80")
 	var label_y := top-(61 if is_stunned() else 48)
 	if shove_left > 0 and is_instance_valid(target):
-		label_y = minf(label_y,to_local(target.global_position-Vector2(0,target.collision_height())).y-18)
+		label_y = minf(label_y,to_local(target.global_position-Vector2(0,target.world_height())).y-18)
 	draw_string(ThemeDB.fallback_font,Vector2(-46,label_y),"ЗОМБИ · "+("СБРАСЫВАЕТ" if shove_left > 0 else STATE_NAMES[state]),HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffb582") if shove_left > 0 else color)
 	if is_stunned():
 		draw_rect(Rect2(-22,label_y+9,44,3),Color("493f2a"))

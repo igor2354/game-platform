@@ -25,6 +25,9 @@ func clean() -> void:
 func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
+	var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("grenade_smoke-%d" % OS.get_process_id())
+	DirAccess.make_dir_recursive_absolute(directory)
+	for key in ["settings_path","shooting_settings_path","camera_settings_path","zombie_settings_path","ragdoll_settings_path"]: lab.set(key,directory.path_join(key+".cfg"))
 	root.add_child(lab)
 	lab.player.weapon.tuning.sound_enabled = false
 	lab.ragdoll_settings.explosion_audio_enabled = false

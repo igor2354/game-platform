@@ -221,11 +221,11 @@ func _draw_legend(font: Font) -> void:
 			draw_string(font,Vector2(x+40,row_y),landmark.label,HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("d6ddd7"))
 
 func _world_x_bounds() -> Vector2:
-	if level.prologue_mode: return Vector2(CoreMovementLevel.FOREST.BOUNDS.position.x,CoreMovementLevel.FOREST.BOUNDS.end.x)
+	if level.prologue_mode: return Vector2(level.campaign_bounds().position.x,level.campaign_bounds().end.x)
 	return Vector2(CoreMovementLevel.LEFT_BOUND,CoreMovementLevel.WIDTH)
 
 func _world_y_bounds() -> Vector2:
-	if level.prologue_mode: return Vector2(CoreMovementLevel.FOREST.BOUNDS.position.y,CoreMovementLevel.FOREST.BOUNDS.end.y)
+	if level.prologue_mode: return Vector2(level.campaign_bounds().position.y,level.campaign_bounds().end.y)
 	return Vector2(180,1120)
 
 func _map_point(point: Vector2,plot: Rect2) -> Vector2:

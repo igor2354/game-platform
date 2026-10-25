@@ -50,7 +50,7 @@ func _surface(hit: Dictionary) -> bool:
 func _clear_at(feet: Vector2) -> bool:
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = player.standing_capsule
-	query.transform = Transform2D(0,feet-Vector2(0,player.HEIGHT*.5))
+	query.transform = Transform2D(0,Vector2.ONE*player.body_scale,0,feet-Vector2(0,(player.HEIGHT*player.body_scale)*.5))
 	query.collision_mask = player.WORLD_MASK
 	query.exclude = [player.get_rid()]
 	query.margin = .01
@@ -60,7 +60,7 @@ func _clear_segment(a: Vector2,b: Vector2) -> bool:
 	if not _clear_at(b): return false
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = player.standing_capsule
-	query.transform = Transform2D(0,a-Vector2(0,player.HEIGHT*.5))
+	query.transform = Transform2D(0,Vector2.ONE*player.body_scale,0,a-Vector2(0,(player.HEIGHT*player.body_scale)*.5))
 	query.motion = b-a
 	query.collision_mask = player.WORLD_MASK
 	query.exclude = [player.get_rid()]
@@ -69,7 +69,7 @@ func _clear_segment(a: Vector2,b: Vector2) -> bool:
 
 func _supported(feet: Vector2) -> bool:
 	# Both sides need support: no landing on the very tip of a narrow post.
-	for offset in [-player.RADIUS+2,player.RADIUS-2]:
+	for offset in [-player.world_radius()+2,player.world_radius()-2]:
 		var hit := _ray(feet+Vector2(offset,-2),feet+Vector2(offset,3))
 		if not _surface(hit) or hit.normal.y > -.85: return false
 	return true
@@ -83,7 +83,7 @@ func try_start(axis: float,held: bool) -> bool:
 	direction = player.weapon.look_facing()
 	if axis != 0 and signf(axis) != direction: return false
 	var feet: Vector2 = player.global_position
-	var reach: float = player.RADIUS+player.tuning.parkour_reach
+	var reach: float = player.world_radius()+player.tuning.parkour_reach
 	var max_height: float = player.tuning.parkour_ledge_height
 	# Several short probes also catch the vertical edge of thin one-way decks.
 	var visited := {}
@@ -100,7 +100,7 @@ func try_start(axis: float,held: bool) -> bool:
 		ledge = Vector2(edge_x,top.position.y)
 		var height: float = feet.y-ledge.y
 		if height < (16 if player.is_on_floor() else 40) or height > max_height: continue
-		var landing := Vector2(edge_x+direction*(player.RADIUS+3),ledge.y-SKIN)
+		var landing := Vector2(edge_x+direction*(player.world_radius()+3),ledge.y-SKIN)
 		if not _supported(landing) or not _clear_at(landing): continue
 		source = wall.collider
 		kind = "mantle"
@@ -112,7 +112,7 @@ func try_start(axis: float,held: bool) -> bool:
 				destination = other
 		var start := feet
 		if kind == "mantle":
-			start = Vector2(edge_x-direction*(player.RADIUS+SKIN),maxf(feet.y,ledge.y+player.HEIGHT*.85))
+			start = Vector2(edge_x-direction*(player.world_radius()+SKIN),maxf(feet.y,ledge.y+(player.HEIGHT*player.body_scale)*.85))
 			# Don't pull a grounded actor down through its floor to create a hang.
 			if player.is_on_floor(): start.y = feet.y-SKIN
 			if not _clear_segment(feet,start): continue
@@ -137,7 +137,7 @@ func try_start(axis: float,held: bool) -> bool:
 		jump_was_held = true
 		climb_requested = false
 		hang_time = player.tuning.parkour_hang_time if kind == "mantle" else 0.0
-		duration = player.tuning.parkour_mantle_time if kind == "mantle" else player.tuning.parkour_vault_time
+		duration = (player.tuning.parkour_mantle_time if kind == "mantle" else player.tuning.parkour_vault_time)/player.body_scale
 		waypoint = 0
 		_begin_segment()
 		return true
@@ -161,7 +161,7 @@ func _vault_landing() -> Vector2:
 				if _surface(probe) and probe.collider == source: low = mid
 				else: high = mid
 			if high > limit: return Vector2.INF
-			var landing_x: float = ledge.x+direction*(high+player.RADIUS+3)
+			var landing_x: float = ledge.x+direction*(high+player.world_radius()+3)
 			var ground := _ray(Vector2(landing_x,ledge.y-2),Vector2(landing_x,player.global_position.y+player.tuning.parkour_drop_limit))
 			if not _surface(ground) or ground.normal.y > -.85: return Vector2.INF
 			var feet := Vector2(landing_x,ground.position.y-SKIN)

@@ -2,6 +2,12 @@ class_name CoreMovementSettings
 extends Resource
 
 const SAVE_PATH := "user://core_movement.cfg"
+# Base profile values remain in 1x units. Runtime movement applies the actor's size.
+const SCALED_MOTION_KEYS := ["run_speed","sprint_speed","slow_walk_speed","jump_speed",
+	"jump_cut_speed","gravity","fall_speed","dash_speed","climb_speed","ladder_snap_speed",
+	"push_speed","acceleration","braking","air_acceleration","slow_walk_acceleration",
+	"slow_walk_braking","slow_walk_air_acceleration","slide_braking","slide_min_speed",
+	"slide_damage_min_speed","slide_knockdown_min_speed"]
 const SWITCHES := [
 	["parkour_enabled", "Паркур включён", "Паркур", "Лицом к краю удерживайте пробел для хвата. Повторное нажатие — подъём, C — прервать. Низкое узкое препятствие преодолевается сразу."],
 	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],

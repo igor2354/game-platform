@@ -3,6 +3,7 @@ extends Resource
 
 const SAVE_PATH := "user://core_camera.cfg"
 const SWITCHES := [
+	["player_scale_enabled", "Изменять общий размер героя", "Размер героя", "Равномерно меняет тело, оружие, коллизии и параметры движения. Базовые числа профиля сохраняются; уровень и камера прежние. Под тесным потолком или во время падения изменение ждёт безопасного места."],
 	["camera_enabled", "Слежение камеры включено", "Камера", "Выключено: камера остаётся на месте. Настройки сохраняются до повторного включения."],
 	["map_enabled", "Карта уровня включена", "Визуал", "Выключено: карта не открывается по M. Схема строится по геометрии уровня и сохраняет настройки отображения."],
 	["visual_enabled", "Эффекты героя включены", "Визуал", "Отключает блюр и сглаживание героя, сохраняя их настройки."],
@@ -21,6 +22,8 @@ const SWITCHES := [
 	["forest_water_enabled", "Рябь и блики ручья", "Окружение", "Локальная анимация нарисованной воды. Игровой физики воды не добавляет."]
 ]
 @export var camera_enabled := true
+@export var player_scale_enabled := false
+@export var player_scale := 1.0
 @export var map_enabled := true
 @export var visual_enabled := true
 @export var noir_enabled := false
@@ -40,6 +43,7 @@ const SWITCHES := [
 
 # Offset and look-ahead use screen pixels, so zoom keeps the chosen framing.
 const PARAMS := [
+	["player_scale","Общий масштаб героя",.5,4.0,.05,"×","Размер героя"],
 	["zoom","Приближение",.5,3.0,.05,"×","Камера"],
 	["offset_x","Камера от героя · X",-600.0,600.0,1.0,"px экрана","Камера"],
 	["offset_y","Камера от героя · Y",-450.0,450.0,1.0,"px экрана","Камера"],
@@ -155,7 +159,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	if result != OK: return result
 	var values := {}
 	for key in as_dictionary(): values[key] = config.get_value("camera",key,get(key))
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
 	apply_values(values)
 	return OK
 func as_text() -> String:

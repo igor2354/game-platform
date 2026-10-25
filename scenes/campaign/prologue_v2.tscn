@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/main.tscn" id="1"]
+[ext_resource type="Resource" path="res://resources/campaign/prologue_v2_movement.tres" id="2"]
+
+[node name="PrologueVer2" instance=ExtResource("1")]
+campaign_mode = true
+
+[node name="Level" parent="World" index="0"]
+prologue_mode = true
+prologue_version = 2
+
+[node name="Player" parent="World" index="1"]
+tuning = ExtResource("2")

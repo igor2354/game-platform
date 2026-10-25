@@ -53,6 +53,7 @@ func prepare() -> bool:
 	player.weapon.flash_left = 0
 	var grenade: CoreGrenade = load("res://scenes/core/grenade.tscn").instantiate()
 	grenade.tuning = tuning
+	grenade.body_scale = player.body_scale
 	grenade.instigator = player
 	grenade.controller = self
 	player.get_parent().add_child(grenade)
@@ -108,7 +109,7 @@ func cancel_charge() -> void:
 func power() -> float:
 	return clampf(charge/maxf(.01,tuning.grenade_charge_time),0,1) if tuning else 0
 func launch_velocity() -> Vector2:
-	var raw := player.weapon.cursor_point()-(player.global_position-Vector2(0,player.collision_height()*.65))
+	var raw := player.weapon.cursor_point()-(player.to_global(Vector2(0,-player.collision_height()*.65)))
 	var direction := raw.normalized() if raw.length_squared() > 1 else Vector2(player.weapon.look_facing(),0)
 	direction = direction.rotated(-signf(direction.x)*deg_to_rad(tuning.grenade_lob_angle)*absf(direction.x))
 	var low := minf(tuning.grenade_min_speed,tuning.grenade_max_speed)
@@ -123,10 +124,10 @@ func hand_point(side := "near") -> Vector2:
 	if side == "far": local += Vector2(gaze*4,5)
 	return local
 func launch_origin() -> Vector2:
-	var origin := player.global_position+hand_point()
-	var chest := player.global_position-Vector2(0,player.collision_height()*.6)
+	var origin := player.to_global(hand_point())
+	var chest := player.to_global(Vector2(0,-player.collision_height()*.6))
 	var shape := CircleShape2D.new()
-	shape.radius = tuning.grenade_radius
+	shape.radius = tuning.grenade_radius*player.body_scale
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape
 	query.transform = Transform2D(0,chest)
@@ -168,7 +169,7 @@ func predict_path(point: Vector2,velocity: Vector2,seconds: float) -> PackedVect
 	trajectory_hit = false
 	var step := 1.0/Engine.physics_ticks_per_second
 	var shape := CircleShape2D.new()
-	shape.radius = tuning.grenade_radius
+	shape.radius = tuning.grenade_radius*player.body_scale
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape
 	query.collision_mask = 1|2|4|8|128

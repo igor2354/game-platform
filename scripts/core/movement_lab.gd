@@ -28,6 +28,7 @@ var camera_settings: CoreCameraSettings
 var noir_filter: CoreNoirFilter
 var stable_pixels: CoreStablePixelRenderer
 var scale_reference: CoreScaleReference
+var player_scale_readout: Label
 var scale_reference_button: Button
 
 var moon_forest: CanvasLayer
@@ -105,6 +106,9 @@ func _ready() -> void:
 			enemy.target = player
 			if is_instance_valid(level.indoor_lighting): level.indoor_lighting.observers.append(enemy)
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
+	if level.prologue_mode and level.prologue_version == 2:
+		camera_defaults.player_scale_enabled = true
+		camera_defaults.player_scale = 2.85
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
 	camera_settings = camera_defaults.duplicate() as CoreCameraSettings
 	player.visuals.settings = camera_settings
@@ -118,11 +122,18 @@ func _ready() -> void:
 	if load_user_settings: camera_settings.load_saved(camera_settings_path)
 	if load_user_settings: zombie_settings.load_saved(zombie_settings_path)
 	if load_user_settings: ragdoll_settings.load_saved(ragdoll_settings_path)
+	if level.prologue_mode and level.prologue_version == 2:
+		# The new blockout starts at its approved reference size; do not write profiles.
+		camera_settings.player_scale_enabled = true
+		camera_settings.player_scale = 2.85
+		player.fall_limit = level.campaign_bounds().end.y
+		level.forest.actor = player
+		level.forest.lethal_fall.connect(_on_player_fell)
 	_ragdoll_settings_changed()
 	for barrel in level.explosive_barrels: barrel.reset_barrel()
 	for load_fixture in level.hanging_loads: load_fixture.reset_load()
 	_zombie_settings_changed()
-	player.fell.connect(_recover)
+	player.fell.connect(_on_player_fell)
 	player.weapon.camera_impulse.connect(_camera_impulse)
 	player.weapon.shot_fired.connect(_shot_noise)
 	player.noise_emitted.connect(_broadcast_noise)
@@ -149,6 +160,7 @@ func _ready() -> void:
 	add_child(overlay_layer)
 	movement_overlay = CoreMovementOverlay.new()
 	movement_overlay.settings = player.tuning
+	movement_overlay.motion_player = player
 	movement_overlay.defaults = defaults
 	movement_overlay.settings_path = settings_path
 	movement_overlay.params = CoreMovementSettings.PARAMS.filter(func(param): return param[6] != "Здоровье")
@@ -185,7 +197,7 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня","Размер героя"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
@@ -203,6 +215,9 @@ func _ready() -> void:
 	scale_reference_button.disabled = level.prologue_mode
 	visual_box.add_child(scale_reference_button)
 	visual_box.move_child(scale_reference_button,4)
+	player_scale_readout = Label.new()
+	player_scale_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	camera_overlay.tabs.get_tab_control(6).get_child(0).add_child(player_scale_readout)
 	zombie_overlay = CoreMovementOverlay.new()
 	zombie_overlay.settings = zombie_settings
 	zombie_overlay.defaults = zombie_defaults
@@ -655,6 +670,7 @@ func _close_level_map() -> void:
 	get_tree().paused = map_was_paused
 
 func _camera_settings_changed() -> void:
+	player.request_body_scale(camera_settings.player_scale if camera_settings.player_scale_enabled else 1.0)
 	if stable_pixels: stable_pixels.apply_settings()
 	if noir_filter: noir_filter.apply_settings(camera_settings)
 	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
@@ -775,7 +791,22 @@ func _respawn_enemies() -> void:
 	# Resurrecting a body around the hero must not push or trap the hero.
 	player.allow_exit_overlapping_enemies()
 
+func _on_player_fell() -> void:
+	if level.prologue_mode and level.prologue_version == 2:
+		player.health = 0
+		player.weapon.cancel_reload()
+		player.stop_pushing()
+		if player.parkour_active(): player.parkour.cancel()
+		player.velocity = Vector2.ZERO
+		if player.blast_ragdoll.active and player.blast_ragdoll.rig:
+			for part in player.blast_ragdoll.rig.parts.values(): part.freeze = true
+		player.body.modulate = Color("6c737a")
+		player.set_physics_process(false)
+		return
+	_recover()
+
 func _recover() -> void:
+	if level.prologue_mode and level.prologue_version == 2: player.set_physics_process(true)
 	if is_instance_valid(level.indoor_lighting): level.indoor_lighting.lamp.reset_lamp()
 	for grenade in get_tree().get_nodes_in_group("core_grenades"):
 		grenade.set_physics_process(false)
@@ -859,6 +890,8 @@ func _update_camera(force_snap := false,delta := 0.0) -> void:
 	camera_was_paused = is_paused
 
 func _process(delta: float) -> void:
+	if player_scale_readout:
+		player_scale_readout.text = "Применено: %.2f× · запрос: %.2f×\nФизическая высота: %s\n%s" % [player.body_scale,player.requested_body_scale,CoreWorldUnits.distance(player.world_height()),"Ожидание: закончите действие или выйдите из тесного места." if not is_equal_approx(player.body_scale,player.requested_body_scale) else ("Скорости движения ×%.2f. Базовые числа профиля сохраняются." % player.body_scale)]
 	_update_transition(delta)
 	_update_interaction_hint()
 	if not player.weapon.tuning.recoil_enabled:

@@ -37,7 +37,7 @@ func _update_deform_pose() -> void:
 	for key in rig.parts:
 		var body: RigidBody2D = rig.parts[key]
 		var pose := global_transform.affine_inverse()*body.global_transform
-		parts[key] = {"position":pose.origin,"rotation":pose.get_rotation(),"dimensions":body.dimensions}
+		parts[key] = {"position":pose.origin,"rotation":pose.get_rotation(),"dimensions":body.dimensions/scale.x}
 	deform_figure.update_pose({"parts":parts,"facing":facing})
 
 func _process(_delta: float) -> void:
@@ -47,9 +47,10 @@ func _process(_delta: float) -> void:
 func _part(key: String,mirror := false) -> Vector2:
 	var body: RigidBody2D = rig.parts[key]
 	var pose := global_transform.affine_inverse()*body.global_transform
+	pose = Transform2D(pose.get_rotation(),pose.origin)
 	if mirror: pose = pose*Transform2D(Vector2(facing,0),Vector2(0,1),Vector2.ZERO)
 	draw_set_transform_matrix(pose)
-	return body.dimensions
+	return body.dimensions/scale.x
 
 func _polygon(points: Array,color: Color) -> void:
 	var path := PackedVector2Array(points)
@@ -124,7 +125,8 @@ func _draw() -> void:
 		var art = preload("res://scripts/campaign/art.gd")
 		for key in ["left_upper_arm","left_forearm","left_thigh","left_shin","left_foot","right_thigh","right_shin","right_foot","pelvis","torso","head","right_upper_arm","right_forearm"]:
 			var part: RigidBody2D = rig.parts[key]
-			art.draw_piece(self,player.character_id,key,global_transform.affine_inverse()*part.global_transform,part.dimensions,facing,Color(.73,.76,.72) if key.begins_with("left") else Color.WHITE)
+			var local_pose := global_transform.affine_inverse()*part.global_transform
+			art.draw_piece(self,player.character_id,key,Transform2D(local_pose.get_rotation(),local_pose.origin),part.dimensions/scale.x,facing,Color(.73,.76,.72) if key.begins_with("left") else Color.WHITE)
 		_part("torso")
 		_draw_campaign_weapon()
 		draw_set_transform_matrix(Transform2D.IDENTITY)

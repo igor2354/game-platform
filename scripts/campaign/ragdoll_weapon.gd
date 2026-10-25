@@ -23,7 +23,7 @@ func _ready() -> void:
 	wrist_angle = rotation-rig.parts.right_forearm.rotation
 	var shape := CollisionShape2D.new()
 	var rectangle := RectangleShape2D.new()
-	rectangle.size = Vector2(data.length*(1-data.grip),2.2)
+	rectangle.size = Vector2(data.length*(1-data.grip),2.2)*player.body_scale
 	shape.shape = rectangle
 	shape.position = Vector2(rectangle.size.x*.5,0)
 	add_child(shape)
@@ -53,4 +53,5 @@ func _physics_process(_delta: float) -> void:
 		global_position = forearm.to_global(Vector2(0,forearm.dimensions.y*.5))-global_transform.basis_xform(grip_local)
 func _draw() -> void:
 	var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
+	draw_set_transform(Vector2.ZERO,0,Vector2.ONE*player.body_scale)
 	CATALOG.draw_weapon(self,player.weapon.equipped_weapon_id,Vector2.ZERO,Vector2.RIGHT,Vector2(0,weapon_facing),0,true,harry_stg.art_data() if harry_stg.applies(player) else {})
