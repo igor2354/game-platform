@@ -500,7 +500,7 @@ func _update_readout() -> void:
 		readout.text = readout.text.replace("px/с²","ед./с²").replace("px/с","ед./с").replace(" px"," ед.")
 	if is_instance_valid(motion_player):
 		displayed_motion_scale = motion_player.motion_scale()
-		for key in CoreMovementSettings.SCALED_MOTION_KEYS+CoreMovementSettings.LOCAL_GEOMETRY_KEYS:
+		for key in CoreMovementSettings.SCALED_MOTION_KEYS+CoreMovementSettings.LOCAL_GEOMETRY_KEYS+CoreMovementSettings.MANUAL_PARKOUR_KEYS:
 			if not rows.has(key) or not rows[key].metric: continue
 			var baseline := CoreWorldUnits.format(float(settings.get(key)),rows[key].metric_kind)
 			rows[key].metric.text = baseline if is_equal_approx(displayed_motion_scale,1.0) else "База 1×: %s\nПри %.2f×: %s" % [baseline,displayed_motion_scale,CoreWorldUnits.format(float(settings.get(key))*displayed_motion_scale,rows[key].metric_kind)]
@@ -583,7 +583,7 @@ func _update_readout_values() -> void:
 	var size_factor: float = motion_player.motion_scale() if is_instance_valid(motion_player) else 1.0
 	var height: float = settings.jump_speed*settings.jump_speed/(2*settings.gravity)*size_factor
 	if tabs.get_tab_title(tabs.current_tab) == "Паркур" and is_instance_valid(motion_player):
-		readout.text = "Ручной захват: %s\nАвтопаркур: от %s до %s\nШирина насквозь: %s · время %.2f с\nРучной подъём %.2f с · перелезание %.2f с" % [CoreWorldUnits.distance(settings.parkour_ledge_height),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_min_height_ratio),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_max_height_ratio),CoreWorldUnits.distance(settings.sprint_auto_max_width*size_factor),settings.sprint_auto_vault_time,settings.parkour_mantle_time/size_factor,settings.parkour_vault_time/size_factor]
+		readout.text = "Ручной захват: %s\nАвтопаркур: от %s до %s\nШирина насквозь: %s · время %.2f с\nРучной подъём %.2f с · перелезание %.2f с" % [CoreWorldUnits.distance(settings.parkour_ledge_height*size_factor),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_min_height_ratio),CoreWorldUnits.distance(motion_player.HEIGHT*motion_player.body_scale*settings.sprint_auto_max_height_ratio),CoreWorldUnits.distance(settings.sprint_auto_max_width*size_factor),settings.sprint_auto_vault_time,settings.parkour_mantle_time/size_factor,settings.parkour_vault_time/size_factor]
 		return
 	if tabs.get_tab_title(tabs.current_tab) == "Толкание":
 		readout.text = "Скорость до %.0f px/с · усилие до %.0f Н\nG — взять / отпустить · A/D — толкать / тянуть\nВес и трение влияют на фактическую скорость.\nДва цикла по восемь кадров; обе руки на предмете." % [settings.push_speed*size_factor,settings.push_force]

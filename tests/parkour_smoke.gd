@@ -75,6 +75,12 @@ func run() -> void:
 		lab = app.game
 		hero = lab.player
 		hero.weapon.tuning.sound_enabled = false
+		# This legacy synthetic course is dimensioned around the original 64-unit
+		# capsule. Current full-size Sofia is tested on real ver2 geometry separately.
+		lab.camera_settings.player_scale_enabled = true
+		lab.camera_settings.player_scale = 1.0/CoreWorldUnits.LEGACY_SOFIA_SCALE
+		lab._camera_settings_changed()
+		await frames(2)
 		for face in [1.0,-1.0]:
 			await course(48,56)
 			var start := Vector2(7982 if face > 0 else 8074,760)
@@ -185,7 +191,7 @@ func run() -> void:
 		await hold()
 		hero.tuning.parkour_enabled = false
 		hero.apply_feature_settings()
-		check(not hero.parkour_active() and hero.tuning.parkour_ledge_height == 76,character+" live disable releases grip without resetting parameters")
+		check(not hero.parkour_active() and is_equal_approx(hero.tuning.parkour_ledge_height,216.6),character+" live disable releases grip without resetting parameters")
 		hero.tuning.parkour_enabled = true
 		await place(Vector2(7982,760))
 		await hold()
@@ -298,7 +304,7 @@ func run() -> void:
 		var file := FileAccess.open(directory.path_join("legacy.json"),FileAccess.WRITE)
 		file.store_string(JSON.stringify({"format":"dead-platform-settings","version":1,"movement":{"run_speed":240},"shooting":{"fire_mode":0},"camera":{"zoom":2}}))
 		file.close()
-		check(lab.import_settings_file(directory.path_join("legacy.json")) and hero.tuning.parkour_enabled and hero.tuning.parkour_reach == 12,character+" old JSON receives parkour defaults")
+		check(lab.import_settings_file(directory.path_join("legacy.json")) and hero.tuning.parkour_enabled and is_equal_approx(hero.tuning.parkour_reach,34.2),character+" old JSON receives normalized parkour defaults")
 		hero.tuning.apply_values(values)
 		release()
 		await app.return_to_menu()
@@ -309,7 +315,7 @@ func run() -> void:
 		hero = lab.player
 		hero.weapon.tuning.sound_enabled = false
 		var root_rect: Rect2 = lab.level.forest.features.root
-		await place(Vector2(root_rect.position.x-18,760))
+		await place(Vector2(root_rect.position.x-hero.world_radius()-6,760))
 		Input.action_press("core_jump")
 		# The new jump has a different ascent time; wait for the catch rather than an old frame number.
 		for tick in 60:

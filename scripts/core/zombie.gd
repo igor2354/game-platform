@@ -208,12 +208,15 @@ func _clear_sight(from: Vector2,to: Vector2) -> bool:
 	var query := PhysicsRayQueryParameters2D.create(from,to,1|8,[get_rid()])
 	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
+func melee_reach() -> float:
+	return tuning.attack_range
+
 func within_melee_reach() -> bool:
 	if is_stunned(): return false
 	if not tuning.combat_enabled: return false
 	if not is_instance_valid(target) or target.health <= 0 or arm_count() == 0: return false
 	var dx := target.global_position.x-global_position.x
-	if absf(dx) > tuning.attack_range or dx*facing < -4: return false
+	if absf(dx) > melee_reach() or dx*facing < -4: return false
 	var origin := to_global(Vector2(0,-12 if is_prone() else -38)*body_size.y/64)
 	var top := target.global_position.y-target.world_height()
 	if origin.y < top-6 or origin.y > target.global_position.y+6: return false
@@ -273,7 +276,7 @@ func _sees_tracked_close_player() -> bool:
 	var offset := point-origin
 	if offset.length() > target.world_radius():
 		point -= offset.normalized()*target.world_radius()
-	if origin.distance_to(point) > tuning.attack_range: return false
+	if origin.distance_to(point) > melee_reach(): return false
 	return _clear_sight(origin,point)
 
 func _tick_visual_memory(delta: float) -> void:
@@ -773,7 +776,7 @@ func _draw() -> void:
 		draw_rect(Rect2(-22,top-39,44*clampf(1-state_left/windup_duration,0,1),3),Color("ffb582"))
 	if state == State.RECOVERY and state_left > recovery_duration-.15:
 		var center := Vector2(0,-12 if is_prone() else -38)*body_size.y/64
-		draw_arc(center,tuning.attack_range,-.55 if facing > 0 else PI-.55,.55 if facing > 0 else PI+.55,12,Color("f7ad75"),2,true)
+		draw_arc(center,melee_reach(),-.55 if facing > 0 else PI-.55,.55 if facing > 0 else PI+.55,12,Color("f7ad75"),2,true)
 	if debug_zones and health > 0:
 		if tuning.vision_enabled:
 			var origin := to_local(vision_origin())

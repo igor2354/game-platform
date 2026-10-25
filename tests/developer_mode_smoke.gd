@@ -61,7 +61,7 @@ func run() -> void:
 	check(not dev.enabled and not dev.visible and lab.telemetry.visible and lab.shooting_telemetry.visible and not hero.debug_shape,"normal startup shows telemetry with developer settings and debug geometry hidden")
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
-	for values in defaults.values(): total += values.size()-(1 if values.has("scale_basis_version") else 0)
+	for values in defaults.values(): total += values.size()-(1 if values.has("scale_basis_version") else 0)-(1 if values.has("parkour_basis_version") else 0)
 	check(total == 382 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 382 values, including blocking overlay visibility and opacity, remain in the four-section workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")

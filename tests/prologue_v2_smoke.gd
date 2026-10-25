@@ -42,6 +42,7 @@ func walk_to(x: float,crouch := false,max_ticks := 600,steps := false) -> bool:
 			release();return true
 	release();return false
 func traverse_main() -> bool:
+	for enemy in lab.level.campaign_enemies: enemy.set_current_health(0)
 	await place(lab.level.player_spawn())
 	var navigation:=preload("res://tests/support/prologue_v2_navigation.gd").new(self,hero,lab.level.forest)
 	var completed:bool=await navigation.complete()
@@ -66,6 +67,8 @@ func run() -> void:
 	app.buttons.back.pressed.emit();check(app.page=="levels","character back returns to level choices")
 	app.buttons.prologue_v2.pressed.emit();app.buttons.sofia.pressed.emit();app.buttons.choose.pressed.emit();app.buttons.apply.pressed.emit()
 	await frames(10);lab=app.game;hero=lab.player
+	# This suite verifies geometry/navigation. Live combat has its own encounter suite.
+	for enemy in lab.level.campaign_enemies: enemy.set_current_health(0)
 	hero.weapon.tuning.sound_enabled=false
 	var f=lab.level.forest
 	check(lab.level.prologue_version==2 and f.sections.size()==12,"separate prologue ver2 contains twelve V4 sections")

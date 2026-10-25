@@ -63,6 +63,7 @@ var obstacles: Array[Rect2] = [Rect2(640,690,90,70),Rect2(800,712,56,48)]
 var ladders: Array[Rect2] = [LADDER.make(1446,540,220),LADDER.make(2018,350,410)]
 var side_ladders: Array[Rect2] = [LADDER.make(1668,540,220),LADDER.make(2198,350,410)]
 var enemies: Array[CoreEnemyDummy] = []
+var campaign_enemies: Array[CoreZombie] = []
 var zombie: CoreZombie
 var concept_zombie: CoreConceptZombie
 var indoor_zombie: CoreZombie
@@ -191,6 +192,8 @@ func _ready() -> void:
 		_add_transition_door("SpawnRightDoor",SPAWN_RIGHT_DOOR,FAR_RIGHT_DOOR,"К ПРАВОМУ КРАЮ")
 		_add_transition_door("FarLeftReturnDoor",FAR_LEFT_DOOR,SPAWN_LEFT_DOOR,"К СТАРТУ")
 		_add_transition_door("FarRightReturnDoor",FAR_RIGHT_DOOR,SPAWN_RIGHT_DOOR,"К СТАРТУ")
+	if prologue_mode and prologue_version == 2:
+		campaign_enemies = preload("res://scripts/campaign/prologue_v2_encounters.gd").populate(self)
 
 func _add_transition_door(door_name: String,point: Vector2,destination: Vector2,label: String) -> void:
 	var door := CoreTransitionDoor.new()

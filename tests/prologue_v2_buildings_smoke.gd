@@ -37,6 +37,8 @@ func run() -> void:
 	for key in ["settings_path","shooting_settings_path","camera_settings_path","zombie_settings_path","ragdoll_settings_path"]:lab.set(key,temp.path_join(key+".cfg"))
 	lab.get_node("World/Player").character_id="sofia";lab.get_node("World/Player").sofia_cel_variant=true
 	root.add_child(lab);await frames(12);hero=lab.player
+	# Isolate architectural passages from the newly authored combat encounters.
+	for enemy in lab.level.campaign_enemies: enemy.set_current_health(0)
 	preload("res://scripts/campaign/catalog.gd").equip(hero.weapon,"stg44");hero.weapon.tuning.sound_enabled=false
 	check(is_equal_approx(hero.character_scale(),1) and is_equal_approx(hero.motion_value("run_speed"),327.75) and is_equal_approx(hero.motion_value("gravity"),997.5),"Sofia baseline and movement remain unchanged")
 	check(lab.level.forest.sections.size()==12 and is_equal_approx(lab.level.right_bound()-V2.ORIGIN.x,484*V2.UPM),"twelve sections and all 484m retained")

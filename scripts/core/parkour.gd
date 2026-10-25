@@ -91,10 +91,9 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 	direction = signf(axis) if automatic else player.weapon.look_facing()
 	if axis != 0 and signf(axis) != direction: return false
 	var feet: Vector2 = player.global_position
-	var scale_factor: float = player.body_scale if automatic else 1.0
-	var reach: float = player.world_radius()+player.tuning.parkour_reach*scale_factor
-	var max_height: float = player.HEIGHT*player.body_scale*player.tuning.sprint_auto_max_height_ratio if automatic else player.tuning.parkour_ledge_height
-	var min_height: float = player.HEIGHT*player.body_scale*player.tuning.sprint_auto_min_height_ratio if automatic else (16 if player.is_on_floor() else 40)
+	var reach: float = player.world_radius()+player.motion_value("parkour_reach")
+	var max_height: float = player.HEIGHT*player.body_scale*player.tuning.sprint_auto_max_height_ratio if automatic else player.motion_value("parkour_ledge_height")
+	var min_height: float = player.HEIGHT*player.body_scale*player.tuning.sprint_auto_min_height_ratio if automatic else (16 if player.is_on_floor() else 40)*player.body_scale
 	# Several short probes also catch the vertical edge of thin one-way decks.
 	var visited := {}
 	for height_probe in range(8,ceili(max_height)+8,8):
@@ -116,7 +115,7 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 		source = wall.collider
 		kind = "mantle"
 		destination = landing
-		if player.is_on_floor() and (automatic or height <= player.tuning.parkour_vault_height):
+		if player.is_on_floor() and (automatic or height <= player.motion_value("parkour_vault_height")):
 			var other := _vault_landing(automatic)
 			if other != Vector2.INF:
 				kind = "vault"
@@ -127,7 +126,7 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 			# Don't pull a grounded actor down through its floor to create a hang.
 			if player.is_on_floor(): start.y = feet.y-SKIN
 			if not _clear_segment(feet,start): continue
-		var up := Vector2(start.x,ledge.y-player.tuning.parkour_clearance*scale_factor)
+		var up := Vector2(start.x,ledge.y-player.motion_value("parkour_clearance"))
 		var across := Vector2(destination.x,up.y)
 		if not _clear_segment(start,up) or not _clear_segment(up,across) or not _clear_segment(across,destination): continue
 		# Searching must not repeatedly stand up a crouching actor away from edges.
@@ -162,7 +161,7 @@ func _vault_landing(automatic := false) -> Vector2:
 	# Find a far edge on the same static obstacle, with bounded work per attempt.
 	var previous := 2.0
 	var distance := 8.0
-	var limit: float = player.tuning.sprint_auto_max_width*player.motion_scale() if automatic else player.tuning.parkour_vault_width
+	var limit: float = player.motion_value("sprint_auto_max_width" if automatic else "parkour_vault_width")
 	while distance <= limit+8:
 		var x := ledge.x+direction*distance
 		var hit := _ray(Vector2(x,ledge.y-2),Vector2(x,ledge.y+4))
@@ -176,7 +175,7 @@ func _vault_landing(automatic := false) -> Vector2:
 				else: high = mid
 			if high > limit: return Vector2.INF
 			var landing_x: float = ledge.x+direction*(high+player.world_radius()+3)
-			var drop: float = player.tuning.parkour_drop_limit*(player.body_scale if automatic else 1.0)
+			var drop: float = player.motion_value("parkour_drop_limit")
 			var ground := _ray(Vector2(landing_x,ledge.y-2),Vector2(landing_x,player.global_position.y+drop))
 			if not _surface(ground) or ground.normal.y > -.85: return Vector2.INF
 			var feet := Vector2(landing_x,ground.position.y-SKIN)
