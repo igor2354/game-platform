@@ -45,6 +45,10 @@ static func read_file(path: String,defaults: Dictionary) -> Dictionary:
 		if not source is Dictionary:
 			return {"error":"В файле отсутствует раздел %s." % section}
 		if section in ["movement","camera"]:
+			if section == "movement":
+				var parkour_basis = source.get("parkour_basis_version",1)
+				if parkour_basis != 1 and parkour_basis != 2:
+					return {"error":"Неизвестная версия размерной базы паркура"}
 			var basis = source.get("scale_basis_version",1)
 			if basis != 1 and basis != 2: return {"error":"Неизвестная версия размерной базы: "+section}
 			source = CoreMovementSettings.migrate_profile(source) if section=="movement" else CoreCameraSettings.migrate_profile(source)

@@ -12,6 +12,9 @@ from media_paths import PROJECT, media_path
 WIDTH, HEIGHT, STRIDE, GUTTER = 21120, 1152, 2048, 2
 
 def main():
+    current = PROJECT / "tools/forest_panorama_runtime.json"
+    if current.exists() and json.loads(current.read_text(encoding="utf-8")).get("planes"):
+        raise SystemExit("Independent RGBA gameplay art is installed. Use prologue1_gameplay_art.py; legacy RGB export would erase the layers.")
     source = media_path("docs/locations/mvp_village/Кандидаты/forest_panorama_2026-10-25/Результат/forest_prologue_panorama.png")
     image = Image.open(source).convert("RGB")
     assert image.size == (WIDTH, HEIGHT), image.size

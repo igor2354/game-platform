@@ -4,6 +4,8 @@ extends Resource
 const SAVE_PATH := "user://core_movement.cfg"
 # Version 2 values are world units at the approved Sofia baseline (new 1.00x).
 @export var scale_basis_version := 2
+@export var parkour_basis_version := 2
+const MANUAL_PARKOUR_KEYS := ["parkour_reach","parkour_ledge_height","parkour_vault_height","parkour_vault_width","parkour_clearance","parkour_drop_limit"]
 const RIG_DURATION_KEYS := ["parkour_mantle_time","parkour_vault_time"]
 const LOCAL_GEOMETRY_KEYS := ["crouch_height","slide_height","push_hand_height","push_hand_spacing"]
 const SCALED_MOTION_KEYS := ["run_speed","sprint_speed","slow_walk_speed","jump_speed",
@@ -50,16 +52,16 @@ const PARAMS := [
 	["sprint_auto_max_height_ratio","Автопаркур · верхняя граница",.50,.95,.01,"× роста","Паркур"],
 	["sprint_auto_max_width","Автопаркур · ширина при 1×",79.8,456.0,0.01,"px","Паркур"],
 	["sprint_auto_vault_time","Автопаркур · время преодоления",.15,1.2,.01,"с","Паркур"],
-	["parkour_reach","Дистанция захвата от тела",2.0,24.0,1.0,"px","Паркур"],
-	["parkour_ledge_height","Высота досягаемого уступа",48.0,100.0,1.0,"px","Паркур"],
-	["parkour_vault_height","Предел низкого препятствия",24.0,56.0,1.0,"px","Паркур"],
-	["parkour_vault_width","Предел ширины препятствия",28.0,160.0,1.0,"px","Паркур"],
-	["parkour_clearance","Зазор над препятствием",2.0,16.0,1.0,"px","Паркур"],
+	["parkour_reach","Дистанция захвата от тела · при 1×",5.7,68.4,.01,"px","Паркур"],
+	["parkour_ledge_height","Высота досягаемого уступа · при 1×",136.8,285.0,.01,"px","Паркур"],
+	["parkour_vault_height","Предел низкого препятствия · при 1×",68.4,159.6,.01,"px","Паркур"],
+	["parkour_vault_width","Предел ширины препятствия · при 1×",79.8,456.0,.01,"px","Паркур"],
+	["parkour_clearance","Зазор над препятствием · при 1×",5.7,45.6,.01,"px","Паркур"],
 	["parkour_hang_time","Минимальное время фиксации хвата",0.05,0.6,0.01,"с","Паркур"],
 	["parkour_mantle_time","Время подъёма",0.0877193,0.52631579,0.01,"с","Паркур"],
 	["parkour_vault_time","Время преодоления",0.0877193,0.42105263,0.01,"с","Паркур"],
 	["parkour_regrab_delay","Задержка повторного захвата",0.1,1.0,0.05,"с","Паркур"],
-	["parkour_drop_limit","Допустимый спуск за препятствием",0.0,80.0,1.0,"px","Паркур"],
+	["parkour_drop_limit","Допустимый спуск за препятствием · при 1×",0.0,228.0,.01,"px","Паркур"],
 	["run_speed","Скорость бега",285.0,2137.5,0.01,"px/с","Бег"],
 	["acceleration","Разгон",570.0,17100.0,0.01,"px/с²","Бег"],
 	["braking","Торможение",570.0,22800.0,0.01,"px/с²","Бег"],
@@ -128,16 +130,16 @@ const PARAMS := [
 ]
 
 @export_category("Паркур")
-@export var parkour_reach := 12.0
-@export var parkour_ledge_height := 76.0
-@export var parkour_vault_height := 48.0
-@export var parkour_vault_width := 96.0
-@export var parkour_clearance := 4.0
+@export var parkour_reach := 34.2
+@export var parkour_ledge_height := 216.6
+@export var parkour_vault_height := 136.8
+@export var parkour_vault_width := 273.6
+@export var parkour_clearance := 11.4
 @export var parkour_hang_time := 0.14
 @export var parkour_mantle_time := 0.22807017543859648
 @export var parkour_vault_time := 0.1929824561403509
 @export var parkour_regrab_delay := 0.25
-@export var parkour_drop_limit := 32.0
+@export var parkour_drop_limit := 91.2
 @export var sprint_auto_min_height_ratio := .25
 @export var sprint_auto_max_height_ratio := .75
 @export var sprint_auto_max_width := 273.6
@@ -259,7 +261,7 @@ func dash_slope_multiplier(angle_degrees: float,uphill: bool) -> float:
 	return lerpf(1.0,dash_uphill_multiplier if uphill else dash_downhill_multiplier,weight)
 
 func as_dictionary() -> Dictionary:
-	var values := {"scale_basis_version":2,"slide_knockdown_enabled":slide_knockdown_enabled,"air_dash_enabled":air_dash_enabled}
+	var values := {"scale_basis_version":2,"parkour_basis_version":2,"slide_knockdown_enabled":slide_knockdown_enabled,"air_dash_enabled":air_dash_enabled}
 	for entry in SWITCHES: values[entry[0]] = get(entry[0])
 	for param in PARAMS: values[param[0]] = get(param[0])
 	return values
@@ -309,7 +311,9 @@ func load_saved(path := SAVE_PATH) -> Error:
 	if result != OK: return result
 	var version = config.get_value("movement","scale_basis_version",1)
 	if version != 1 and version != 2: return ERR_INVALID_DATA
-	var values := {"scale_basis_version":version}
+	var parkour_version = config.get_value("movement","parkour_basis_version",1)
+	if parkour_version != 1 and parkour_version != 2: return ERR_INVALID_DATA
+	var values := {"scale_basis_version":version,"parkour_basis_version":parkour_version}
 	for key in as_dictionary():
 		if config.has_section_key("movement",key): values[key] = config.get_value("movement",key)
 	for entry in SWITCHES: values[entry[0]] = config.get_value("movement",entry[0],true)
@@ -318,6 +322,11 @@ func load_saved(path := SAVE_PATH) -> Error:
 
 static func migrate_profile(source: Dictionary) -> Dictionary:
 	var values := source.duplicate(true)
+	if values.get("parkour_basis_version",1) == 1:
+		for key in MANUAL_PARKOUR_KEYS:
+			if values.get(key) is float or values.get(key) is int:
+				values[key] = float(values[key])*CoreWorldUnits.LEGACY_SOFIA_SCALE
+	values["parkour_basis_version"] = 2
 	if values.get("scale_basis_version",1) == 1:
 		for key in SCALED_MOTION_KEYS+LOCAL_GEOMETRY_KEYS+["sprint_auto_max_width"]:
 			if values.get(key) is float or values.get(key) is int:

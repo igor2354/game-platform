@@ -127,6 +127,7 @@ func _ready() -> void:
 		# The new blockout starts at its approved reference size; do not write profiles.
 		camera_settings.player_scale_enabled = true
 		camera_settings.player_scale = 1.0
+	if level.prologue_mode:
 		player.fall_limit = level.campaign_bounds().end.y
 		level.forest.actor = player
 		level.forest.lethal_fall.connect(_on_player_fell)
@@ -802,7 +803,7 @@ func _respawn_enemies() -> void:
 	player.allow_exit_overlapping_enemies()
 
 func _on_player_fell() -> void:
-	if level.prologue_mode and level.prologue_version == 2:
+	if level.prologue_mode:
 		player.health = 0
 		player.weapon.cancel_reload()
 		player.stop_pushing()
@@ -816,7 +817,7 @@ func _on_player_fell() -> void:
 	_recover()
 
 func _recover() -> void:
-	if level.prologue_mode and level.prologue_version == 2: player.set_physics_process(true)
+	if level.prologue_mode: player.set_physics_process(true)
 	if is_instance_valid(level.indoor_lighting): level.indoor_lighting.lamp.reset_lamp()
 	for grenade in get_tree().get_nodes_in_group("core_grenades"):
 		grenade.set_physics_process(false)

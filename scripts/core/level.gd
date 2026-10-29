@@ -6,7 +6,7 @@ extends Node2D
 const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
 const FOREST_V2 = preload("res://scripts/campaign/forest_prologue_v2.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
-const PROLOGUE_START := Vector2(12400,760)
+const PROLOGUE_START := FOREST.ORIGIN+Vector2(2*FOREST.UPM,0)
 var forest: Node2D
 var atmosphere_opacity := 0.0
 
@@ -63,6 +63,7 @@ var obstacles: Array[Rect2] = [Rect2(640,690,90,70),Rect2(800,712,56,48)]
 var ladders: Array[Rect2] = [LADDER.make(1446,540,220),LADDER.make(2018,350,410)]
 var side_ladders: Array[Rect2] = [LADDER.make(1668,540,220),LADDER.make(2198,350,410)]
 var enemies: Array[CoreEnemyDummy] = []
+var campaign_enemies: Array[CoreZombie] = []
 var zombie: CoreZombie
 var concept_zombie: CoreConceptZombie
 var indoor_zombie: CoreZombie
@@ -191,6 +192,10 @@ func _ready() -> void:
 		_add_transition_door("SpawnRightDoor",SPAWN_RIGHT_DOOR,FAR_RIGHT_DOOR,"К ПРАВОМУ КРАЮ")
 		_add_transition_door("FarLeftReturnDoor",FAR_LEFT_DOOR,SPAWN_LEFT_DOOR,"К СТАРТУ")
 		_add_transition_door("FarRightReturnDoor",FAR_RIGHT_DOOR,SPAWN_RIGHT_DOOR,"К СТАРТУ")
+	if prologue_mode and prologue_version == 2:
+		campaign_enemies = preload("res://scripts/campaign/prologue_v2_encounters.gd").populate(self)
+	elif prologue_mode:
+		campaign_enemies = preload("res://scripts/campaign/prologue1_r1_encounters.gd").populate(self)
 
 func _add_transition_door(door_name: String,point: Vector2,destination: Vector2,label: String) -> void:
 	var door := CoreTransitionDoor.new()
@@ -216,6 +221,10 @@ func _solid(rect: Rect2,one_way: bool) -> void:
 	add_child(body)
 
 func _draw() -> void:
+	# Prologue 1 now has transparent art. Its own debug overlay draws these
+	# supports; the old lab drawing must not leak through the empty backdrop.
+	if prologue_mode and prologue_version == 1 and is_instance_valid(forest) and not forest.debug_geometry:
+		return
 	var grid_color := Color(Color("253039"),1.0-atmosphere_opacity*.95)
 	var test_right := BASE_WIDTH if prologue_mode else WIDTH
 	for x in range(int(LEFT_BOUND),int(test_right)+1,64): draw_line(Vector2(x,180),Vector2(x,900),grid_color,1)

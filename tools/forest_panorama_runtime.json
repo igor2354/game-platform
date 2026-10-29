@@ -1,83 +1,101 @@
 {
-  "source_sha256": "9a9ebbef0ebd19d127c8bbab82cb866f4175f30e94b1712f84621fbc939c5abf",
   "size": [
-    21120,
-    1152
+    24600,
+    1600
   ],
   "stride": 2048,
   "gutter": 2,
   "world_origin": [
     12000,
-    -8
+    -148.7838200000001
   ],
-  "pixels_per_world_unit": 1,
-  "approval": "User requested installation on 2026-10-25; no repainting",
+  "world_scale": 1.0097598,
+  "pixels_per_world_unit": 0.9903345330245865,
+  "source_sha256": "efa1dc5616fde9a93581b2c7609596d758323149683432cfd014f671c69c735d",
+  "approval": "User explicitly requested rebuild prologue 1 blocking from P1-R1 and install generated gameplay textures, 2026-10-27",
+  "planes": {
+    "gameplay": "RGBA strips",
+    "background": null,
+    "foreground": null
+  },
   "tiles": [
     {
       "path": "resources/campaign/forest_panorama/strip_00.png",
       "x": 0,
       "width": 2048,
-      "sha256": "00440f66c5b8c1f1509847338341734422180602e93fbf5f387b03d196519a0f"
+      "sha256": "914e542902a21065a1bbf612085f1ac7a730cf2389a9964d3fe2c7e7ef887f82"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_01.png",
       "x": 2048,
       "width": 2048,
-      "sha256": "b102d457f392650f4bdcd83a392a2b7ff56c454b4cb75ea0e80cea32bafd7702"
+      "sha256": "e05c0187c4c1ec2fdfb61377260f65d7f5c32f9e19040e99b7f848566245cdc5"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_02.png",
       "x": 4096,
       "width": 2048,
-      "sha256": "5a4be5211950a6199848351cbdff99184fdea44b5356e188f68795d5d23abbd1"
+      "sha256": "67296ea2e552888c0ee387eca3c4be0ea4c3a05125538c1ba2f245ab0868f300"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_03.png",
       "x": 6144,
       "width": 2048,
-      "sha256": "02bf08e7c6ee749a5047d1f2bdeb1e31ce5583573e34026d5abbdde445b12afd"
+      "sha256": "ec1920ab93e18612743cbcd08c4b4f9a083a17dc691a09ffcb562cae75a10076"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_04.png",
       "x": 8192,
       "width": 2048,
-      "sha256": "0101d2f4d4bca80d303226f708892e367bd5d06c13b772359deb6a8849e90161"
+      "sha256": "772756f49f2a9a4be8c248ac4fa52afadeed7687240fd2af85d93cc30fc60dab"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_05.png",
       "x": 10240,
       "width": 2048,
-      "sha256": "124b8f590ed6c0337f5181adc83000a0ae324824e89a431e1c2d22c20bdfea75"
+      "sha256": "6834049b97a66e6a929ec4b955d1b3510c5b9a7de08c4f90ffd03693c2059490"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_06.png",
       "x": 12288,
       "width": 2048,
-      "sha256": "d6b9c432a5a56f102cb6350e007e06ea16637848b9360f837c3baf7feba04386"
+      "sha256": "617c3d8e5da5705c162aea701769afde535ab0b59477068fbba23678ccf0d109"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_07.png",
       "x": 14336,
       "width": 2048,
-      "sha256": "c9a94f75ab0a2c860b5fbe81efad3597c2b3b8ff380b0393e25d2b54486acac5"
+      "sha256": "7949af64a729a01e1606e5d29a2d08010273d1afece3ee6b0c0dd710d16ac859"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_08.png",
       "x": 16384,
       "width": 2048,
-      "sha256": "ed377c076163b23f2be4f8f7e0955c97870b125682e5b984d384f8c2f900549a"
+      "sha256": "d36841397f73a112f5aac0b9bedf5819c33e73b09ffb4b0b2f865ea24f25698a"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_09.png",
       "x": 18432,
       "width": 2048,
-      "sha256": "635dfc0fd21a64eb98cd39b3c9ca96fc3274c84af40030856168fb25ad40f70b"
+      "sha256": "98a60d62e964d258d49038c394167116ffaa8f33e130a6b984d9602a74ae2ead"
     },
     {
       "path": "resources/campaign/forest_panorama/strip_10.png",
       "x": 20480,
-      "width": 640,
-      "sha256": "0267aa6cecd9641ef81b3cf9c2eb11a1c2986ae47c39d1554de35ba56c681827"
+      "width": 2048,
+      "sha256": "3b19ab1a22c4d7dcf960e73d41f19fc21877c8fcb62c390a4b8a03b41baedf14"
+    },
+    {
+      "path": "resources/campaign/forest_panorama/strip_11.png",
+      "x": 22528,
+      "width": 2048,
+      "sha256": "23de9a3a83b1b0009f10bd748349cc085c8eb06ec080b0e1f748560ce97e022b"
+    },
+    {
+      "path": "resources/campaign/forest_panorama/strip_12.png",
+      "x": 24576,
+      "width": 24,
+      "sha256": "a6a137b6cb14c871b5c784f8e5c0585587ab62feb5cc7fa4bf5e02945977831f"
     }
   ]
 }
