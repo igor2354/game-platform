@@ -39,7 +39,7 @@ func run() -> void:
 	root.add_child(app)
 	await frames(3)
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/frontend.tscn","application boots into the main menu")
-	check(app.page == "main" and app.buttons.settings.disabled and not app.buttons.quit.disabled,"campaign, polygon and quit are enabled on the main menu")
+	check(app.page == "main" and not app.buttons.settings.disabled and not app.buttons.quit.disabled,"campaign, polygon, settings and quit are enabled on the main menu")
 	await click(app.buttons.campaign)
 	check(app.page == "levels" and app.buttons.has("prologue") and app.buttons.has("prologue_v2"),"campaign opens the two prologue choices")
 	await click(app.buttons.prologue)

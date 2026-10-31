@@ -13,6 +13,7 @@ var firing := false
 var movement_multiplier := 1.0
 var burst_time := 0.0
 var bloom := 0.0
+var ads_bloom := 0.0
 var movement_spread := 0.0
 var cooldown := 0.0
 var sway_clock := 0.0
@@ -23,6 +24,7 @@ var aim_direction := Vector2.RIGHT
 var aim_facing := 1.0
 var aim_override := Vector2.INF # Automated tests/capture only; normal play uses mouse.
 var aim_cursor: Node
+var aim_beam: Node
 var override_cursor_point := Vector2.ZERO
 var override_input_sample := Vector2.INF
 var recoil_kick_offset := Vector2.ZERO
@@ -87,6 +89,9 @@ func muzzle_distance() -> float:
 	return data.length*(1.0-data.grip)
 
 func _ready() -> void:
+	aim_beam = preload("res://scripts/core/aim_beam.gd").new()
+	aim_beam.weapon = self
+	add_child(aim_beam)
 	player = get_parent() as CoreMovementPlayer
 	rng.randomize()
 	recoil_rng.randomize()
@@ -123,6 +128,7 @@ func reset_state() -> void:
 	movement_multiplier = 1
 	burst_time = 0
 	bloom = 0
+	ads_bloom = 0
 	movement_spread = 0
 	cooldown = 0
 	sway_clock = 0
@@ -153,6 +159,7 @@ func reset_state() -> void:
 
 func capacity() -> int: return clampi(tuning.magazine_capacity,1,150)
 func apply_tuning(update_aim := true) -> void:
+	ads_bloom = clampf(ads_bloom,0,maxf(0,tuning.ads_max_spread-tuning.ads_spread))
 	if not tuning.movement_spread_enabled: movement_spread = 0
 	else: movement_spread = minf(movement_spread,maxf(tuning.movement_spread_forward,tuning.movement_spread_backward))
 	if not tuning.weapon_enabled or not tuning.magazine_enabled:
@@ -250,7 +257,10 @@ func _tick_reload(delta: float) -> void:
 		reloads_completed += 1
 func spread_degrees() -> float:
 	var moving := movement_spread if tuning.movement_spread_enabled else 0.0
-	return moving*tuning.movement_spread_ads_multiplier if aiming else minf(tuning.hip_max_spread,tuning.hip_spread+bloom)+moving
+	if aiming:
+		var ads := minf(tuning.ads_max_spread,tuning.ads_spread+ads_bloom) if tuning.ads_spread_enabled else 0.0
+		return ads+moving*tuning.movement_spread_ads_multiplier
+	return minf(tuning.hip_max_spread,tuning.hip_spread+bloom)+moving
 
 func movement_spread_target() -> float:
 	if not tuning.movement_spread_enabled or not tuning.weapon_enabled or player.health <= 0 or not player.is_on_floor() or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or is_zero_approx(player.velocity.x): return 0.0
@@ -324,6 +334,8 @@ func update_state(delta: float,input_allowed: bool) -> void:
 		dry_clicks += 1
 	firing = not blocked and (aiming or tuning.hip_enabled) and not reloading and (magazine_ammo > 0 or not tuning.magazine_enabled) and not trigger_needs_release and (trigger if tuning.fire_mode == CoreShootingSettings.FireMode.AUTO else single_press)
 	burst_time = burst_time+delta if firing and not aiming else 0.0
+	if not (firing and aiming and tuning.ads_spread_enabled):
+		ads_bloom = maxf(0,ads_bloom-tuning.ads_spread_recovery*delta)
 	if not firing:
 		bloom = maxf(0,bloom-tuning.spread_recovery*delta)
 		# Releasing the trigger restores movement immediately and won't bank shots.
@@ -495,7 +507,9 @@ func _fire() -> void:
 		var camera_scale := tuning.ads_recoil_camera_multiplier if aiming else 1.0
 		camera_impulse.emit(aim_direction,tuning.camera_kick*camera_scale,tuning.camera_shake*camera_scale)
 	effects.append({"kind":"casing","point":pivot()-aim_direction*3,"target":false,"velocity":Vector2(-player.facing*cosmetic_rng.randf_range(45,95),-cosmetic_rng.randf_range(80,140)),"rotation":0.0,"life":.65})
-	if not aiming: bloom = minf(tuning.hip_max_spread-tuning.hip_spread,bloom+tuning.spread_per_shot)
+	if aiming:
+		if tuning.ads_spread_enabled: ads_bloom = minf(tuning.ads_max_spread-tuning.ads_spread,ads_bloom+tuning.ads_spread_per_shot)
+	else: bloom = minf(tuning.hip_max_spread-tuning.hip_spread,bloom+tuning.spread_per_shot)
 	_play_shot_sound(rounds_before)
 	shot_fired.emit(muzzle,last_shot_direction,aiming,last_shot_spread)
 	# The shot exits along the pre-kick aiming line. Its physical kick then
@@ -796,6 +810,9 @@ func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal:
 	canvas.draw_line(breech+visual_direction*3,breech+visual_direction*3+normal*5,Color("34434d"),3,true)
 
 func draw_reticle(canvas: Node2D,projection: Transform2D) -> void:
+	if tuning.aim_beam_enabled:
+		aim_beam.draw_on(canvas,projection*global_transform.affine_inverse())
+		return
 	canvas.draw_set_transform_matrix(projection)
 	var center := to_local(aim_point)
 	var color := Color("81c6a7") if aiming else Color("f0c96a")

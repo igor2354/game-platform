@@ -9,6 +9,7 @@ const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const PROLOGUE_START := FOREST.ORIGIN+Vector2(2*FOREST.UPM,0)
 var forest: Node2D
 var atmosphere_opacity := 0.0
+var fog_ceilings: Dictionary = {}
 
 func player_spawn() -> Vector2:
 	if prologue_mode and prologue_version == 2: return FOREST_V2.point(2,0)
@@ -85,6 +86,10 @@ func _ready() -> void:
 	# Keep the original two entries and their landings; add profile ladders nearby.
 	if not prologue_mode:
 		floors[1].size.x = WIDTH-1160
+		# Local course dimensions for Sofia 1.00x (182.4 world units tall).
+		obstacles = [Rect2(560,630,110,130),Rect2(800,675,70,85)]
+		for i in ladders.size(): ladders[i].size.x = 51.3; ladders[i].position.x -= (51.3-LADDER.WIDTH)*.5
+		for i in side_ladders.size(): side_ladders[i].size.x = 51.3; side_ladders[i].position.x -= (51.3-LADDER.WIDTH)*.5
 		ladders.append_array(side_ladders)
 		obstacles.append_array(CoreIndoorLighting.SOLIDS)
 	if prologue_mode:
@@ -127,6 +132,7 @@ func _ready() -> void:
 	physics_crate.position = Vector2(-560,FLOOR-170)
 	add_child(physics_crate)
 	ragdoll_mannequin = preload("res://scenes/core/ragdoll_mannequin.tscn").instantiate()
+	if not prologue_mode: ragdoll_mannequin.body_scale = CoreWorldUnits.REFERENCE_HEIGHT/94.0
 	ragdoll_mannequin.position = Vector2(-350,FLOOR)
 	add_child(ragdoll_mannequin)
 	for x in [-1810.0,-1680.0]:
@@ -159,21 +165,23 @@ func _ready() -> void:
 		add_child(load_fixture)
 		hanging_loads.append(load_fixture)
 	for i in 3:
-		var dummy := CoreEnemyDummy.new()
+		var dummy := preload("res://scripts/core/live_zombie.gd").new()
+		dummy.stationary_target = true
 		dummy.position = Vector2(2460+i*230,FLOOR)
 		dummy.body_size = [Vector2(32,64),Vector2(40,80),Vector2(28,56)][i]
 		dummy.identifier = "%02d" % (i+1)
 		add_child(dummy)
 		enemies.append(dummy)
-	zombie = load("res://scenes/core/zombie.tscn").instantiate()
+	zombie = _create_patrol(false)
 	zombie.position = Vector2(5400,FLOOR)
 	add_child(zombie)
 	enemies.append(zombie)
-	concept_zombie = load("res://scenes/core/concept_zombie.tscn").instantiate()
+	concept_zombie = _create_patrol(true)
 	concept_zombie.position = Vector2(-5820,FLOOR)
 	add_child(concept_zombie)
 	enemies.append(concept_zombie)
-	hanging_target = CoreEnemyDummy.new()
+	hanging_target = preload("res://scripts/core/live_zombie.gd").new()
+	hanging_target.stationary_target = true
 	hanging_target.name = "HangingLoadTarget"
 	hanging_target.identifier = "ПОД ГРУЗОМ"
 	hanging_target.position = Vector2(hanging_loads[0].position.x,FLOOR)
@@ -183,7 +191,7 @@ func _ready() -> void:
 		indoor_lighting = CoreIndoorLighting.new()
 		indoor_lighting.name = "IndoorLightingTest"
 		add_child(indoor_lighting)
-		indoor_zombie = load("res://scenes/core/zombie.tscn").instantiate()
+		indoor_zombie = _create_patrol(false)
 		indoor_zombie.identifier = "Z03"
 		indoor_zombie.position = CoreIndoorLighting.ENEMY_HOME
 		add_child(indoor_zombie)
@@ -196,9 +204,22 @@ func _ready() -> void:
 		campaign_enemies = preload("res://scripts/campaign/prologue_v2_encounters.gd").populate(self)
 	elif prologue_mode:
 		campaign_enemies = preload("res://scripts/campaign/prologue1_r1_encounters.gd").populate(self)
+	if not prologue_mode:
+		for enemy in enemies:
+			enemy.body_size *= CoreWorldUnits.LEGACY_SOFIA_SCALE
+			enemy._update_body_shape()
+			enemy._sync_zones()
+
+func _create_patrol(illustrated: bool) -> CoreZombie:
+	var actor := preload("res://scripts/core/live_zombie.gd").new()
+	actor.identifier = "Z02" if illustrated else "Z01"
+	actor.body_size = Vector2(32,72) if illustrated else Vector2(32,64)
+	actor.tuning = load("res://resources/core/zombie.tres")
+	return actor
 
 func _add_transition_door(door_name: String,point: Vector2,destination: Vector2,label: String) -> void:
 	var door := CoreTransitionDoor.new()
+	door.frame_height = 202.0
 	door.name = door_name
 	door.position = point
 	door.destination_position = destination
@@ -210,6 +231,14 @@ func _solid(rect: Rect2,one_way: bool) -> void:
 	var body := StaticBody2D.new()
 	body.collision_layer = 8 if one_way else 1
 	body.collision_mask = 0
+	# Existing procedural roof names supply semantic intent, not a separate fog mask.
+	# New arbitrary construction also works through automatic enclosure detection
+	# or fog_interior=true/false on a ceiling body.
+	if forest:
+		if fog_ceilings.is_empty():
+			for key in forest.features:
+				if ("roof" in key or "house_floor" in key) and forest.features[key] is Rect2: fog_ceilings[forest.features[key]] = true
+		if fog_ceilings.has(rect): body.set_meta("fog_interior",true)
 	var shape := CollisionShape2D.new()
 	var rectangle := RectangleShape2D.new()
 	rectangle.size = rect.size
@@ -243,7 +272,7 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	draw_string(font,Vector2(630,657),"ПАРКУР · удерживайте Space у края",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color("81c6a7"))
 	draw_string(font,Vector2(-6350,510),"11 · ЗОМБИ-СОЛДАТ · F10 — К ЗОНЕ",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("c2b579"))
-	draw_string(font,Vector2(-6350,547),"Новая модель · 16 кадров в каждой анимации",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
+	draw_string(font,Vector2(-6350,547),"Голый сегментный риг · проверка анимаций",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
 	draw_string(font,Vector2(-6350,579),"F1 — зоны попаданий · F6 — баланс · F7 — возрождение",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))
 	draw_string(font,Vector2(-2200,555),"08 · БОЧКИ · ТОПЛИВО И ОГОНЬ",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("e6a267"))
 	draw_string(font,Vector2(-2200,590),"Красная — взрывная · коричневая — топливо",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("a4b4ba"))

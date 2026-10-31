@@ -95,5 +95,8 @@
   "resources/core/hybrid/sprint.png",
   "resources/core/hybrid/walk.png",
   "resources/core/hybrid/walk_ads.png",
-  "resources/core/moon_forest.png"
+  "resources/core/moon_forest.png",
+  "resources/core/mannequin_01/body.png",
+  "resources/core/mannequin_01/limbs.png",
+  "resources/core/mannequin_01/thighs.png"
 ]

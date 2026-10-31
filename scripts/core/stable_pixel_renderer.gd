@@ -35,7 +35,10 @@ func _ready() -> void:
 	RenderingServer.frame_pre_draw.connect(sync_projection)
 
 func apply_settings() -> void:
-	var enabled := lab.camera_settings.stable_pixel_enabled or lab.camera_settings.world_pixel_enabled
+	var limit: Vector2i = lab.display_options.render_limit()
+	var physical := get_viewport().get_visible_rect().size*get_viewport().get_stretch_transform().get_scale()
+	var display_scaled := limit != Vector2i.ZERO and (limit.x < physical.x or limit.y < physical.y)
+	var enabled := lab.camera_settings.stable_pixel_enabled or lab.camera_settings.world_pixel_enabled or display_scaled
 	if enabled != active:
 		active = enabled
 		if active:
@@ -59,11 +62,25 @@ func sync_projection() -> void:
 	if world_grid:
 		_sync_world_grid(viewport)
 		return
+	var limit: Vector2i = lab.display_options.render_limit()
+	if not lab.camera_settings.stable_pixel_enabled:
+		var physical_size := viewport.get_visible_rect().size*viewport.get_stretch_transform().get_scale()
+		var factor := minf(1,minf(limit.x/physical_size.x,limit.y/physical_size.y)) if limit != Vector2i.ZERO else 1.0
+		buffer.size = Vector2i((physical_size*factor).ceil())
+		var to_buffer := Transform2D.IDENTITY.scaled(Vector2(buffer.size)/viewport.get_visible_rect().size)
+		buffer.canvas_transform = to_buffer*viewport.global_canvas_transform*viewport.canvas_transform
+		transform = Transform2D.IDENTITY
+		picture.size = viewport.get_visible_rect().size
+		projection = viewport.global_canvas_transform*viewport.canvas_transform
+		if lab.moon_forest: lab.moon_forest.transform = to_buffer*forest_transform
+		if lab.aim_cursor: lab.aim_cursor.reticle.queue_redraw()
+		return
 	var stretch := viewport.get_stretch_transform()
 	var physical := viewport.get_visible_rect().size*stretch.get_scale()
 	# Adaptive buffer, exact physical integer blocks, at most scale-1 pixels of
 	# overscan at the far edges. No fractional enlargement and no changed FOV.
 	integer_scale = maxi(1,floori(physical.y/lab.camera_settings.stable_pixel_height))
+	if limit != Vector2i.ZERO: integer_scale = maxi(integer_scale,ceili(maxf(physical.x/limit.x,physical.y/limit.y)))
 	buffer.size = Vector2i((physical/float(integer_scale)).ceil())
 	var downscale := Transform2D.IDENTITY.scaled(Vector2.ONE/float(integer_scale))
 	var logical_to_buffer := downscale*stretch
@@ -80,6 +97,8 @@ func _sync_world_grid(viewport: Viewport) -> void:
 	var cell := lab.camera_settings.world_pixel_size
 	var canvas := viewport.global_canvas_transform*viewport.canvas_transform
 	var bounds := canvas.affine_inverse()*viewport.get_visible_rect()
+	var limit: Vector2i = lab.display_options.render_limit()
+	if limit != Vector2i.ZERO: cell = maxf(cell,maxf(bounds.size.x/maxi(1,limit.x-5),bounds.size.y/maxi(1,limit.y-5)))
 	# The sampling lattice is fixed at world (0,0), even across negative coordinates.
 	# Only the integer window over that lattice follows the camera. Two spare cells
 	# keep the picture covered when screen pixel rounding changes at the edges.

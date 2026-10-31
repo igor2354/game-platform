@@ -11,6 +11,7 @@ var motion_player: CoreMovementPlayer
 var displayed_motion_scale := NAN
 var defaults: Resource
 var profile_owner: CoreMovementOverlay
+var profile_keys: Array[String] = [] # Optional independent view of a shared CFG.
 var params: Array = CoreMovementSettings.PARAMS
 var groups := ["Бег","Прыжок","Дэш","Лестница","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
 var heading_text := "НАСТРОЙКА ДВИЖЕНИЯ · F3"
@@ -81,7 +82,7 @@ func _ready() -> void:
 		fire_mode_selector.add_item("Одиночный")
 		fire_mode_selector.item_selected.connect(_change_fire_mode)
 		mode_row.add_child(fire_mode_selector)
-	if settings is CoreCameraSettings:
+	if settings is CoreCameraSettings and groups.has("Камера"):
 		camera_limits_toggle = CheckButton.new()
 		camera_limits_toggle.text = "Учитывать края уровня по горизонтали"
 		camera_limits_toggle.focus_mode = Control.FOCUS_NONE
@@ -108,6 +109,10 @@ func _ready() -> void:
 		elif settings is CoreCameraSettings: switches = CoreCameraSettings.SWITCHES
 		elif settings is CoreRagdollSettings: switches = CoreRagdollSettings.SWITCHES
 		var recoil_options: GridContainer
+		if settings is CoreShootingSettings and group == "Прицел":
+			var hint := _label("Луч и перекрестие — два варианта отображения одной стрельбы.\nЛуч виден только вам: он не освещает мир и не выдаёт героя.\nУгол соответствует разбросу; в точном ADS линия покачивается.\nМягкость — оформление внутри сектора, а не дополнительный разброс.",14)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(hint)
 		for entry in switches:
 			if entry[2] != group: continue
 			var toggle := CheckButton.new()
@@ -549,6 +554,9 @@ func _update_readout_values() -> void:
 				readout.text = "Механика выключена\n"+readout.text
 		return
 	if settings is CoreCameraSettings:
+		if rows.has("fog_front_range"):
+			readout.text = "Обзор от глаз персонажа; разброс оружия независим.\nПамять: %.0f ед. на участок; известное окружение остаётся чётким.\nСохранение в профиль камеры. Загрузка/сброс здесь меняют только туман." % settings.fog_cell_size
+			return
 		if tabs.get_tab_title(tabs.current_tab) == "Нуар":
 			readout.text = "Нуар: %s · сила %.0f%%\nТени: %.3f · предел бликов: %.2f\nКрасный: ±%.0f° · насыщенность от %.0f%%\nСохранение — в профиле камеры и общем JSON." % ["включён" if settings.noir_enabled else "выключен",settings.noir_strength*100,settings.noir_shadow_lift,settings.noir_highlight_cap,settings.noir_red_width,settings.noir_red_saturation*100]
 			return
@@ -643,6 +651,20 @@ func save_profile() -> void:
 
 func load_profile() -> void:
 	_finish_editing("")
+	if not profile_keys.is_empty():
+		var candidate: Resource = settings.duplicate()
+		var result: int = candidate.load_saved(settings_path)
+		if result != OK:
+			_flash("Сохранённого профиля пока нет" if result == ERR_FILE_NOT_FOUND else "Не удалось загрузить (%d)" % result)
+			return
+		var values: Dictionary = settings.as_dictionary()
+		for key in profile_keys: values[key] = candidate.get(key)
+		settings.apply_values(values)
+		if profile_owner: profile_owner.saved_values = candidate.as_dictionary()
+		_sync()
+		settings_changed.emit()
+		_flash("Параметры раздела загружены.")
+		return
 	if profile_owner:
 		profile_owner.load_profile()
 		_sync()
@@ -658,6 +680,14 @@ func load_profile() -> void:
 
 func reset_profile() -> void:
 	_finish_editing("")
+	if not profile_keys.is_empty():
+		var values: Dictionary = settings.as_dictionary()
+		for key in profile_keys: values[key] = defaults.get(key)
+		settings.apply_values(values)
+		_sync()
+		settings_changed.emit()
+		_flash("Сброшены только параметры этого раздела.")
+		return
 	if profile_owner:
 		profile_owner.reset_profile()
 		_sync()

@@ -1,5 +1,6 @@
 class_name CoreMovementLab
 extends Node2D
+signal return_to_menu_requested
 
 const SettingsFile := preload("res://scripts/core/settings_file.gd")
 const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd")
@@ -29,6 +30,9 @@ var noir_filter: CoreNoirFilter
 var stable_pixels: CoreStablePixelRenderer
 var scale_reference: CoreScaleReference
 var blocking_overlay: Node2D
+var fog_of_war: Node2D
+var fog_overlay: CoreMovementOverlay
+var fog_readout: Label
 var player_scale_readout: Label
 var scale_reference_button: Button
 
@@ -78,8 +82,12 @@ var settings_dialog_open := false
 var settings_dialog_exporting := false
 var settings_dialog_was_paused := false
 var windowed_mode := Window.MODE_WINDOWED
+var pause_menu: CanvasLayer
+
+var display_options: RefCounted
 
 func _ready() -> void:
+	display_options = preload("res://scripts/ui/display_options.gd").access(get_tree(),load_user_settings)
 	_setup_input()
 	add_to_group("explosion_observers")
 	Engine.time_scale = 1
@@ -151,11 +159,7 @@ func _ready() -> void:
 		scale_reference.player = player
 		add_child(scale_reference)
 
-	if not campaign_mode:
-		moon_forest = preload("res://scripts/core/moon_forest.gd").new()
-		moon_forest.name = "MoonForest"
-		moon_forest.lab = self
-		add_child(moon_forest)
+	# The polygon is an unobstructed animation/combat test space.
 	_build_hud()
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.layer = 20
@@ -300,6 +304,30 @@ func _ready() -> void:
 	grenade_box.add_child(ragdoll_overlay._button("Пополнить гранаты",func():
 		developer_mode._prepare_action()
 		player.grenades.refill()))
+	fog_overlay = CoreMovementOverlay.new()
+	fog_overlay.settings = camera_settings
+	fog_overlay.defaults = camera_defaults
+	fog_overlay.profile_owner = camera_overlay
+	fog_overlay.settings_path = camera_settings_path
+	fog_overlay.params = CoreCameraSettings.FOG.PARAMS
+	for entry in CoreCameraSettings.FOG.PARAMS+CoreCameraSettings.FOG.SWITCHES: fog_overlay.profile_keys.append(entry[0])
+	fog_overlay.groups = CoreCameraSettings.FOG.GROUPS.duplicate()
+	fog_overlay.heading_text = "ТУМАН ВОЙНЫ"
+	fog_overlay.help_text = "Обзор по блокингу. ИИ и физика скрытых целей продолжают работать."
+	fog_overlay.hosted = true
+	fog_overlay.settings_changed.connect(_camera_settings_changed)
+	overlay_layer.add_child(fog_overlay)
+	fog_overlay.tabs.custom_minimum_size.y = 200
+	var fog_tools: VBoxContainer = fog_overlay.tabs.get_tab_control(3).get_child(0)
+	fog_readout = fog_overlay._label("",14)
+	fog_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	fog_tools.add_child(fog_readout)
+	fog_tools.add_child(fog_overlay._button("Забыть разведанные помещения",func():
+		developer_mode._prepare_action()
+		fog_of_war.clear_memory()))
+	fog_tools.add_child(fog_overlay._button("Перечитать геометрию блокинга",func():
+		developer_mode._prepare_action()
+		fog_of_war.rebuild_geometry()))
 	for overlay in _ui_overlays():
 		overlay.export_requested.connect(_open_settings_dialog.bind(true))
 		overlay.import_requested.connect(_open_settings_dialog.bind(false))
@@ -323,9 +351,40 @@ func _ready() -> void:
 	stable_pixels.name = "StablePixels"
 	stable_pixels.lab = self
 	add_child(stable_pixels)
+	display_options.changed.connect(stable_pixels.apply_settings)
+	get_window().size_changed.connect(stable_pixels.apply_settings)
+	pause_menu = preload("res://scripts/ui/pause_menu.gd").new()
+	add_child(pause_menu)
+	pause_menu.resume_requested.connect(func(): _set_pause(false))
+	pause_menu.restart_requested.connect(_restart_from_pause)
+	pause_menu.menu_requested.connect(_return_from_pause)
+	fog_of_war = preload("res://scripts/core/fog_of_war.gd").new()
+	fog_of_war.lab = self
+	add_child(fog_of_war)
 	_camera_settings_changed()
 
+func _set_pause(value: bool) -> void:
+	if value:
+		if player.grenades.preparing(): player.grenades.cancel_charge()
+		pause_menu.open()
+	else: pause_menu.close()
+	get_tree().paused = value
+	suppress_mouse_until_release = true
+	player.weapon.queued_single_press = false
+	player.queued_grab_press = false
+	if aim_cursor: aim_cursor.sync_context()
+
+func _restart_from_pause() -> void:
+	_set_pause(false)
+	_recover()
+
+func _return_from_pause() -> void:
+	_set_pause(false)
+	if return_to_menu_requested.has_connections(): return_to_menu_requested.emit()
+	else: get_tree().change_scene_to_file("res://scenes/frontend.tscn")
+
 func _blocks_keyboard() -> bool:
+	if pause_menu and pause_menu.screen.visible: return true
 	if level_map and level_map.visible: return true
 	if settings_dialog_open: return true
 	if developer_mode and developer_mode.blocks_keyboard_input(): return true
@@ -338,7 +397,7 @@ func _overlays() -> Array[CoreMovementOverlay]:
 
 func _ui_overlays() -> Array[CoreMovementOverlay]:
 	# Health is a separate view of the existing movement profile.
-	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay]
+	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay,fog_overlay]
 
 func _ragdoll_settings_changed() -> void:
 	player.grenades.tuning = ragdoll_settings
@@ -577,9 +636,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("core_fire_mode") and not event.is_echo():
 		player.weapon.tuning.set_fire_mode(1-player.weapon.tuning.fire_mode)
 		shooting_overlay._sync()
-	if event.is_action_pressed("core_pause"):
-		if player.grenades.preparing(): player.grenades.cancel_charge()
-		get_tree().paused = not get_tree().paused
+	if event.is_action_pressed("core_pause") and not event.is_echo(): _set_pause(not get_tree().paused)
 	if event.is_action_pressed("core_reset"):
 		get_tree().paused = false
 		_recover()
@@ -588,6 +645,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _input(event: InputEvent) -> void:
 	if transition_active: return
+	if pause_menu and pause_menu.screen.visible:
+		if pause_menu.settings.visible: return
+		if event.is_action_pressed("core_pause") and not event.is_echo():
+			_set_pause(false)
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("core_reset") and not event.is_echo():
+			_restart_from_pause()
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("core_fullscreen") and not event.is_echo(): display_options.toggle_fullscreen()
+		return
 	if get_tree().paused and event.is_action("core_fire") and player.grenades.preparing():
 		player.grenades.cancel_charge()
 		player.grenades.trigger_held = event.is_pressed()
@@ -636,12 +703,7 @@ func _input(event: InputEvent) -> void:
 			return
 
 func _toggle_fullscreen() -> void:
-	var window := get_window()
-	if window.mode == Window.MODE_FULLSCREEN or window.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
-		window.mode = windowed_mode
-	else:
-		windowed_mode = Window.MODE_MAXIMIZED if window.mode == Window.MODE_MAXIMIZED else Window.MODE_WINDOWED
-		window.mode = Window.MODE_FULLSCREEN
+	display_options.toggle_fullscreen()
 
 func _build_level_map() -> void:
 	var map_layer := CanvasLayer.new()
@@ -683,6 +745,7 @@ func _camera_settings_changed() -> void:
 	blocking_overlay.apply_settings(camera_settings)
 	player.request_character_scale(camera_settings.player_scale if camera_settings.player_scale_enabled else 1.0)
 	if stable_pixels: stable_pixels.apply_settings()
+	if is_instance_valid(fog_of_war): fog_of_war.apply_settings()
 	if noir_filter: noir_filter.apply_settings(camera_settings)
 	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
 	if map_button:

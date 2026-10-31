@@ -96,7 +96,12 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 	var min_height: float = player.HEIGHT*player.body_scale*player.tuning.sprint_auto_min_height_ratio if automatic else (16 if player.is_on_floor() else 40)*player.body_scale
 	# Several short probes also catch the vertical edge of thin one-way decks.
 	var visited := {}
-	for height_probe in range(8,ceili(max_height)+8,8):
+	var probes: Array = range(8,ceili(max_height)+8,8)
+	# A fractional-height thin deck can lie entirely between the horizontal rays.
+	var ahead := _ray(feet+Vector2(direction*reach,-max_height-1),feet+Vector2(direction*reach,-8))
+	if _surface(ahead) and ahead.normal.y < -.85:
+		probes.push_front(clampf(feet.y-ahead.position.y-.25,1,max_height))
+	for height_probe in probes:
 		var origin := feet-Vector2(0,minf(height_probe,max_height))
 		var wall := _ray(origin,origin+Vector2(direction*reach,0))
 		if not _surface(wall) or wall.normal.x*direction > -.85: continue
@@ -111,7 +116,6 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 		var tolerance := .01 if automatic else 0.0
 		if height < min_height-tolerance or height > max_height+tolerance: continue
 		var landing := Vector2(edge_x+direction*(player.world_radius()+3),ledge.y-SKIN)
-		if not _supported(landing) or not _clear_at(landing): continue
 		source = wall.collider
 		kind = "mantle"
 		destination = landing
@@ -120,6 +124,9 @@ func try_start(axis: float,held: bool,automatic := false) -> bool:
 			if other != Vector2.INF:
 				kind = "vault"
 				destination = other
+		# Vaulting needs a safe landing beyond the rail, not a full standing
+		# footprint on its narrow top. Mantling still requires that footprint.
+		if kind == "mantle" and (not _supported(landing) or not _clear_at(landing)): continue
 		var start := feet
 		if kind == "mantle":
 			start = Vector2(edge_x-direction*(player.world_radius()+SKIN),maxf(feet.y,ledge.y+(player.HEIGHT*player.body_scale)*.85))

@@ -28,6 +28,9 @@ func _draw() -> void:
 		var color := Color(.75,.78,.8) if key.begins_with("left") else Color.WHITE
 		if zombie.health <= 0: color *= Color(.75,.77,.79)
 		if zombie.hit_flash > 0 and zombie.last_hit_part == ART.anatomy(key): color = Color(1.7,1.3,1.15)
-		ART.draw_piece(self,key,transform,part.dimensions,color)
+		if zombie.has_method("draw_live_piece"):
+			zombie.draw_live_piece(self,key,transform,part.dimensions,color)
+		else:
+			ART.draw_piece(self,key,transform,part.dimensions,color)
 		if zombie.debug_zones: draw_rect(Rect2(-part.dimensions*.5,part.dimensions),Color("f0c96a"),false,.5)
 	draw_set_transform_matrix(Transform2D.IDENTITY)

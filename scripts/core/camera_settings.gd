@@ -1,5 +1,6 @@
 class_name CoreCameraSettings
 extends Resource
+const FOG = preload("res://scripts/core/fog_parameters.gd")
 
 @export var scale_basis_version := 2
 
@@ -23,8 +24,23 @@ const SWITCHES := [
 	["forest_smoke_enabled", "Движение дыма", "Окружение", "Завихрения трёх нарисованных столбов дыма."],
 	["forest_fire_enabled", "Мерцание пожаров", "Окружение", "Подвижность и нерегулярная яркость огня в дальнем городе."],
 	["forest_water_enabled", "Рябь и блики ручья", "Окружение", "Локальная анимация нарисованной воды. Игровой физики воды не добавляет."]
-]
+] + FOG.SWITCHES
 @export var camera_enabled := true
+@export var fog_enabled := true
+@export var fog_interiors := true
+@export var fog_auto_interiors := true
+@export var fog_debug := false
+@export var fog_front_range := 18.0
+@export var fog_front_angle := 200.0
+@export var fog_rear_range := 6.0
+@export var fog_rear_angle := 180.0
+@export var fog_near_range := 1.5
+@export var fog_unknown_opacity := .94
+@export var fog_cell_size := 32.0
+@export var fog_room_depth := 10.0
+@export var fog_update_hz := 20.0
+@export var fog_ray_count := 192.0
+@export var fog_target_budget := 64.0
 @export var player_scale_enabled := false
 @export var player_scale := 1.0
 @export var map_enabled := true
@@ -87,7 +103,7 @@ const PARAMS := [
 	["forest_fire_speed","Пожары: темп",0.0,3.0,.05,"×","Окружение"],
 	["forest_water_strength","Вода: сила ряби",0.0,3.0,.05,"×","Окружение"],
 	["forest_water_speed","Вода: темп",0.0,3.0,.05,"×","Окружение"]
-]
+] + FOG.PARAMS
 @export var zoom := 1.0
 @export var offset_x := 0.0
 @export var offset_y := -278.0
@@ -168,7 +184,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	var values := {"scale_basis_version":version}
 	for key in as_dictionary():
 		if config.has_section_key("camera",key): values[key] = config.get_value("camera",key)
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["blocking_overlay_enabled","player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["fog_debug","blocking_overlay_enabled","player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
 	apply_values(migrate_profile(values))
 	return OK
 static func migrate_profile(source: Dictionary) -> Dictionary:
