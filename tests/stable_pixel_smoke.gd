@@ -3,7 +3,7 @@ const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/stable-pixel-%d" % OS.get_process_id()
+var directory := (OS.get_environment("TEMP") if OS.has_feature("windows") else "/private/tmp").path_join("stable-pixel-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -23,7 +23,7 @@ func capture(name: String) -> Image:
 	await frames()
 	await RenderingServer.frame_post_draw
 	var result := root.get_texture().get_image()
-	check(result.save_png(MEDIA.path("docs/core/stable_pixel_20261024/"+name+".png")) == OK,"native capture "+name)
+	check(result.save_png(MEDIA.path("docs/core/aim_beam_20261030/pixel_regression/"+name+".png")) == OK,"native capture "+name)
 	return result
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(directory)

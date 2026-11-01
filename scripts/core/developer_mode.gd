@@ -31,10 +31,10 @@ var export_button: Button
 var import_button: Button
 var close_button: Button
 var status: Label
-enum Section { PLAYER, ZOMBIE, TESTING, PHYSICS }
-const SECTIONS := ["Игрок","Зомби","Тестирование","Физика"]
-const OVERLAY_SECTIONS := [Section.PLAYER,Section.PLAYER,Section.PLAYER,Section.ZOMBIE,Section.PHYSICS,Section.PLAYER]
-const OVERLAY_NAMES := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Физика","Здоровье"]
+enum Section { PLAYER, ZOMBIE, TESTING, PHYSICS, FOG }
+const SECTIONS := ["Игрок","Зомби","Тестирование","Физика","Туман войны"]
+const OVERLAY_SECTIONS := [Section.PLAYER,Section.PLAYER,Section.PLAYER,Section.ZOMBIE,Section.PHYSICS,Section.PLAYER,Section.FOG]
+const OVERLAY_NAMES := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Физика","Здоровье","Туман войны"]
 const PLAYER_OVERLAYS := [0,1,2,5]
 
 func _ready() -> void:
@@ -354,6 +354,10 @@ func _process(_delta: float) -> void:
 	if not enabled: return
 	_sync_health()
 	enemy_tools.sync()
+	if current_section == Section.FOG and is_instance_valid(lab.fog_of_war):
+		var fog = lab.fog_of_war
+		lab.fog_readout.text = "Обновление: %.2f мс · лучей: %d\nЦели: %d/%d · память: %d/%d · маска: %d клеток\nПодготовка геометрии: %.2f мс · предупреждения: %d" % [fog.update_usec/1000.0,fog.rays_last_update,fog.visible_targets,fog.targets.size(),fog.explored.size(),fog.cells.size(),fog.masked_cells,fog.build_usec/1000.0,fog.warnings.size()]
+		if not fog.warnings.is_empty(): lab.fog_readout.text += "\n"+fog.warnings[0]
 	# Wrapped labels can temporarily grow a container before its width is
 	# assigned. Reapply the viewport bounds after that layout has settled.
 	_layout()

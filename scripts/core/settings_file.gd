@@ -12,7 +12,8 @@ static func write_file(path: String,settings: Dictionary) -> Error:
 		data[section] = CoreRagdollSettings.new().as_dictionary() if section == "ragdoll" and not settings.has(section) else settings[section].as_dictionary()
 	var file := FileAccess.open(path,FileAccess.WRITE)
 	if file == null: return FileAccess.get_open_error()
-	file.store_string(JSON.stringify(data,"\t")+"\n")
+	# Keep binary-float settings exact across export/import (including scaled profiles).
+	file.store_string(JSON.stringify(data,"\t",true,true)+"\n")
 	file.flush()
 	var result := file.get_error()
 	file.close()

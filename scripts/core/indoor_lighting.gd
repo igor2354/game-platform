@@ -4,7 +4,7 @@ extends Node2D
 const BOUNDS := Rect2(6020,528,920,232)
 const TEST_SPAWN := Vector2(6120,760)
 const ENEMY_HOME := Vector2(6660,760)
-const SOLIDS: Array[Rect2] = [Rect2(6000,508,960,20),Rect2(6000,528,20,128),Rect2(6940,528,20,232)]
+const SOLIDS: Array[Rect2] = [Rect2(6000,508,960,20),Rect2(6000,528,20,32),Rect2(6940,528,20,232)]
 const DARKNESS = preload("res://shaders/core_indoor_darkness.gdshader")
 var tuning: CoreZombieSettings
 var lamp: CoreBreakableLamp

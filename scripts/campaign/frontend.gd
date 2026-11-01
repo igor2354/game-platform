@@ -19,6 +19,7 @@ var buttons: Dictionary = {}
 var menu_font: SystemFont
 var busy := false
 var game_bar: CanvasLayer
+var display_panel: Control
 
 class Plate extends Button:
 	func _draw() -> void:
@@ -28,7 +29,10 @@ class Plate extends Button:
 			draw_line(corner+toward*Vector2(2,13),corner+toward*Vector2(13,2),color,1.5,true)
 	func _process(_delta: float) -> void: queue_redraw()
 
+var display_options: RefCounted
+
 func _ready() -> void:
+	display_options = preload("res://scripts/ui/display_options.gd").access(get_tree(),load_user_settings)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	menu_font = SystemFont.new()
 	menu_font.font_names = PackedStringArray(["Georgia","Times New Roman","DejaVu Serif"])
@@ -42,6 +46,11 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 	show_page("main")
+	var settings_layer := CanvasLayer.new()
+	settings_layer.layer = 90
+	add_child(settings_layer)
+	display_panel = preload("res://scripts/ui/display_panel.gd").new()
+	settings_layer.add_child(display_panel)
 
 func _resize() -> void:
 	stage.scale = get_viewport().get_visible_rect().size/BASE
@@ -142,11 +151,10 @@ func show_page(next: String) -> void:
 
 func _main_menu() -> void:
 	_picture(MAIN,Rect2(Vector2.ZERO,BASE),null,TextureRect.STRETCH_SCALE)
-	var definitions := [["campaign",Rect2(1148,147,389,79),func(): show_page("levels")],["polygon",Rect2(1152,250,381,77),func(): begin_selection(false)],["settings",Rect2(1152,350,381,76),func(): pass],["quit",Rect2(1159,448,374,74),func(): get_tree().quit()]]
+	var definitions := [["campaign",Rect2(1148,147,389,79),func(): show_page("levels")],["polygon",Rect2(1152,250,381,77),func(): begin_selection(false)],["settings",Rect2(1152,350,381,76),func(): display_panel.open()],["quit",Rect2(1159,448,374,74),func(): get_tree().quit()]]
 	for definition in definitions:
 		var button := _button(definition[0],"",definition[1],definition[2])
-		button.tooltip_text = {"campaign":"Компания","polygon":"Полигон","settings":"Настройки — пока недоступно","quit":"Выход"}[definition[0]]
-		button.disabled = definition[0] == "settings"
+		button.tooltip_text = {"campaign":"Компания","polygon":"Полигон","settings":"Настройки игры","quit":"Выход"}[definition[0]]
 		button.add_theme_stylebox_override("normal",StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("disabled",StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("hover",_style(true,.10))
@@ -160,20 +168,21 @@ func _title(text: String,width: float) -> void:
 func _levels() -> void:
 	_title("Выберите уровень",710)
 	_label("КОМПАНИЯ",Rect2(1260,48,300,40),25)
-	for index in 2:
-		var id := "prologue" if index == 0 else "prologue_v2"
-		var card := _button(id,"",Rect2(250,230+index*230,1100,180),func(): select_level(id),selected_level == id)
-		_label("Пролог" if index == 0 else "Пролог ver2",Rect2(35,24,1000,58),40,card)
-		_label("Первоначальный уровень" if index == 0 else "Новый лесной маршрут · окружение по блокингу",Rect2(38,100,1000,40),25,card,Color("bdb29e"))
+	for index in 3:
+		var id: String = ["prologue","prologue_v2","hub"][index]
+		var card := _button(id,"",Rect2(250,190+index*195,1100,170),func(): select_level(id),selected_level == id)
+		_label(["Пролог","Пролог ver2","Хаб"][index],Rect2(35,24,1000,58),40,card)
+		_label(["Первоначальный уровень","Новый лесной маршрут · окружение по блокингу","Безопасное убежище · блокинг"][index],Rect2(38,100,1000,40),25,card,Color("bdb29e"))
 	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("main"))
 
 func select_level(id: String) -> void:
-	if id not in ["prologue","prologue_v2"]: return
+	if id not in ["prologue","prologue_v2","hub"]: return
 	selected_level = id
 	begin_selection(true)
 
 func _mode_caption() -> String:
 	if selected_mode == "polygon": return "ПОЛИГОН"
+	if selected_level == "hub": return "ХАБ"
 	return "ПРОЛОГ VER2" if selected_level == "prologue_v2" else "ПРОЛОГ · I"
 
 func _characters() -> void:
@@ -254,7 +263,9 @@ func launch(campaign: bool) -> void:
 	stage.hide()
 	var scene_path := "res://scenes/main.tscn"
 	if campaign: scene_path = "res://scenes/campaign/prologue_v2.tscn" if selected_level == "prologue_v2" else "res://scenes/campaign/prologue.tscn"
+	if campaign and selected_level == "hub": scene_path = "res://scenes/campaign/hub.tscn"
 	game = load(scene_path).instantiate()
+	game.return_to_menu_requested.connect(return_to_menu)
 	game.load_user_settings = load_user_settings
 	if not test_settings_directory.is_empty():
 		for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:
@@ -295,11 +306,11 @@ func return_to_menu() -> void:
 	busy = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_instance_valid(display_panel) and display_panel.visible: return
 	if is_instance_valid(game): return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and page != "main":
 			show_page("characters" if page == "weapons" else "levels" if page == "characters" and selected_mode == "campaign" else "main")
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_F11:
-			var window := get_window()
-			window.mode = Window.MODE_WINDOWED if window.mode in [Window.MODE_FULLSCREEN,Window.MODE_EXCLUSIVE_FULLSCREEN] else Window.MODE_EXCLUSIVE_FULLSCREEN
+			display_options.toggle_fullscreen()
