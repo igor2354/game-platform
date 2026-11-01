@@ -60,7 +60,7 @@ func run() -> void:
 			for side in ["left","right"]:
 				for bone in ["upper_arm","forearm","thigh","shin"]:
 					var length: float = p.parts[side+"_"+bone].dimensions.y
-					valid = valid and absf(length-({"upper_arm":10.5,"forearm":15.2,"thigh":14.257,"shin":12.922}[bone])) < .001
+					valid = valid and absf(length-({"upper_arm":10.2396288995,"forearm":16.3713163796,"thigh":13.3575821165,"shin":13.4440507289}[bone])) < .001
 		check(valid,"fixed limb lengths across complete motion: "+clip)
 	print("MANNEQUIN WORLD: %d/%d passed" % [checks-failures,checks])
 	quit(0 if failures == 0 else 1)

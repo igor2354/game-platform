@@ -168,20 +168,21 @@ func _title(text: String,width: float) -> void:
 func _levels() -> void:
 	_title("Выберите уровень",710)
 	_label("КОМПАНИЯ",Rect2(1260,48,300,40),25)
-	for index in 2:
-		var id := "prologue" if index == 0 else "prologue_v2"
-		var card := _button(id,"",Rect2(250,230+index*230,1100,180),func(): select_level(id),selected_level == id)
-		_label("Пролог" if index == 0 else "Пролог ver2",Rect2(35,24,1000,58),40,card)
-		_label("Первоначальный уровень" if index == 0 else "Новый лесной маршрут · окружение по блокингу",Rect2(38,100,1000,40),25,card,Color("bdb29e"))
+	for index in 3:
+		var id: String = ["prologue","prologue_v2","hub"][index]
+		var card := _button(id,"",Rect2(250,190+index*195,1100,170),func(): select_level(id),selected_level == id)
+		_label(["Пролог","Пролог ver2","Хаб"][index],Rect2(35,24,1000,58),40,card)
+		_label(["Первоначальный уровень","Новый лесной маршрут · окружение по блокингу","Безопасное убежище · блокинг"][index],Rect2(38,100,1000,40),25,card,Color("bdb29e"))
 	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("main"))
 
 func select_level(id: String) -> void:
-	if id not in ["prologue","prologue_v2"]: return
+	if id not in ["prologue","prologue_v2","hub"]: return
 	selected_level = id
 	begin_selection(true)
 
 func _mode_caption() -> String:
 	if selected_mode == "polygon": return "ПОЛИГОН"
+	if selected_level == "hub": return "ХАБ"
 	return "ПРОЛОГ VER2" if selected_level == "prologue_v2" else "ПРОЛОГ · I"
 
 func _characters() -> void:
@@ -262,6 +263,7 @@ func launch(campaign: bool) -> void:
 	stage.hide()
 	var scene_path := "res://scenes/main.tscn"
 	if campaign: scene_path = "res://scenes/campaign/prologue_v2.tscn" if selected_level == "prologue_v2" else "res://scenes/campaign/prologue.tscn"
+	if campaign and selected_level == "hub": scene_path = "res://scenes/campaign/hub.tscn"
 	game = load(scene_path).instantiate()
 	game.return_to_menu_requested.connect(return_to_menu)
 	game.load_user_settings = load_user_settings

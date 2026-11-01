@@ -14,6 +14,7 @@ const SCALED_MOTION_KEYS := ["run_speed","sprint_speed","slow_walk_speed","jump_
 	"slow_walk_braking","slow_walk_air_acceleration","slide_braking","slide_min_speed",
 	"slide_damage_min_speed","slide_knockdown_min_speed"]
 const SWITCHES := [
+	["stairs_enabled", "Обычные лестницы", "Маршевые лестницы", "A/D + W для входа вверх, A/D + S вниз. На марше A/D; отпускание останавливает."],
 	["parkour_enabled", "Паркур включён", "Паркур", "Лицом к краю удерживайте пробел для хвата. Повторное нажатие — подъём, C — прервать. Низкое узкое препятствие преодолевается сразу."],
 	["sprint_auto_parkour_enabled", "Автопаркур при спринте", "Паркур", "Shift + движение: автоматически преодолевать препятствия от колена до груди. Размеры считаются относительно роста героя; C — прервать."],
 	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],
@@ -31,6 +32,12 @@ const SWITCHES := [
 	["push_enabled", "Захват и перемещение включены", "Толкание", "G — взять/отпустить предмет; A/D — толкать и тянуть. Выключение освобождает руки; гравитация и импульсы пуль сохраняются."]
 ]
 @export var parkour_enabled := true
+@export var stairs_enabled := true
+@export var stairs_speed := 160.0
+@export var stairs_run_multiplier := 2.0
+@export var stairs_sprint_multiplier := 3.0
+@export var stairs_entry_radius := 40.0
+@export var stairs_entry_height := 18.0
 @export var sprint_auto_parkour_enabled := true
 @export var run_enabled := true
 @export var jump_enabled := true
@@ -48,6 +55,11 @@ const SWITCHES := [
 
 # key, label, minimum, maximum, step, unit, group
 const PARAMS := [
+	["stairs_speed","Ходьба Ctrl по маршу",40.0,300.0,1.0,"px/с","Маршевые лестницы"],
+	["stairs_run_multiplier","Множитель бега по маршу",1.0,4.0,.05,"×","Маршевые лестницы"],
+	["stairs_sprint_multiplier","Множитель спринта по маршу",1.0,5.0,.05,"×","Маршевые лестницы"],
+	["stairs_entry_radius","Дальность входа",10.0,80.0,1.0,"px","Маршевые лестницы"],
+	["stairs_entry_height","Допуск высоты входа",2.0,35.0,1.0,"px","Маршевые лестницы"],
 	["sprint_auto_min_height_ratio","Автопаркур · нижняя граница",.10,.50,.01,"× роста","Паркур"],
 	["sprint_auto_max_height_ratio","Автопаркур · верхняя граница",.50,.95,.01,"× роста","Паркур"],
 	["sprint_auto_max_width","Автопаркур · ширина при 1×",79.8,456.0,0.01,"px","Паркур"],

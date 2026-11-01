@@ -25,7 +25,7 @@ func run() -> void:
 	root.add_child(sheet)
 	await process_frame
 	await RenderingServer.frame_post_draw
-	var path := MEDIA.path("docs/core/mannequin_cutout_20261101/poses.png")
+	var path := MEDIA.path("docs/core/profile_rebuild_20261101/poses.png")
 	var result := root.get_texture().get_image().save_png(path)
 	print("CUTOUT CAPTURE ",result," ",path)
 	quit(result)

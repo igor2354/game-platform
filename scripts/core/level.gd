@@ -2,6 +2,7 @@ class_name CoreMovementLevel
 extends Node2D
 
 @export var prologue_mode := false
+@export var hub_mode := false
 @export var prologue_version := 1
 const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
 const FOREST_V2 = preload("res://scripts/campaign/forest_prologue_v2.gd")

@@ -3,21 +3,27 @@ extends RefCounted
 ## hands are visual children, the neck transition is included in torso artwork.
 const MATH = preload("res://scripts/core/concept_zombie_art.gd")
 const TEXTURES = preload("res://scripts/core/mannequin_textures.gd")
-const ORDER = MATH.ORDER
+const PROFILE = preload("res://scripts/core/mannequin_profile.gd")
+## Facing-right reference: visible anatomical left side is nearest the camera.
+const ORDER := ["right_thigh","right_shin","right_foot","right_upper_arm","right_forearm","left_thigh","left_shin","left_foot","pelvis","torso","head","left_upper_arm","left_forearm"]
 const STYLES := ["01 · Терракота","02 · Зоны тела","03 · Серый силуэт","04 · Светлый силуэт"]
 const STANCE := .62
 const STAGED := ["idle","patrol","chase","windup","strike","recover","sit"]
 ## Source-profile pixels times .15; hand remains a child of the forearm body.
-const UPPER_ARM := 10.5
-const FOREARM := 15.2
-const THIGH := 14.257
-const SHIN := 12.922
-const TORSO := 19.052
+const UPPER_ARM := 10.2396288995
+const FOREARM := 16.3713163796
+const THIGH := 13.3575821165
+const SHIN := 13.4440507289
+const TORSO := 18.6923112536
 static var silhouette_cache: Dictionary = {}
 
 static func shoulder_point(neck: Vector2,waist: Vector2,side: String) -> Vector2:
-	var angle := Vector2.DOWN.angle_to(waist-neck)
-	return neck+Vector2(-1.5 if side == "right" else -1.9,3.6).rotated(angle)
+	var angle := Vector2.DOWN.angle_to(waist-neck)-Vector2.DOWN.angle_to(PROFILE.WAIST-PROFILE.NECK)
+	return neck+((PROFILE.SHOULDER-PROFILE.NECK)*PROFILE.PIXEL).rotated(angle)
+
+static func hip_point(neck: Vector2,waist: Vector2) -> Vector2:
+	var angle := Vector2.DOWN.angle_to(waist-neck)-Vector2.DOWN.angle_to(PROFILE.WAIST-PROFILE.NECK)
+	return waist+((PROFILE.HIP-PROFILE.WAIST)*PROFILE.PIXEL).rotated(angle)
 
 static func anatomy(key: String) -> String: return MATH.anatomy(key)
 
@@ -27,6 +33,7 @@ static func phase_from_distance(distance: float,clip: String,scale_x: float) -> 
 
 static func solve(p: Dictionary) -> void:
 	for side in ["left","right"]:
+		p[side+"_hip"] = hip_point(p.neck,p.waist)
 		p[side+"_shoulder"] = shoulder_point(p.neck,p.waist,side)
 		var arm := MATH.solve_limb(p[side+"_shoulder"],p[side+"_hand"],UPPER_ARM,FOREARM,1)
 		p[side+"_elbow"] = arm[0]
@@ -37,21 +44,21 @@ static func solve(p: Dictionary) -> void:
 
 static func standing(t: float,stride: float,alert := false) -> Dictionary:
 	var twitch := sin(t*TAU*3)*pow(maxf(0,sin(t*TAU)),8)*.7
-	var waist := Vector2(-2,-37.35)
+	var waist := PROFILE.local(PROFILE.WAIST)
 	if stride > 0:
 		# Lower the hips to let authored-length legs reach both stride extremes.
 		# Otherwise IK clamps the planted ankle and silently breaks distance gait.
-		waist.y = -4.05-sqrt(pow((THIGH+SHIN)*.995,2)-stride*stride)-6.15
-	var lean := Vector2(4 if not alert else 7,-19).normalized()*TORSO
+		waist.y = -6.15-sqrt(pow((THIGH+SHIN)*.985,2)-stride*stride)-5.4
+	var lean := Vector2(3 if not alert else 6,-18.45).normalized()*TORSO
 	var p := {"waist":waist,"neck":waist+lean.rotated(twitch*.012),"head_angle":-.04+twitch*.05}
 	for side in ["left","right"]:
 		var cycle := fposmod(t+(.5 if side == "left" else 0),1)
 		var swing := clampf((cycle-STANCE)/(1-STANCE),0,1)
 		var x := lerpf(stride,-stride,cycle/STANCE) if cycle < STANCE else lerpf(-stride,stride,smoothstep(0,1,swing))
-		p[side+"_hip"] = p.waist+Vector2(-.6 if side == "left" else .6,6.15)
-		p[side+"_ankle"] = Vector2(p[side+"_hip"].x+x,-4.05-sin(swing*PI)*stride*.45)
+		p[side+"_hip"] = hip_point(p.neck,p.waist)
+		p[side+"_ankle"] = Vector2(p[side+"_hip"].x+x,-6.15-sin(swing*PI)*stride*.45)
 		var shoulder := shoulder_point(p.neck,p.waist,side)
-		p[side+"_hand"] = shoulder+Vector2(4-x*.35,24.7-twitch*.2)
+		p[side+"_hand"] = shoulder+Vector2(3-x*.35,26.1-twitch*.2)
 	return p
 
 static func prone(t: float,moving: bool) -> Dictionary:
@@ -72,13 +79,13 @@ static func pose(clip: String,t: float) -> Dictionary:
 	var p := prone(t,clip == "crawl") if low else standing(t,6 if clip == "patrol" else 10 if clip == "chase" else 0,clip == "chase")
 	if clip == "bind":
 		# Neutral anatomical preview, independent of the zombie's hunched idle.
-		p.waist = Vector2(.15,-37.35)
-		p.neck = p.waist+Vector2(.3,-19.05)
+		p.waist = PROFILE.local(PROFILE.WAIST)
+		p.neck = PROFILE.local(PROFILE.NECK)
 		p.head_angle = 0
 		for side in ["left","right"]:
-			p[side+"_hip"] = p.waist+Vector2(-.6 if side == "left" else .6,6.15)
-			p[side+"_ankle"] = Vector2(p[side+"_hip"].x-.3,-4.05)
-			p[side+"_hand"] = shoulder_point(p.neck,p.waist,side)+Vector2(3.75,24.65)
+			p[side+"_hip"] = PROFILE.local(PROFILE.HIP)
+			p[side+"_ankle"] = PROFILE.local(PROFILE.ANKLE)
+			p[side+"_hand"] = PROFILE.local(PROFILE.FINGERS)
 	if clip in ["fall","death","get_up"]:
 		p = MATH._blend(standing(0,0),prone(0,false),smoothstep(0,1,t) if clip != "get_up" else 1-smoothstep(0,1,t))
 	if clip == "sit":
@@ -108,18 +115,18 @@ static func pose(clip: String,t: float) -> Dictionary:
 	# The torso also keeps its authored length through fall/get-up blends.
 	p.neck = p.waist+(p.neck-p.waist).normalized()*TORSO
 	solve(p)
-	var result := {"parts":{},"joints":{},"prone":low}
-	MATH._piece(result,"torso",p.neck,p.waist,11.8)
-	result.parts.head = {"position":p.neck+Vector2(1,-4.5),"rotation":p.head_angle,"dimensions":Vector2(8,8),"anatomy":"head"}
-	result.parts.pelvis = {"position":p.waist+Vector2(0,3),"rotation":result.parts.torso.rotation,"dimensions":Vector2(8,8),"anatomy":"torso"}
+	var result := {"parts":{},"joints":{},"prone":low,"reference_rest":clip == "bind"}
+	MATH._piece(result,"torso",p.neck,p.waist,9)
+	result.parts.head = {"position":p.neck+((PROFILE.HEAD_CENTER-PROFILE.NECK)*PROFILE.PIXEL).rotated(p.head_angle),"rotation":p.head_angle,"dimensions":Vector2(7.5,9.45),"anatomy":"head"}
+	MATH._piece(result,"pelvis",p.waist,hip_point(p.neck,p.waist),8)
 	result.joints.neck = p.neck
 	result.joints.waist = p.waist
 	for side in ["left","right"]:
-		MATH._piece(result,side+"_upper_arm",p[side+"_shoulder"],p[side+"_elbow"],6)
-		MATH._piece(result,side+"_forearm",p[side+"_elbow"],p[side+"_hand"],5.4)
-		MATH._piece(result,side+"_thigh",p[side+"_hip"],p[side+"_knee"],8.5)
-		MATH._piece(result,side+"_shin",p[side+"_knee"],p[side+"_ankle"],5.6)
-		result.parts[side+"_foot"] = {"position":p[side+"_ankle"]+Vector2(2,2.025),"rotation":0.0,"dimensions":Vector2(10.8,4.05),"anatomy":side+"_leg"}
+		MATH._piece(result,side+"_upper_arm",p[side+"_shoulder"],p[side+"_elbow"],5.4)
+		MATH._piece(result,side+"_forearm",p[side+"_elbow"],p[side+"_hand"],4.5)
+		MATH._piece(result,side+"_thigh",p[side+"_hip"],p[side+"_knee"],7.5)
+		MATH._piece(result,side+"_shin",p[side+"_knee"],p[side+"_ankle"],4.5)
+		result.parts[side+"_foot"] = {"position":p[side+"_ankle"]+Vector2(3,3.075),"rotation":0.0,"dimensions":Vector2(11.7,6.15),"anatomy":side+"_leg"}
 		for joint in ["shoulder","elbow","hip","knee","ankle"]: result.joints[side+"_"+joint] = p[side+"_"+joint]
 	return result
 
@@ -153,4 +160,4 @@ static func draw_pose(canvas: CanvasItem,values: Dictionary,base: Transform2D,vi
 	for key in ORDER:
 		var part: Dictionary = values.parts[key]
 		if part.anatomy not in visible: continue
-		draw_piece(canvas,key,base*Transform2D(part.rotation,part.position),part.dimensions,Color(.65,.72,.77) if key.begins_with("left") else Color.WHITE,style)
+		draw_piece(canvas,key,base*Transform2D(part.rotation,part.position),part.dimensions,Color(.8,.8,.8) if key.begins_with("right") and not values.get("reference_rest",false) else Color.WHITE,style)

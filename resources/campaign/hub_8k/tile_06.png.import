@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dsleq4oxxey7w"
-path="res://.godot/imported/body.png-b40a52dab682cd97875b8cd739970f94.ctex"
+uid="uid://o7quk1kmb62j"
+path="res://.godot/imported/tile_06.png-3fd7f596c0b3399b8c44303dfd8e51bf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://resources/core/mannequin_01/body.png"
-dest_files=["res://.godot/imported/body.png-b40a52dab682cd97875b8cd739970f94.ctex"]
+source_file="res://resources/campaign/hub_8k/tile_06.png"
+dest_files=["res://.godot/imported/tile_06.png-3fd7f596c0b3399b8c44303dfd8e51bf.ctex"]
 
 [params]
 

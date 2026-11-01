@@ -108,6 +108,7 @@ func _constrain_unscaled_recovery(points: Dictionary,_feet: Vector2) -> void:
 		points[side+"_hand"] = shoulder+direction*distance
 		points[side+"_elbow"] = shoulder+direction*along+Vector2(-direction.y,direction.x)*height*body.facing
 var parkour: RefCounted
+var stairs: RefCounted
 
 func parkour_active() -> bool:
 	return parkour != null and parkour.active
@@ -183,6 +184,7 @@ var slide_rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	parkour = preload("res://scripts/core/parkour.gd").new(self)
+	stairs = preload("res://scripts/core/stair_motion.gd").new(self)
 	slide_rng.randomize()
 	if tuning == null: tuning = CoreMovementSettings.new()
 	air_move_speed = motion_value("run_speed")
@@ -224,6 +226,7 @@ func _ready() -> void:
 	add_child(blast_ragdoll)
 
 func reset_to(point: Vector2) -> void:
+	if stairs: stairs.cancel()
 	if parkour: parkour.cancel(false)
 	collision_layer = 2
 	if blast_ragdoll: blast_ragdoll.cancel()
@@ -291,6 +294,7 @@ func dash_available() -> bool:
 	return not parkour_active() and not grenades.busy() and tuning.dash_enabled and barrel_knockdown_left <= 0 and not pushing and health > 0 and not climbing and slide_left <= 0 and dash_left <= 0 and dash_cooldown <= 0 and (is_on_floor() or (tuning.air_dash_enabled and not air_dash_used))
 
 func transition_to(point: Vector2) -> void:
+	if stairs: stairs.cancel()
 	if parkour: parkour.cancel(false)
 	stop_pushing()
 	_clear_dash_exceptions()
@@ -472,6 +476,7 @@ func _tick_barrel_knockdown(delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	_apply_body_scale()
 	if blast_ragdoll and blast_ragdoll.active:
+		stairs.cancel()
 		mode = "ragdoll"
 		blast_ragdoll.tick(delta)
 		hurt_left = maxf(0,hurt_left-delta)
@@ -490,6 +495,7 @@ func _physics_process(delta: float) -> void:
 	hurt_flash = maxf(0,hurt_flash-delta)
 	body.modulate = Color("6c737a") if health <= 0 else Color("ff8f80") if hurt_flash > 0 else Color.WHITE
 	if health <= 0:
+		stairs.cancel()
 		if parkour_active(): parkour.cancel()
 		stop_pushing()
 		if slide_left > 0: _finish_slide()
@@ -504,6 +510,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var input_allowed := not input_blocker.is_valid() or not bool(input_blocker.call())
 	if barrel_knockdown_left > 0:
+		stairs.cancel()
 		_tick_barrel_knockdown(delta)
 		return
 	var axis := Input.get_axis("core_left","core_right") if input_allowed else 0.0
@@ -512,6 +519,7 @@ func _physics_process(delta: float) -> void:
 	sprint_requested = tuning.sprint_enabled and input_allowed and Input.is_action_pressed("core_sprint")
 	var vertical := Input.get_axis("core_up","core_down") if input_allowed else 0.0
 	var jump_held := input_allowed and Input.is_action_pressed("core_jump")
+	if stairs.tick(delta,axis,vertical,input_allowed): return
 	if parkour_active():
 		dash_held = Input.is_action_pressed("core_dash")
 		var cancel_parkour := input_allowed and Input.is_action_pressed("core_crouch") and not crouch_held
@@ -797,7 +805,7 @@ func _tick_sprint_reserve(delta: float,was_dashing: bool,was_sliding := false) -
 			sprint_reserve = 0
 			sprint_exhausted = true
 			sprinting = false
-	elif (is_on_floor() or climbing) and not was_dashing and dash_left <= 0 and slide_left <= 0 and not was_sliding:
+	elif (is_on_floor() or climbing or (stairs and is_instance_valid(stairs.flight))) and not was_dashing and dash_left <= 0 and slide_left <= 0 and not was_sliding:
 		sprint_reserve = minf(1,sprint_reserve+delta/tuning.sprint_recovery_time)
 		if sprint_reserve >= .99999:
 			sprint_reserve = 1

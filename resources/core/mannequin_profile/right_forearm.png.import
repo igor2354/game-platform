@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwlu7me18ue3w"
-path="res://.godot/imported/thighs.png-5099e3808e91eb91a367c6103ee795da.ctex"
+uid="uid://c423b7geht8v3"
+path="res://.godot/imported/right_forearm.png-e0b170989ffeaebf7d7384ef0c6a402e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://resources/core/mannequin_01/thighs.png"
-dest_files=["res://.godot/imported/thighs.png-5099e3808e91eb91a367c6103ee795da.ctex"]
+source_file="res://resources/core/mannequin_profile/right_forearm.png"
+dest_files=["res://.godot/imported/right_forearm.png-e0b170989ffeaebf7d7384ef0c6a402e.ctex"]
 
 [params]
 

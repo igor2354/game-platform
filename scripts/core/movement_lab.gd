@@ -105,8 +105,8 @@ func _ready() -> void:
 	for enemy in level.enemies:
 		enemy.damage_tuning = player.weapon.tuning
 		enemy.posture_changed.connect(player.allow_exit_overlapping_enemies)
-	level.zombie.target = player
-	var zombie_defaults := level.zombie.tuning.duplicate() as CoreZombieSettings
+	if is_instance_valid(level.zombie): level.zombie.target = player
+	var zombie_defaults := (level.zombie.tuning if is_instance_valid(level.zombie) else load("res://resources/core/zombie.tres")).duplicate() as CoreZombieSettings
 	zombie_defaults.apply_values(zombie_defaults.as_dictionary())
 	zombie_settings = zombie_defaults.duplicate() as CoreZombieSettings
 	for enemy in level.enemies:
@@ -115,7 +115,7 @@ func _ready() -> void:
 			enemy.target = player
 			if is_instance_valid(level.indoor_lighting): level.indoor_lighting.observers.append(enemy)
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
-	if level.prologue_mode and level.prologue_version == 2:
+	if level.prologue_mode and (level.prologue_version == 2 or level.hub_mode):
 		camera_defaults.player_scale_enabled = true
 		camera_defaults.player_scale = 1.0
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
@@ -124,14 +124,14 @@ func _ready() -> void:
 	player.weapon.camera_settings = camera_settings
 	var ragdoll_defaults := CoreRagdollSettings.new()
 	for param in CoreRagdollSettings.PARAMS:
-		if param[6] == "Манекен": ragdoll_defaults.set(param[0],level.ragdoll_mannequin.get(param[0]))
+		if param[6] == "Манекен" and is_instance_valid(level.ragdoll_mannequin): ragdoll_defaults.set(param[0],level.ragdoll_mannequin.get(param[0]))
 	ragdoll_settings = ragdoll_defaults.duplicate() as CoreRagdollSettings
 	if load_user_settings: player.tuning.load_saved(settings_path)
 	if load_user_settings: player.weapon.tuning.load_saved(shooting_settings_path)
 	if load_user_settings: camera_settings.load_saved(camera_settings_path)
 	if load_user_settings: zombie_settings.load_saved(zombie_settings_path)
 	if load_user_settings: ragdoll_settings.load_saved(ragdoll_settings_path)
-	if level.prologue_mode and level.prologue_version == 2:
+	if level.prologue_mode and (level.prologue_version == 2 or level.hub_mode):
 		# The new blockout starts at its approved reference size; do not write profiles.
 		camera_settings.player_scale_enabled = true
 		camera_settings.player_scale = 1.0
@@ -268,14 +268,16 @@ func _ready() -> void:
 	ragdoll_box.add_child(hint)
 	ragdoll_reset_button = ragdoll_overlay._button("Восстановить манекен",func():
 		developer_mode._prepare_action()
-		level.ragdoll_mannequin.reset_mannequin())
+		if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.reset_mannequin())
 	ragdoll_activate_button = ragdoll_overlay._button("Включить ragdoll",func():
 		developer_mode._prepare_action()
-		level.ragdoll_mannequin.activate())
+		if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.activate())
 	ragdoll_teleport_button = ragdoll_overlay._button("К манекену",func():
 		developer_mode._prepare_action()
 		_teleport_player(Vector2(-190,CoreMovementLevel.FLOOR)))
 	ragdoll_teleport_button.tooltip_text = "Перейти к ящику и манекену"
+	for control in [ragdoll_reset_button,ragdoll_activate_button,ragdoll_teleport_button]:
+		control.disabled = not is_instance_valid(level.ragdoll_mannequin)
 	var ragdoll_actions := HBoxContainer.new()
 	ragdoll_box.add_child(ragdoll_actions)
 	for button in [ragdoll_reset_button,ragdoll_activate_button,ragdoll_teleport_button]:
@@ -403,7 +405,7 @@ func _ragdoll_settings_changed() -> void:
 	player.grenades.tuning = ragdoll_settings
 	for grenade in get_tree().get_nodes_in_group("core_grenades"):
 		if is_ancestor_of(grenade): grenade.apply_tuning()
-	level.ragdoll_mannequin.apply_muscle_settings(ragdoll_settings.as_dictionary())
+	if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.apply_muscle_settings(ragdoll_settings.as_dictionary())
 	level.fuel_field.tuning = ragdoll_settings
 	for barrel in level.explosive_barrels:
 		barrel.tuning = ragdoll_settings
@@ -577,6 +579,8 @@ func _teleport_zombie() -> void:
 	_teleport_player(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
 
 func _teleport_player(point: Vector2) -> void:
+	# Polygon shortcut destinations are outside this separate safe level.
+	if level.hub_mode and not level.campaign_bounds().has_point(point): return
 	if player.grenades.preparing(): player.grenades.throw_held(true)
 	player.reset_to(point)
 	_clear_projectiles()
@@ -887,8 +891,8 @@ func _recover() -> void:
 		grenade.queue_free()
 	respawns += 1
 	player.reset_to(level.player_spawn())
-	level.physics_crate.reset_crate()
-	level.ragdoll_mannequin.reset_mannequin()
+	if is_instance_valid(level.physics_crate): level.physics_crate.reset_crate()
+	if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.reset_mannequin()
 	_reset_explosives()
 	_reset_hanging_loads()
 	_clear_projectiles()

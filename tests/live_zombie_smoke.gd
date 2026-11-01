@@ -46,9 +46,11 @@ func run() -> void:
 	check(actor.pose_scale().is_equal_approx(Vector2(3,3)),"collision width cannot squeeze the authored anatomy")
 	actor.body_size = saved_size
 	var textures = preload("res://scripts/core/mannequin_textures.gd")
+	textures.prepare()
 	for key in textures.REGIONS:
 		var registered: Transform2D = textures.registration(key,Vector2.ZERO,Vector2(3,17))
 		check(absf(registered.x.length()-registered.y.length()) < .00001 and absf(registered.x.dot(registered.y)) < .00001,"sprite registration has no stretch or shear: "+key)
+		check(absf(registered.x.length()-.15) < .00001,"all parts share one source-pixel scale: "+key)
 	for clip in ["patrol","chase"]:
 		var stride := 6.0 if clip == "patrol" else 10.0
 		var displacement := 2.0*stride*(saved_size.y/64)*.1/.62
@@ -66,7 +68,7 @@ func run() -> void:
 			for side in ["left","right"]:
 				for limb in ["upper_arm","forearm","thigh","shin"]:
 					var length: float = pose.parts[side+"_"+limb].dimensions.y
-					valid = valid and absf(length-({"upper_arm":10.5,"forearm":15.2,"thigh":14.257,"shin":12.922}[limb])) < .001
+					valid = valid and absf(length-({"upper_arm":10.2396288995,"forearm":16.3713163796,"thigh":13.3575821165,"shin":13.4440507289}[limb])) < .001
 		check(valid,"staged motions preserve limb lengths across 65 phases: "+clip)
 	var contact: Dictionary = staged.pose("windup",1)
 	var strike: Dictionary = staged.pose("strike",0)
@@ -118,19 +120,19 @@ func run() -> void:
 		lab._update_camera(true)
 		await frames(8)
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/mannequin_cutout_20261101/polygon.png"))
+		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/profile_rebuild_20261101/polygon.png"))
 		actor.set_test_frozen(false)
 		actor.reset_target()
 		actor._sever_part("right_arm",Vector2.LEFT)
 		actor.take_damage(100,Vector2.RIGHT)
 		await frames(60)
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/mannequin_cutout_20261101/corpse_detached.png"))
+		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/profile_rebuild_20261101/corpse_detached.png"))
 		actor.detached_parts.clear()
 		actor.queue_redraw()
 		await frames(2)
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/mannequin_cutout_20261101/corpse_without_detached.png"))
+		root.get_texture().get_image().save_png(preload("res://tools/media_paths.gd").path("docs/core/profile_rebuild_20261101/corpse_without_detached.png"))
 	lab.queue_free()
 	await frames(3)
 	print("LIVE ZOMBIE: %d/%d passed" % [checks-failures,checks])

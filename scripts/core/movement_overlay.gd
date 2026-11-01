@@ -13,7 +13,7 @@ var defaults: Resource
 var profile_owner: CoreMovementOverlay
 var profile_keys: Array[String] = [] # Optional independent view of a shared CFG.
 var params: Array = CoreMovementSettings.PARAMS
-var groups := ["Бег","Прыжок","Дэш","Лестница","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
+var groups := ["Бег","Прыжок","Дэш","Лестница","Маршевые лестницы","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
 var heading_text := "НАСТРОЙКА ДВИЖЕНИЯ · F3"
 var help_text := "Изменения применяются сразу. Проверяйте на площадке."
 var current_values_text := "Текущие значения · новые тайминги со следующего действия"

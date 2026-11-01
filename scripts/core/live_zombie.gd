@@ -8,6 +8,9 @@ var cached_clip := ""
 var cached_phase := -1.0
 var cached_pose: Dictionary = {}
 
+func presentation_order() -> Array:
+	return LIVE_ART.ORDER
+
 func pose_scale() -> Vector2:
 	# Width of the old collision capsule cannot squeeze the selected anatomy.
 	return Vector2.ONE*body_size.y/64
@@ -74,10 +77,10 @@ func draw_live_piece(canvas: CanvasItem,key: String,transform: Transform2D,dimen
 	canvas.draw_texture_rect(part_textures[key],Rect2(-size*.5,size),false,tint)
 
 func _draw_live_pose(canvas: CanvasItem,values: Dictionary,base: Transform2D,visible: Array,flash := "",dead := false) -> void:
-	for key in ART.ORDER:
+	for key in LIVE_ART.ORDER:
 		var part: Dictionary = values.parts[key]
 		if part.anatomy not in visible: continue
-		var tint := Color(.75,.78,.8) if key.begins_with("left") else Color.WHITE
+		var tint := Color(.8,.8,.8) if key.begins_with("right") and not values.get("reference_rest",false) else Color.WHITE
 		if dead: tint *= Color(.75,.77,.79)
 		if flash == part.anatomy: tint = Color(1.7,1.3,1.15)
 		draw_live_piece(canvas,key,base*Transform2D(part.rotation,part.position),part.dimensions,tint)
