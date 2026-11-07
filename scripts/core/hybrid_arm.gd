@@ -11,13 +11,12 @@ var hand := Vector2.ZERO
 var far := false
 var foreground: Node2D
 var hand_in_front := false
-var character_id := ""
 var deform_owner: Node2D
 var upper_length := 0.0
 var lower_length := 0.0
 var requested_hand := Vector2.ZERO
 var minimum_reach := 0.0
-var occlusion_forearm: Polygon2D
+var draw_placeholder := true
 
 func _ready() -> void:
 	foreground = Foreground.new()
@@ -51,21 +50,15 @@ func pose(origin: Vector2,grip: Vector2,bend: float,background: bool) -> void:
 	if foreground: foreground.queue_redraw()
 
 func _draw() -> void:
+	if not draw_placeholder: return
 	if is_instance_valid(deform_owner) and deform_owner.active: return
-	if not character_id.is_empty():
-		var art = preload("res://scripts/campaign/art.gd")
-		var tint := Color(.73,.76,.72) if far else Color.WHITE
-		for segment in [[shoulder,elbow,"upper_arm",7.8],[elbow,hand,"forearm",6.4]]:
-			var a: Vector2 = segment[0]
-			var b: Vector2 = segment[1]
-			art.draw_piece(self,character_id,segment[2],Transform2D(Vector2.DOWN.angle_to(b-a),(a+b)*.5),Vector2(segment[3],a.distance_to(b)+2),1,tint)
-		return
 	var sleeve := Color("4c6678") if far else Color("829fae")
 	_segment(self,shoulder,elbow,3.4,2.7,sleeve)
 	_segment(self,elbow,hand,2.6,1.7,sleeve)
 	if not hand_in_front: draw_hand(self)
 
 func draw_hand(canvas: Node2D) -> void:
+	if not draw_placeholder: return
 	canvas.draw_circle(hand,2.1,Color("c3b79e"))
 
 func _segment(canvas: Node2D,a: Vector2,b: Vector2,start_width: float,end_width: float,color: Color) -> void:

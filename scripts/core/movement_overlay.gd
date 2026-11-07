@@ -13,7 +13,7 @@ var defaults: Resource
 var profile_owner: CoreMovementOverlay
 var profile_keys: Array[String] = [] # Optional independent view of a shared CFG.
 var params: Array = CoreMovementSettings.PARAMS
-var groups := ["Бег","Прыжок","Дэш","Лестница","Маршевые лестницы","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
+var groups := ["Бег","Прыжок","Дэш","Лестница","Маршевые лестницы","Терраформинг","Лопата","Паркур","Склоны","Приседание","Спринт","Подкат","Ходьба","Движение задом","Разгон","Здоровье","Толкание"]
 var heading_text := "НАСТРОЙКА ДВИЖЕНИЯ · F3"
 var help_text := "Изменения применяются сразу. Проверяйте на площадке."
 var current_values_text := "Текущие значения · новые тайминги со следующего действия"
@@ -148,13 +148,6 @@ func _ready() -> void:
 			character_filter_toggle.focus_mode = Control.FOCUS_NONE
 			character_filter_toggle.toggled.connect(_change_character_filter)
 			box.add_child(character_filter_toggle)
-			var mesh_debug := CheckButton.new()
-			mesh_debug.text = "Показать сетку Гарри / Софии"
-			mesh_debug.focus_mode = Control.FOCUS_NONE
-			mesh_debug.set_pressed_no_signal(settings.deform_mesh_debug)
-			mesh_debug.toggled.connect(func(enabled: bool): settings.deform_mesh_debug = enabled; settings_changed.emit())
-			box.add_child(mesh_debug)
-			feature_toggles["deform_mesh_debug"] = mesh_debug
 			var hint := _label("Для тестов: интенсивность 0 и сглаживание выключено.\nБлюр затрагивает тело, руки и оружие героя.\nПрицел, интерфейс и окружение остаются чёткими.",14)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(hint)
@@ -385,7 +378,7 @@ func _add_row(parent: VBoxContainer,param: Array) -> void:
 		metric.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		metric.add_theme_color_override("font_color",Color("a9d9c8"))
 		box.add_child(metric)
-		number.tooltip_text = "Ввод — в прежних единицах мира. Подпись ниже: метры; скорости также в км/ч. Рабочая калибровка по стоячему рисунку Софии."
+		number.tooltip_text = "Ввод — в прежних единицах мира. Подпись ниже: метры; скорости также в км/ч. Рабочая калибровка по базовому масштабу."
 	var slider := HSlider.new()
 	slider.min_value = param[2]
 	slider.max_value = param[3]

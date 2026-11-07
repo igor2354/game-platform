@@ -57,7 +57,7 @@ func hidden_color(x: int,y: int,body_key: String) -> Color:
 	color.a = 1
 	return color
 func _initialize() -> void:
-	var folder := ProjectSettings.globalize_path("res://../../../1_Персонажи/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/")
+	var folder := ProjectSettings.globalize_path("res://../../../6_Концепты геймплея/АНИМАЦИЯ/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/")
 	source = Image.load_from_file(folder+"00_source_sheet.png").get_region(Rect2i(320,5,125,460))
 	hidden_cloth = Image.load_from_file(folder+"04_profile_body_v2.png")
 	master = Image.create(125,460,false,Image.FORMAT_RGBA8)

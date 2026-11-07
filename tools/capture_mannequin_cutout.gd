@@ -20,7 +20,7 @@ func run() -> void:
 	root.content_scale_size = Vector2i(1500,1020)
 	RenderingServer.set_default_clear_color(Color("23313a"))
 	var sheet := Sheet.new()
-	var source := ProjectSettings.globalize_path("res://../../../1_Персонажи/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/00_source_sheet.png")
+	var source := ProjectSettings.globalize_path("res://../../../6_Концепты геймплея/АНИМАЦИЯ/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/00_source_sheet.png")
 	sheet.reference = ImageTexture.create_from_image(Image.load_from_file(source))
 	root.add_child(sheet)
 	await process_frame

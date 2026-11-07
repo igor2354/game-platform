@@ -7,7 +7,6 @@ const MAIN = preload("res://resources/campaign/main_menu.webp")
 const BASE := Vector2(1600,900)
 @export var load_user_settings := true
 var test_settings_directory := "" # Set before launch by profile-import tests only.
-var selected_character := "harry"
 var selected_weapon := "stg44"
 var selected_mode := "campaign"
 var selected_level := "prologue"
@@ -146,7 +145,6 @@ func show_page(next: String) -> void:
 		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(shade)
 		if next == "levels": _levels()
-		elif next == "characters": _characters()
 		else: _weapons()
 
 func _main_menu() -> void:
@@ -168,46 +166,23 @@ func _title(text: String,width: float) -> void:
 func _levels() -> void:
 	_title("Выберите уровень",710)
 	_label("КОМПАНИЯ",Rect2(1260,48,300,40),25)
-	for index in 3:
-		var id: String = ["prologue","prologue_v2","hub"][index]
-		var card := _button(id,"",Rect2(250,190+index*195,1100,170),func(): select_level(id),selected_level == id)
-		_label(["Пролог","Пролог ver2","Хаб"][index],Rect2(35,24,1000,58),40,card)
-		_label(["Первоначальный уровень","Новый лесной маршрут · окружение по блокингу","Безопасное убежище · блокинг"][index],Rect2(38,100,1000,40),25,card,Color("bdb29e"))
+	for index in 4:
+		var id: String = ["prologue","prologue_v2","hub","terra"][index]
+		var card := _button(id,"",Rect2(250,175+index*150,1100,135),func(): select_level(id),selected_level == id)
+		_label(["Пролог","Пролог ver2","Хаб","Полигон-Терра"][index],Rect2(35,24,1000,58),40,card)
+		_label(["Первоначальный уровень","Новый лесной маршрут · окружение по блокингу","Безопасное убежище · блокинг","Разрушаемый грунт · без текстур"][index],Rect2(38,100,1000,40),25,card,Color("bdb29e"))
 	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("main"))
 
 func select_level(id: String) -> void:
-	if id not in ["prologue","prologue_v2","hub"]: return
+	if id not in ["prologue","prologue_v2","hub","terra"]: return
 	selected_level = id
 	begin_selection(true)
 
 func _mode_caption() -> String:
 	if selected_mode == "polygon": return "ПОЛИГОН"
+	if selected_level == "terra": return "ПОЛИГОН-ТЕРРА"
 	if selected_level == "hub": return "ХАБ"
 	return "ПРОЛОГ VER2" if selected_level == "prologue_v2" else "ПРОЛОГ · I"
-
-func _characters() -> void:
-	_title("Выберите персонажа",710)
-	_label(_mode_caption(),Rect2(1260,48,300,40),25)
-	for index in 2:
-		var character: Dictionary = CATALOG.CHARACTERS[index]
-		var x := 200.0+index*650
-		var portrait := _picture(ART.portrait(character.id),Rect2(x-100,98,650,720))
-		portrait.modulate = Color.WHITE if selected_character == character.id else Color(.77,.77,.77)
-		var selected: bool = selected_character == character.id
-		var card := _button(character.id,"",Rect2(x-35,570,490,212),func(): select_character(character.id),selected)
-		_label("✠  "+character.name,Rect2(22,22,446,44),36,card)
-		_label(character.role,Rect2(61,70,410,28),17,card,Color("bdb29e"))
-		for i in 3:
-			var icon: String = ["⊕","Ⅲ","✚"][i]
-			_label(icon,Rect2(60+i*140,99,70,43),34,card)
-			_label(["ВЫЖИВАЕМОСТЬ","ОГНЕВАЯ МОЩЬ","ПОДДЕРЖКА"][i],Rect2(21+i*150,154,154,28),12,card,Color("bdb29e"))
-	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("levels" if selected_mode == "campaign" else "main"))
-	_button("choose","Выбрать  ›",Rect2(1310,820,250,58),func(): show_page("weapons"),true)
-
-func select_character(id: String) -> void:
-	if id not in ["harry","sofia"]: return
-	selected_character = id
-	show_page("characters")
 
 func select_weapon(id: String) -> void:
 	selected_weapon = CATALOG.WEAPONS[CATALOG.index_for(id)].id
@@ -216,7 +191,6 @@ func select_weapon(id: String) -> void:
 func _weapons() -> void:
 	_title("Настройка и выбор оружия",1000)
 	_label(_mode_caption(),Rect2(1260,48,300,40),25)
-	_picture(ART.portrait(selected_character),Rect2(-80,115,760,765))
 	_panel(Rect2(610,119,950,685))
 	_label("Выбор оружия",Rect2(640,125,880,57),38)
 	for index in 4:
@@ -250,12 +224,12 @@ func _weapons() -> void:
 	var rows := ["Прицел                         Стандартный прицел","Точность                       Стандартная","Контроль отдачи           Стандартный","Скорость прицеливания   Стандартная","Боезапас                       Магазин (%d)" % int(data.values.magazine_capacity)]
 	for index in rows.size():
 		_label(rows[index],Rect2(657,651+index*26,850,27),19,null,Color("8c877e"))
-	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("characters"))
+	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("levels" if selected_mode == "campaign" else "main"))
 	_button("apply","Применить  ›",Rect2(1270,820,290,58),func(): launch(selected_mode == "campaign"),true)
 
 func begin_selection(campaign: bool) -> void:
 	selected_mode = "campaign" if campaign else "polygon"
-	show_page("characters")
+	show_page("weapons")
 
 func launch(campaign: bool) -> void:
 	if busy or is_instance_valid(game): return
@@ -263,6 +237,7 @@ func launch(campaign: bool) -> void:
 	stage.hide()
 	var scene_path := "res://scenes/main.tscn"
 	if campaign: scene_path = "res://scenes/campaign/prologue_v2.tscn" if selected_level == "prologue_v2" else "res://scenes/campaign/prologue.tscn"
+	if campaign and selected_level == "terra": scene_path = "res://scenes/campaign/terra.tscn"
 	if campaign and selected_level == "hub": scene_path = "res://scenes/campaign/hub.tscn"
 	game = load(scene_path).instantiate()
 	game.return_to_menu_requested.connect(return_to_menu)
@@ -270,8 +245,7 @@ func launch(campaign: bool) -> void:
 	if not test_settings_directory.is_empty():
 		for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:
 			game.set(entry[0],test_settings_directory.path_join(entry[1]))
-	game.get_node("World/Player").character_id = selected_character
-	game.get_node("World/Player").sofia_cel_variant = selected_character == "sofia"
+	game.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	add_child(game)
 	CATALOG.equip(game.player.weapon,selected_weapon)
 	game.shooting_overlay.defaults.apply_values(CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].values)
@@ -287,8 +261,7 @@ func launch(campaign: bool) -> void:
 	back.focus_mode = Control.FOCUS_NONE
 	back.pressed.connect(return_to_menu)
 	game_bar.add_child(back)
-	var character_name: String = "Гарри" if selected_character == "harry" else "София Шоль"
-	_label((_mode_caption() if campaign else "ПОЛИГОН")+"   /   "+character_name+"   /   "+CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].name,Rect2(30,152,1200,43),25,game_bar)
+	_label((_mode_caption() if campaign else "ПОЛИГОН")+"   /   "+CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].name,Rect2(30,152,1200,43),25,game_bar)
 	page = "game"
 	busy = false
 
@@ -310,7 +283,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_instance_valid(game): return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and page != "main":
-			show_page("characters" if page == "weapons" else "levels" if page == "characters" and selected_mode == "campaign" else "main")
+			show_page("levels" if page == "weapons" and selected_mode == "campaign" else "main")
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_F11:
 			display_options.toggle_fullscreen()

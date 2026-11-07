@@ -3,7 +3,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/vertical-aim-%d" % OS.get_process_id()
+var directory := OS.get_environment("TEMP").path_join("vertical-aim-%d" % OS.get_process_id()) if OS.get_name()=="Windows" else "/private/tmp/vertical-aim-%d" % OS.get_process_id()
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1

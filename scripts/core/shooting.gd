@@ -8,6 +8,10 @@ var equipped_weapon_id := ""
 var camera_settings: CoreCameraSettings = CoreCameraSettings.new()
 var player: CoreMovementPlayer
 var input_blocker: Callable
+var shovel: Node2D
+
+func shovel_selected() -> bool:
+	return is_instance_valid(shovel) and shovel.selected
 var aiming := false
 var firing := false
 var movement_multiplier := 1.0
@@ -39,6 +43,7 @@ var last_shot_direction := Vector2.RIGHT
 var last_shot_spread := 0.0
 var rng := RandomNumberGenerator.new()
 var flash_left := 0.0
+var assault_flash = preload("res://scripts/core/assault_muzzle_flash.gd").new()
 var hit_marker_left := 0.0
 var effects: Array[Dictionary] = []
 var shot_audio: AudioStreamPlayer
@@ -57,6 +62,12 @@ var recoil_idle_time := 1000.0
 var recoil_rng := RandomNumberGenerator.new()
 var kill_marker_left := 0.0
 var cosmetic_rng := RandomNumberGenerator.new()
+var casing_audio = preload("res://scripts/core/casing_audio.gd").new()
+var casing_motion = preload("res://scripts/core/weapon_casing.gd").new()
+var casing_pool = preload("res://scripts/core/casing_pool.gd").new()
+var muzzle_smoke = preload("res://scripts/core/muzzle_smoke.gd").new()
+var impact_rng := RandomNumberGenerator.new()
+var tracer_rng := RandomNumberGenerator.new()
 var trigger_held := false
 var trigger_needs_release := false
 var last_fire_mode := CoreShootingSettings.FireMode.AUTO
@@ -72,9 +83,30 @@ var reload_duration_active := 2.4
 var reload_facing := 1.0
 var reload_start_direction := Vector2.RIGHT
 var reload_cues := 0
-var old_magazine_dropped := false
+var empty_magazine_detached := false
 var reloads_completed := 0
 var reload_audio: AudioStreamPlayer
+const STG_SHOTS := [
+	preload("res://resources/audio/weapons/stg_01.wav"),
+	preload("res://resources/audio/weapons/stg_02.wav"),
+	preload("res://resources/audio/weapons/stg_03.wav"),
+	preload("res://resources/audio/weapons/stg_04.wav"),
+	preload("res://resources/audio/weapons/stg_05.wav"),
+	preload("res://resources/audio/weapons/stg_06.wav"),
+	preload("res://resources/audio/weapons/stg_07.wav"),
+	preload("res://resources/audio/weapons/stg_08.wav"),
+]
+const MP40_SHOT = preload("res://resources/audio/weapons/mp40.wav")
+const PISTOL_SHOT = preload("res://resources/audio/weapons/m1911.wav")
+const STG_LAST = preload("res://resources/audio/weapons/stg_last.wav")
+const STG_RELOAD := {
+	"reload_out": preload("res://resources/audio/weapons/stg_reload_out.wav"),
+	"reload_in": preload("res://resources/audio/weapons/stg_reload_in.wav"),
+	"reload_bolt": preload("res://resources/audio/weapons/stg_reload_bolt.wav"),
+}
+var shot_sound_weapon_id := ""
+var procedural_shot: AudioStream
+var procedural_empty: AudioStream
 var reload_sounds: Dictionary = {}
 var dry_clicks := 0
 var _visual_pose_key: int = 0
@@ -88,19 +120,37 @@ func muzzle_distance() -> float:
 	var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
 	return data.length*(1.0-data.grip)
 
+func muzzle_position() -> Vector2:
+	# One physical outlet shared by projectiles and the HUD cone. The flash
+	# landmarks describe the drawn barrel even when the flash is disabled.
+	if player.body and assault_flash.supports(equipped_weapon_id):
+		var pose := visual_pose()
+		var outlet: Vector2 = assault_flash.muzzle_offset(player)
+		return player.to_global(pose.breech+pose.direction*outlet.x+pose.normal*outlet.y)
+	return pivot()+aim_direction*muzzle_distance()*player.body_scale
+
 func _ready() -> void:
+	casing_pool.weapon = self
+	add_child(casing_pool)
 	aim_beam = preload("res://scripts/core/aim_beam.gd").new()
 	aim_beam.weapon = self
 	add_child(aim_beam)
 	player = get_parent() as CoreMovementPlayer
+	add_to_group("explosion_observers")
+	add_to_group("terrain_drop_observers")
 	rng.randomize()
 	recoil_rng.randomize()
 	z_index = 5
 	cosmetic_rng.randomize()
+	impact_rng.randomize()
+	tracer_rng.randomize()
+	muzzle_smoke.rng.randomize()
 	shot_audio = _audio_player("shot",6)
 	hit_audio = _audio_player("hit",4)
 	kill_audio = _audio_player("kill",2)
 	magazine_empty_audio = _audio_player("magazine_empty",1)
+	procedural_shot = shot_audio.stream
+	procedural_empty = magazine_empty_audio.stream
 	reload_audio = _audio_player("reload_out",1)
 	for kind in ["reload_out","reload_in","reload_bolt","dry"]: reload_sounds[kind] = CoreCombatAudio.make_stream(kind)
 
@@ -150,8 +200,14 @@ func reset_state() -> void:
 	override_input_sample = Vector2.INF
 	kill_marker_left = 0
 	flash_left = 0
+	assault_flash.clear()
+	muzzle_smoke.clear()
 	hit_marker_left = 0
-	effects.clear()
+	if casing_pool.is_inside_tree():
+		casing_pool.sync(effects)
+		for effect in casing_pool.temporary.duplicate(): casing_pool.remove_temporary(effect)
+	else:
+		effects = effects.filter(func(effect: Dictionary) -> bool: return effect.kind == "casing")
 	if shot_audio: shot_audio.stop()
 	if hit_audio: hit_audio.stop()
 	if kill_audio: kill_audio.stop()
@@ -159,6 +215,8 @@ func reset_state() -> void:
 
 func capacity() -> int: return clampi(tuning.magazine_capacity,1,150)
 func apply_tuning(update_aim := true) -> void:
+	if assault_flash.weapon_id != equipped_weapon_id or not assault_flash.enabled(tuning,equipped_weapon_id) or not tuning.weapon_enabled:
+		assault_flash.clear()
 	ads_bloom = clampf(ads_bloom,0,maxf(0,tuning.ads_max_spread-tuning.ads_spread))
 	if not tuning.movement_spread_enabled: movement_spread = 0
 	else: movement_spread = minf(movement_spread,maxf(tuning.movement_spread_forward,tuning.movement_spread_backward))
@@ -178,7 +236,7 @@ func apply_tuning(update_aim := true) -> void:
 	_clamp_aim_recoil()
 	if not tuning.sound_enabled:
 		for audio in [shot_audio,hit_audio,kill_audio,reload_audio,magazine_empty_audio]:
-			if is_instance_valid(audio): audio.stop()
+			if is_instance_valid(audio) and audio.playing: audio.stop()
 	# Changing capacity never creates or discards rounds mid-test.
 	if magazine_ammo > capacity():
 		reserve_ammo += magazine_ammo-capacity()
@@ -191,11 +249,13 @@ func apply_tuning(update_aim := true) -> void:
 
 func refill_ammunition() -> void:
 	cancel_reload()
+	empty_magazine_detached = false
 	magazine_ammo = capacity()
 	reserve_ammo = clampi(tuning.starting_reserve,0,1000)
 	queue_redraw()
 
 func request_reload() -> bool:
+	if shovel_selected(): return false
 	apply_tuning()
 	if not tuning.weapon_enabled or not tuning.magazine_enabled: return false
 	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or reloading or player.pushing or player.barrel_knockdown_left > 0 or get_tree().paused or player.health <= 0 or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0 or magazine_ammo >= capacity() or reserve_ammo <= 0: return false
@@ -206,7 +266,6 @@ func request_reload() -> bool:
 	reload_duration_active = clampf(tuning.reload_duration,.5,6)
 	reload_left = reload_duration_active
 	reload_cues = 0
-	old_magazine_dropped = false
 	firing = false
 	aiming = false
 	queued_single_press = false
@@ -228,7 +287,7 @@ func reload_progress() -> float:
 
 func _play_reload_sound(kind: String) -> void:
 	if not tuning.sound_enabled: return
-	reload_audio.stream = reload_sounds[kind]
+	reload_audio.stream = STG_RELOAD.get(kind, reload_sounds[kind]) if equipped_weapon_id == "stg44" else reload_sounds[kind]
 	reload_audio.volume_db = tuning.reload_volume
 	reload_audio.play()
 
@@ -243,15 +302,16 @@ func _tick_reload(delta: float) -> void:
 		if progress >= [.17,.70,.84][index] and reload_cues <= index:
 			_play_reload_sound(["reload_out","reload_in","reload_bolt"][index])
 			reload_cues = index+1
-	if progress >= .42 and not old_magazine_dropped:
-		old_magazine_dropped = true
-		var pose := _reload_pose(.40)
-		effects.append({"kind":"magazine","point":player.to_global(pose.magazine_point),"target":false,"velocity":Vector2(-reload_facing*55,35),"rotation":0.0,"life":2.0})
+	if progress >= .42 and magazine_ammo == 0 and not empty_magazine_detached:
+		var pose := _reload_pose(.42)
+		_drop_magazine(pose)
+		empty_magazine_detached = true
 	if reload_left <= 0:
 		# Commit exactly once, only after the weapon is ready. Partial reloads
 		# retain remaining rounds; interruptions cannot duplicate ammunition.
 		var transferred := mini(capacity()-magazine_ammo,reserve_ammo)
 		magazine_ammo += transferred
+		empty_magazine_detached = false
 		reserve_ammo -= transferred
 		reloading = false
 		reloads_completed += 1
@@ -280,12 +340,12 @@ func _tick_movement_spread(delta: float) -> void:
 	movement_spread = target if response <= 0 else lerpf(movement_spread,target,1-exp(-delta/response))
 	if absf(movement_spread-target) < .001: movement_spread = target
 func pivot() -> Vector2:
-	if player.body and not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+	if player.body and not equipped_weapon_id.is_empty():
 		return player.to_global(visual_pose().breech)
 	return player.to_global(local_pivot())
 func local_pivot() -> Vector2:
 	if not player.body: return HIP_PIVOT
-	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+	if not equipped_weapon_id.is_empty():
 		return preload("res://scripts/campaign/weapon_mount.gd").mounted_pivot(player,aim_direction,smoothstep(0,1,ads_blend))
 	var hip := Vector2(0,-player.collision_height()/3.0) if player.crouching else HIP_PIVOT
 	# Mount the stock at the shoulder; the baked head leans down to the sights.
@@ -310,13 +370,11 @@ func update_state(delta: float,input_allowed: bool) -> void:
 	sway_clock += delta
 	cooldown = cooldown-delta if firing else maxf(0,cooldown-delta)
 	flash_left = maxf(0,flash_left-delta)
+	assault_flash.tick(delta)
 	hit_marker_left = maxf(0,hit_marker_left-delta)
 	kill_marker_left = maxf(0,kill_marker_left-delta)
-	for effect in effects:
-		effect.life -= delta
-		if effect.get("kind","") in ["casing","magazine"]: _tick_casing(effect,delta)
-	effects = effects.filter(func(effect: Dictionary) -> bool: return effect.life > 0)
-	var blocked := (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or not tuning.weapon_enabled or not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.pushing or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0
+	casing_pool.tick(delta)
+	var blocked := shovel_selected() or (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active) or not tuning.weapon_enabled or not input_allowed or (input_blocker.is_valid() and bool(input_blocker.call())) or player.pushing or player.climbing or player.parkour_active() or player.dash_left > 0 or player.slide_left > 0
 	var trigger := tuning.weapon_enabled and Input.is_action_pressed("core_fire")
 	if tuning.fire_mode != last_fire_mode:
 		trigger_needs_release = trigger and trigger_held
@@ -342,19 +400,109 @@ func update_state(delta: float,input_allowed: bool) -> void:
 		cooldown = clampf(cooldown,0,60.0/tuning.rounds_per_minute)
 	movement_multiplier = player.grenades.tuning.grenade_move_multiplier if player.grenades and player.grenades.busy() and player.grenades.tuning else tuning.reload_move_multiplier if reloading else tuning.ads_move_multiplier if aiming else lerpf(1,tuning.hip_move_multiplier,minf(1,burst_time/tuning.hip_slow_ramp))
 	_update_aim()
+	muzzle_smoke.tick(self,delta)
 	queue_redraw()
 
-func _tick_casing(effect: Dictionary,delta: float) -> void:
-	var before: Vector2 = effect.point
-	effect.velocity += Vector2(0,750*delta)
-	var after: Vector2 = before+effect.velocity*delta
-	var query := PhysicsRayQueryParameters2D.create(before,after,1|8)
-	var hit := get_world_2d().direct_space_state.intersect_ray(query)
-	if hit.is_empty(): effect.point = after
-	else:
-		effect.point = hit.position+hit.normal*2
-		effect.velocity = (effect.velocity as Vector2).bounce(hit.normal)*.30
-	effect.rotation += delta*10
+func _drop_magazine(pose: Dictionary) -> void:
+	var catalog = preload("res://scripts/campaign/catalog.gd")
+	var drop := RigidBody2D.new()
+	drop.top_level = true
+	drop.collision_layer = 0
+	drop.collision_mask = 1 | 8
+	drop.angular_damp = 2.8
+	drop.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
+	drop.physics_material_override = PhysicsMaterial.new()
+	drop.physics_material_override.friction = .85
+	drop.physics_material_override.bounce = cosmetic_rng.randf_range(0.06, 0.22)
+	drop.max_contacts_reported = 1
+	drop.contact_monitor = true
+	var art_scale := player.global_scale.abs()
+	var shape := ConvexPolygonShape2D.new()
+	var points: PackedVector2Array = catalog.magazine_shape(equipped_weapon_id)
+	for index in points.size():
+		points[index] *= art_scale * Vector2(1, reload_facing)
+	shape.points = points
+	var collider := CollisionShape2D.new()
+	collider.shape = shape
+	drop.add_child(collider)
+	var visual := Node2D.new()
+	visual.scale = art_scale * Vector2(1, reload_facing)
+	var weapon_id := equipped_weapon_id
+	visual.draw.connect(func() -> void:
+		if weapon_id.is_empty():
+			_draw_magazine(visual, Vector2.ZERO, Vector2.DOWN)
+		else:
+			catalog.draw_magazine(visual, weapon_id, Vector2.ZERO, Vector2.RIGHT, Vector2.DOWN)
+	)
+	drop.add_child(visual)
+	var roll_variant := cosmetic_rng.randi_range(0, 2)
+	var roll_direction := -1.0 if cosmetic_rng.randf() < 0.5 else 1.0
+	var keep_side_profile := cosmetic_rng.randf() < 0.08
+	drop.body_entered.connect(func(_surface: Node) -> void:
+		drop.angular_damp = 5.5
+		drop.set_deferred("contact_monitor", false)
+		if not weapon_id.is_empty() and not keep_side_profile:
+			_turn_dropped_magazine.call_deferred(drop, visual, weapon_id, roll_variant, roll_direction)
+	, CONNECT_ONE_SHOT)
+	drop.set_meta("dropped_magazine", true)
+	drop.set_meta("support_radius", shape.get_rect().size.length() * .5 + 2.0)
+	drop.position = player.to_global(pose.magazine_point)
+	drop.rotation = (pose.direction as Vector2).angle() + cosmetic_rng.randf_range(-0.16, 0.16)
+	drop.linear_velocity = Vector2(-reload_facing * cosmetic_rng.randf_range(43.0, 65.0), cosmetic_rng.randf_range(28.0, 42.0))
+	drop.angular_velocity = cosmetic_rng.randf_range(2.8, 7.2) * (-1.0 if cosmetic_rng.randf() < 0.5 else 1.0)
+	add_child(drop)
+
+func _turn_dropped_magazine(drop: RigidBody2D, visual: Node2D, id: String, variant: int, direction: float) -> void:
+	if not is_instance_valid(drop) or drop.is_queued_for_deletion(): return
+	var shell := preload("res://scripts/campaign/catalog.gd").magazine_shell(id)
+	var turn := preload("res://scripts/core/magazine_turn_visual.gd").new()
+	turn.scale = visual.scale
+	turn.configure(shell.points, shell.texture, shell.uv, variant, direction, id)
+	drop.add_child(turn)
+	visual.hide()
+	turn.start()
+
+func on_terrain_collision_changed(bounds: Rect2, world: World2D) -> void:
+	if world != get_world_2d():
+		return
+	casing_pool.sync(effects)
+	casing_pool.wake_area(bounds.grow(casing_pool.wake_margin),true)
+	for child in get_children():
+		if child is RigidBody2D and child.sleeping and child.has_meta("dropped_magazine"):
+			if bounds.grow(child.get_meta("support_radius")).has_point(child.global_position):
+				child.sleeping = false
+
+func on_terrain_collision_replaced(previous: Array, replacements: Array, world: World2D) -> void:
+	if world == get_world_2d():
+		casing_pool.sync(effects)
+		casing_pool.replace_supports(previous,replacements)
+
+func on_explosion(epicenter: Vector2, profile: CoreExplosionSettings, blast: CoreExplosion) -> void:
+	if blast.get_world_2d() != get_world_2d() or profile.explosion_impulse <= 0.0:
+		return
+	var speed := minf(profile.explosion_prop_speed_limit, profile.explosion_impulse * .25)
+	for child in get_children():
+		if child is RigidBody2D and child.has_meta("dropped_magazine") and not child.is_queued_for_deletion():
+			var kick := _drop_blast_kick(child.global_position - epicenter, blast, speed)
+			if not kick.is_zero_approx():
+				child.sleeping = false
+				child.linear_velocity += kick
+	casing_pool.sync(effects)
+	casing_pool.blast(epicenter,profile,blast,speed*.75)
+
+func _drop_blast_kick(offset: Vector2, blast: CoreExplosion, speed: float) -> Vector2:
+	var weight := blast.strength_at(offset.length())
+	if weight <= 0.0:
+		return Vector2.ZERO
+	var direction := offset.normalized()
+	direction.y = minf(direction.y, -.35)
+	return direction.normalized() * speed * weight
+
+func clear_dropped_magazines() -> void:
+	for child in get_children():
+		if child.has_meta("dropped_magazine"):
+			child.queue_free()
+
 func cursor_point() -> Vector2:
 	if aim_override != Vector2.INF:
 		if override_input_sample == Vector2.INF:
@@ -419,13 +567,13 @@ func _update_aim() -> void:
 		target = aim_cursor._bounded_point(target)
 	aim_point = target
 	var previous_facing := player.facing
-	var solution_key := hash([target,player.global_position,player.body_scale,player.facing,_pose_inputs(),aim_facing]) if not equipped_weapon_id.is_empty() and not player.character_id.is_empty() else 0
+	var solution_key := hash([target,player.global_position,player.body_scale,player.facing,_pose_inputs(),aim_facing]) if not equipped_weapon_id.is_empty() else 0
 	if solution_key != 0 and solution_key == _aim_solution_key and aim_direction == _solved_direction:
 		if aiming or firing: player.facing = look_facing()
 		return
 	var offset := target-pivot()
 	aim_direction = offset.normalized() if offset.length_squared() > 1 else Vector2(player.facing,0)
-	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty():
+	if not equipped_weapon_id.is_empty():
 		# Moving the rigid mount changes the aiming origin. Solve that origin
 		# together with the bearing so the projectile exits the drawn barrel.
 		for iteration in 4:
@@ -469,6 +617,7 @@ func finish_tick() -> void:
 		# A small remainder is carried by update_state while held below.
 	queue_redraw()
 func _fire() -> void:
+	if shovel_selected(): return
 	if player.crouching and requires_standing_for_down_aim(): return
 	if (player.grenades and player.grenades.busy()) or (player.blast_ragdoll and player.blast_ragdoll.active): return
 	if player.parkour_active() or player.pushing or player.barrel_knockdown_left > 0 or not tuning.weapon_enabled or (not aiming and not tuning.hip_enabled) or reloading or (tuning.magazine_enabled and magazine_ammo <= 0) or player.health <= 0: return
@@ -476,7 +625,7 @@ func _fire() -> void:
 	if tuning.magazine_enabled: magazine_ammo -= 1
 	last_shot_spread = spread_degrees()
 	last_shot_direction = aim_direction.rotated(deg_to_rad(rng.randf_range(-last_shot_spread,last_shot_spread))) if last_shot_spread > 0 else aim_direction
-	var muzzle := pivot()+aim_direction*muzzle_distance()*player.body_scale
+	var muzzle := muzzle_position()
 	var query := PhysicsRayQueryParameters2D.create(pivot(),muzzle,CoreProjectile.BULLET_MASK,[player.get_rid()])
 	query.collide_with_areas = true
 	query.hit_from_inside = true
@@ -485,13 +634,16 @@ func _fire() -> void:
 		for field in get_tree().get_nodes_in_group("fuel_fields"):
 			field.ignite_segment(pivot(),hit.position if not hit.is_empty() else muzzle,player)
 	if not hit.is_empty():
-		CoreProjectile.resolve_impact(hit,tuning.damage,last_shot_direction,_on_impact,pivot(),tuning.damage_enabled,player)
+		CoreProjectile.resolve_impact(hit,tuning.damage,last_shot_direction,_on_impact,pivot(),tuning.damage_enabled,player,preload("res://scripts/campaign/catalog.gd").terrain_ballistics(equipped_weapon_id))
 	else:
 		var bullet := CoreProjectile.new()
 		bullet.direction = last_shot_direction
 		bullet.speed = tuning.bullet_speed
 		bullet.damage = tuning.damage
+		bullet.terrain_ballistics=preload("res://scripts/campaign/catalog.gd").terrain_ballistics(equipped_weapon_id)
 		bullet.damage_settings = tuning
+		bullet.visual_weapon_id=equipped_weapon_id
+		bullet.tracer_seed=tracer_rng.randi()
 		bullet.shooter = player.get_rid()
 		bullet.instigator = player
 		# Remember where the shot started, rather than tracking a hidden shooter.
@@ -501,12 +653,21 @@ func _fire() -> void:
 		bullet.global_position = muzzle
 		bullet.add_to_group("core_projectiles")
 	shots_fired += 1
+	muzzle_smoke.shot(self,muzzle,hit.is_empty())
 	flash_left = .045
+	if assault_flash.supports(equipped_weapon_id): assault_flash.start(tuning,equipped_weapon_id)
 	if tuning.recoil_enabled:
 		_apply_shot_recoil()
 		var camera_scale := tuning.ads_recoil_camera_multiplier if aiming else 1.0
 		camera_impulse.emit(aim_direction,tuning.camera_kick*camera_scale,tuning.camera_shake*camera_scale)
-	effects.append({"kind":"casing","point":pivot()-aim_direction*3,"target":false,"velocity":Vector2(-player.facing*cosmetic_rng.randf_range(45,95),-cosmetic_rng.randf_range(80,140)),"rotation":0.0,"life":.65})
+	var case_size := preload("res://scripts/campaign/catalog.gd").casing_mm(equipped_weapon_id)*CoreWorldUnits.units(.001)*player.character_scale()
+	var outlet := pivot()
+	if player.body and not equipped_weapon_id.is_empty():
+		var gun_pose := visual_pose()
+		var receiver_offset: float = {"stg44":5.0,"mp40":4.0,"m1911":1.8,"svt":5.0}.get(equipped_weapon_id,4.0)
+		outlet = player.to_global(gun_pose.breech + gun_pose.direction * receiver_offset - gun_pose.normal * 0.8)
+	effects.append(casing_motion.spawn(outlet,aim_direction,case_size,equipped_weapon_id,cosmetic_rng))
+	casing_pool.sync(effects)
 	if aiming:
 		if tuning.ads_spread_enabled: ads_bloom = minf(tuning.ads_max_spread-tuning.ads_spread,ads_bloom+tuning.ads_spread_per_shot)
 	else: bloom = minf(tuning.hip_max_spread-tuning.hip_spread,bloom+tuning.spread_per_shot)
@@ -623,18 +784,51 @@ func shot_sound_profile(rounds_before: int) -> Dictionary:
 		pitch = lerpf(1,tuning.low_ammo_pitch,.25+.75*progress)
 	return {"low":low,"pitch":pitch,"last":rounds_before == 1}
 
+func _update_shot_stream() -> void:
+	if shot_sound_weapon_id == equipped_weapon_id:
+		return
+	shot_sound_weapon_id = equipped_weapon_id
+	var samples: Array
+	match equipped_weapon_id:
+		"stg44": samples = STG_SHOTS
+		"mp40": samples = [MP40_SHOT]
+		"m1911": samples = [PISTOL_SHOT]
+		_:
+			shot_audio.stream = procedural_shot
+			return
+	var stream := AudioStreamRandomizer.new()
+	stream.playback_mode = AudioStreamRandomizer.PLAYBACK_RANDOM_NO_REPEATS
+	stream.random_volume_offset_db = .75
+	for sample in samples:
+		stream.add_stream(-1, sample)
+	shot_audio.stream = stream
+
 func _play_shot_sound(rounds_before: int) -> void:
 	last_shot_sound_profile = shot_sound_profile(rounds_before)
 	if not tuning.sound_enabled: return
 	shot_audio.volume_db = tuning.shot_volume
 	shot_audio.pitch_scale = last_shot_sound_profile.pitch*cosmetic_rng.randf_range(.98 if last_shot_sound_profile.low else .96,1.02 if last_shot_sound_profile.low else 1.04)
-	shot_audio.play()
-	if last_shot_sound_profile.last and tuning.last_shot_accent > 0:
+	_update_shot_stream()
+	var last_accent: bool = last_shot_sound_profile.last and tuning.last_shot_accent > 0
+	var stg_final := last_accent and equipped_weapon_id == "stg44"
+	if not stg_final:
+		shot_audio.play()
+	if last_accent and equipped_weapon_id != "mp40":
+		var accent_stream: AudioStream = STG_LAST if stg_final else procedural_empty
+		if magazine_empty_audio.stream != accent_stream:
+			magazine_empty_audio.stream = accent_stream
 		magazine_empty_audio.volume_db = tuning.shot_volume+linear_to_db(tuning.last_shot_accent)
 		magazine_empty_audio.play()
 		empty_sounds_played += 1
 func _on_impact(point: Vector2,target_hit: bool,killed := false,direction := Vector2.RIGHT) -> void:
-	effects.append({"kind":"impact","point":point,"life":.30 if killed else .15,"duration":.30 if killed else .15,"target":target_hit,"killed":killed})
+	if target_hit:
+		if tuning.enemy_impact_enabled:
+			var impact = preload("res://scripts/core/enemy_impact.gd")
+			casing_pool.sync(effects)
+			var bursts: Array = casing_pool.temporary.filter(func(e: Dictionary) -> bool: return e.get("kind","") == "enemy_impact")
+			if bursts.size() >= impact.MAX_BURSTS: casing_pool.remove_temporary(bursts[0])
+			effects.append(impact.create(point,direction,tuning,impact_rng))
+			casing_pool.sync(effects)
 	if target_hit:
 		hits += 1
 		hit_marker_left = .14
@@ -656,14 +850,14 @@ func _on_impact(point: Vector2,target_hit: bool,killed := false,direction := Vec
 	queue_redraw()
 func _pose_inputs() -> Array:
 	var anchors := player.body.weapon_mount_points()
-	return [equipped_weapon_id,player.character_id,player.uses_painted_cels(),player.body.facing,
+	return [equipped_weapon_id,player.body.facing,
 		player.body.shoulder("near"),player.body.shoulder("far"),anchors,player.body.uses_down_aim_pose(),ads_blend,recoil_back,
 		player.sprint_pose_active(),player.sprint_dash_pose_active(),player.slide_left > 0,
 		player.barrel_knockdown_left > 0,reloading,reload_progress(),reload_facing,reload_start_direction,player.collision_height(),
 		player.crouching and requires_standing_for_down_aim()]
 
 func visual_pose() -> Dictionary:
-	if equipped_weapon_id.is_empty() or player.character_id.is_empty(): return _calculate_visual_pose()
+	if equipped_weapon_id.is_empty(): return _calculate_visual_pose()
 	# Arms, muzzle queries and three draw layers request the same pose repeatedly.
 	# Key actual geometry/state rather than a frame number: paused developer edits,
 	# same-tick recoil and anatomy changes must immediately invalidate the result.
@@ -692,8 +886,7 @@ func _calculate_visual_pose() -> Dictionary:
 		var data: Dictionary = catalog.WEAPONS[catalog.index_for(equipped_weapon_id)]
 		result.rear_grip = breech+visual_direction*catalog.rear_grip(data).x+normal*catalog.rear_grip(data).y
 		result.front_grip = breech+visual_direction*catalog.front_grip(data).x+normal*catalog.front_grip(data).y
-		if not player.character_id.is_empty(): result = preload("res://scripts/campaign/weapon_mount.gd").fit(player,result)
-	return result
+	return preload("res://scripts/campaign/weapon_mount.gd").fit(player,result)
 
 func _reload_pose(progress: float) -> Dictionary:
 	# Lift the muzzle clear of the manipulating hand, with the stock held
@@ -718,26 +911,25 @@ func _reload_pose(progress: float) -> Dictionary:
 		var mag_local: Vector2 = catalog.magazine_local(data)
 		var rear_local: Vector2 = catalog.rear_grip(data)
 		var front_local: Vector2 = catalog.front_grip(data)
-		var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
-		if harry_stg.applies(player):
-			mag_local = catalog.magazine_local(harry_stg.art_data())
-			rear_local = harry_stg.rear_grip()
-			front_local = harry_stg.front_grip()
 		magazine_point = breech+direction*mag_local.x+normal*mag_local.y
 		front = breech+direction*front_local.x+normal*front_local.y
 		rear = breech+direction*rear_local.x+normal*rear_local.y
 		bolt = breech+direction*(2 if equipped_weapon_id == "m1911" else 6)-normal*1.5
 	var pouch := Vector2(-reload_facing*4,-player.collision_height()*.45)
 	var support := front
-	var magazine_visible := true
+	var magazine_visible := not empty_magazine_detached or progress >= .52
 	var bolt_offset := 0.0
 	if progress < .17: support = front.lerp(magazine_point+normal*2,smoothstep(0,.17,progress))
-	elif progress < .42:
+	elif progress <= .42:
 		magazine_point += (normal*13-direction*3)*smoothstep(.24,.42,progress)
 		support = magazine_point+normal*2
 	elif progress < .52:
 		magazine_visible = false
-		support = (breech+direction*7+normal*20).lerp(pouch,smoothstep(.42,.52,progress))
+		var extracted := magazine_point + normal*13-direction*3
+		var stow := smoothstep(.42,.52,progress)
+		magazine_point = extracted.lerp(pouch-normal*2,stow)
+		support = magazine_point+normal*2
+		magazine_visible = magazine_ammo > 0
 	elif progress < .70:
 		magazine_point = (pouch-normal*2).lerp(magazine_point,smoothstep(.52,.70,progress))
 		support = magazine_point+normal*2
@@ -748,8 +940,9 @@ func _reload_pose(progress: float) -> Dictionary:
 		support = bolt+direction*bolt_offset
 	else: support = bolt.lerp(front,smoothstep(.90,1,progress))
 	var result := {"breech":breech,"direction":direction,"normal":normal,"rear_grip":rear,"front_grip":support,"magazine_point":magazine_point,"magazine_visible":magazine_visible,"bolt_offset":bolt_offset}
-	if not equipped_weapon_id.is_empty() and not player.character_id.is_empty(): result = preload("res://scripts/campaign/weapon_mount.gd").fit(player,result,true)
-	return result
+	var fitted := preload("res://scripts/campaign/weapon_mount.gd").fit(player,result,true)
+	fitted.magazine_visible = magazine_visible
+	return fitted
 
 func _draw_magazine(canvas: Node2D,point: Vector2,normal: Vector2,color := Color("485961")) -> void:
 	canvas.draw_circle(point,4.6,Color("25323b",color.a))
@@ -761,12 +954,13 @@ func _draw_magazine(canvas: Node2D,point: Vector2,normal: Vector2,color := Color
 func draw_reload_magazine(canvas: Node2D) -> void:
 	if not reloading: return
 	var pose := visual_pose()
-	if pose.magazine_visible:
+	if pose.magazine_visible and (not empty_magazine_detached or reload_progress() >= .52):
 		if equipped_weapon_id.is_empty(): _draw_magazine(canvas,pose.magazine_point,pose.normal)
 		else: preload("res://scripts/campaign/catalog.gd").draw_magazine(canvas,equipped_weapon_id,pose.magazine_point,pose.direction,pose.normal)
 
 func draw_weapon(canvas: Node2D,layer := 0) -> void:
-	if layer < 0 and (equipped_weapon_id.is_empty() or player.character_id.is_empty()): return
+	if shovel_selected(): return
+	if layer < 0 and (equipped_weapon_id.is_empty()): return
 	var pose := visual_pose()
 	var breech: Vector2 = pose.breech
 	var visual_direction: Vector2 = pose.direction
@@ -789,15 +983,21 @@ func draw_weapon(canvas: Node2D,layer := 0) -> void:
 		canvas.draw_line(Vector2(-6,-48),Vector2(5,-27),Color("34434d"),2,true)
 	# During reload the drum has its own background layer. A fitted drum also
 	# sits behind the receiver, so insertion/completion never draws it on top.
-	draw_rifle(canvas,breech,visual_direction,normal,pose.get("bolt_offset",0.0),not reloading,layer if not player.character_id.is_empty() else 0)
-	if layer >= 0 and flash_left > 0 and not player.climbing:
-		var muzzle := breech+visual_direction*(muzzle_distance()+3)
-		canvas.draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
+	draw_rifle(canvas,breech,visual_direction,normal,pose.get("bolt_offset",0.0),not reloading and not empty_magazine_detached,layer if not equipped_weapon_id.is_empty() else 0)
+	if layer >= 0 and not player.climbing:
+		if assault_flash.supports(equipped_weapon_id):
+			if assault_flash.enabled(tuning,equipped_weapon_id) and tuning.weapon_enabled:
+				var key: String=assault_flash.prefix(equipped_weapon_id)
+				var pixel_scale: float=assault_flash.world_pixel_scale(equipped_weapon_id)*player.character_scale()/player.body_scale*float(tuning.get(key+"_size"))
+				var outlet: Vector2=assault_flash.muzzle_offset(player)
+				assault_flash.draw_on(canvas,breech+visual_direction*outlet.x+normal*outlet.y,visual_direction,normal,pixel_scale,float(tuning.get(key+"_opacity")))
+		elif flash_left > 0:
+			var muzzle := breech+visual_direction*(muzzle_distance()+3)
+			canvas.draw_colored_polygon(PackedVector2Array([muzzle-normal*5,muzzle+visual_direction*14,muzzle+normal*5]),Color("ffe5a0"))
 
 func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal: Vector2,bolt := 0.0,magazine := true,layer := 0) -> void:
 	if not equipped_weapon_id.is_empty():
-		var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
-		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal,layer,magazine,harry_stg.art_data() if harry_stg.applies(player) else {})
+		preload("res://scripts/campaign/catalog.gd").draw_weapon(canvas,equipped_weapon_id,breech,visual_direction,normal,layer,magazine)
 		return
 	# Shared silhouette for the equipped gun and the gun slung on a fallen hero.
 	if magazine:
@@ -810,6 +1010,7 @@ func draw_rifle(canvas: Node2D,breech: Vector2,visual_direction: Vector2,normal:
 	canvas.draw_line(breech+visual_direction*3,breech+visual_direction*3+normal*5,Color("34434d"),3,true)
 
 func draw_reticle(canvas: Node2D,projection: Transform2D) -> void:
+	if shovel_selected(): return
 	if tuning.aim_beam_enabled:
 		aim_beam.draw_on(canvas,projection*global_transform.affine_inverse())
 		return
@@ -833,24 +1034,13 @@ func draw_reticle(canvas: Node2D,projection: Transform2D) -> void:
 			canvas.draw_line(center+direction*5,center+direction*13,kill_color,3)
 		canvas.draw_arc(center,19+(1-kill_marker_left/.32)*10,0,TAU,32,kill_color,1.5)
 		canvas.draw_string(ThemeDB.fallback_font,center+Vector2(21,-19),"УБИТ",HORIZONTAL_ALIGNMENT_LEFT,-1,16,kill_color)
-	elif hit_marker_left > 0:
-		for direction in [Vector2(1,1),Vector2(-1,1),Vector2(1,-1),Vector2(-1,-1)]:
-			canvas.draw_line(center+direction*4,center+direction*8,Color("fff0bd"),2)
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw() -> void:
-	for effect in effects:
-		var point := to_local(effect.point)
-		if effect.get("kind","") == "magazine":
-			if equipped_weapon_id.is_empty(): _draw_magazine(self,point,Vector2.DOWN.rotated(effect.rotation),Color(.28,.35,.38,minf(1,effect.life/.3)))
-			else: preload("res://scripts/campaign/catalog.gd").draw_magazine(self,equipped_weapon_id,point,Vector2.RIGHT.rotated(effect.rotation),Vector2.DOWN.rotated(effect.rotation))
-			continue
-		if effect.get("kind","") == "casing":
-			var casing_direction := Vector2.RIGHT.rotated(effect.rotation)
-			draw_line(point-casing_direction*2,point+casing_direction*2,Color(1,.78,.38,minf(1,effect.life/.2)),2)
-			continue
-		var impact_color := Color("ed8e88") if effect.target else Color("f0c96a")
-		var particles := 11 if effect.killed else 7 if effect.target else 5
-		for i in particles:
-			var direction := Vector2.RIGHT.rotated(i*TAU/particles)
-			draw_line(point+direction*3,point+direction*(4+(1-effect.life/effect.duration)*(25 if effect.killed else 12)),impact_color,2)
+	muzzle_smoke.draw_on(self)
+	for effect in casing_pool.temporary:
+		if effect.get("kind","") == "enemy_impact" and tuning.enemy_impact_enabled:
+			preload("res://scripts/core/enemy_impact.gd").draw_on(self,effect)
+	if player.tuning.casing_smoke_enabled:
+		for id in casing_pool.active:
+			casing_motion.draw_smoke(self,casing_pool.records[id].effect,player.tuning)

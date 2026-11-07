@@ -23,6 +23,7 @@ var notice: Label
 var respawns := 0
 var movement_overlay: CoreMovementOverlay
 var health_overlay: CoreMovementOverlay
+var particle_overlay: CoreMovementOverlay
 var shooting_overlay: CoreMovementOverlay
 var camera_overlay: CoreMovementOverlay
 var camera_settings: CoreCameraSettings
@@ -169,7 +170,7 @@ func _ready() -> void:
 	movement_overlay.motion_player = player
 	movement_overlay.defaults = defaults
 	movement_overlay.settings_path = settings_path
-	movement_overlay.params = CoreMovementSettings.PARAMS.filter(func(param): return param[6] != "Здоровье")
+	movement_overlay.params = CoreMovementSettings.PARAMS.filter(func(param): return param[6] not in ["Здоровье","Частицы и эффекты"])
 	movement_overlay.groups = movement_overlay.groups.duplicate()
 	movement_overlay.groups.erase("Здоровье")
 	movement_overlay.hosted = true
@@ -188,12 +189,25 @@ func _ready() -> void:
 	health_overlay.settings_changed.connect(_player_settings_changed)
 	overlay_layer.add_child(health_overlay)
 	health_overlay.tabs.tabs_visible = false
+	particle_overlay = CoreMovementOverlay.new()
+	particle_overlay.settings = player.tuning
+	particle_overlay.defaults = defaults
+	particle_overlay.settings_path = settings_path
+	particle_overlay.profile_owner = movement_overlay
+	particle_overlay.groups = ["Частицы и эффекты"]
+	particle_overlay.params = CoreMovementSettings.PARAMS.filter(func(param): return param[6] == "Частицы и эффекты")
+	for entry in particle_overlay.params: particle_overlay.profile_keys.append(entry[0])
+	particle_overlay.profile_keys.append_array(["terra_visuals_enabled","grenade_sprites_enabled","casing_smoke_enabled","muzzle_smoke_enabled","muzzle_residual_enabled","sole_effects_enabled"])
+	particle_overlay.heading_text = "ВИЗУАЛ"
+	particle_overlay.help_text = "Размеры и прозрачность применяются к следующим попаданиям и взрывам."
+	particle_overlay.hosted = true
+	overlay_layer.add_child(particle_overlay)
 	shooting_overlay = CoreMovementOverlay.new()
 	shooting_overlay.settings = player.weapon.tuning
 	shooting_overlay.defaults = shooting_defaults
 	shooting_overlay.settings_path = shooting_settings_path
 	shooting_overlay.params = CoreShootingSettings.PARAMS
-	shooting_overlay.groups = ["Оружие","От бедра","Прицел","Отдача","Звук","Урон","Магазин","Разброс в движении"]
+	shooting_overlay.groups = ["Оружие","От бедра","Прицел","Отдача","Звук","Урон","Магазин","Разброс в движении","Импакт","Вспышка","Трассеры"]
 	shooting_overlay.heading_text = "НАСТРОЙКА СТРЕЛЬБЫ · F4"
 	shooting_overlay.hosted = true
 	overlay_layer.add_child(shooting_overlay)
@@ -333,6 +347,10 @@ func _ready() -> void:
 	for overlay in _ui_overlays():
 		overlay.export_requested.connect(_open_settings_dialog.bind(true))
 		overlay.import_requested.connect(_open_settings_dialog.bind(false))
+	var shovel := preload("res://scripts/core/trench_shovel.gd").new()
+	shovel.player = player
+	add_child(shovel)
+	player.weapon.shovel = shovel
 	developer_mode = CoreDeveloperMode.new()
 	developer_mode.lab = self
 	overlay_layer.add_child(developer_mode)
@@ -399,7 +417,7 @@ func _overlays() -> Array[CoreMovementOverlay]:
 
 func _ui_overlays() -> Array[CoreMovementOverlay]:
 	# Health is a separate view of the existing movement profile.
-	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay,fog_overlay]
+	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay,fog_overlay,particle_overlay]
 
 func _ragdoll_settings_changed() -> void:
 	player.grenades.tuning = ragdoll_settings
@@ -428,6 +446,8 @@ func on_explosion(point: Vector2,profile: CoreExplosionSettings,blast: CoreExplo
 		explosion_camera_shake = minf(30,explosion_camera_shake+profile.explosion_camera_strength*strength)
 
 func _reset_explosives() -> void:
+	var surface_particles := $World.get_node_or_null("SurfaceImpactParticles")
+	if surface_particles: surface_particles.clear()
 	explosion_debug.clear()
 	player.stop_pushing()
 	level.fuel_field.clear_fuel()
@@ -634,6 +654,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("core_respawn_enemies") and not event.is_echo():
 		_respawn_enemies()
 	if event.is_action_pressed("core_fire") and not get_tree().paused and not _blocks_shooting():
+		if player.weapon.shovel_selected():
+			player.weapon.shovel.queue_cycle()
+			get_viewport().set_input_as_handled()
+			return
 		# Keep short clicks that begin and end between two physics ticks.
 		if player.weapon.tuning.fire_mode == CoreShootingSettings.FireMode.SINGLE and player.weapon.cooldown <= 0:
 			player.weapon.queued_single_press = true
@@ -853,6 +877,9 @@ func import_settings_file(path: String) -> bool:
 	return true
 
 func _clear_projectiles() -> void:
+	for residual in get_tree().get_nodes_in_group("core_tracer_residuals"):
+		residual.set_physics_process(false)
+		residual.queue_free()
 	for bullet in get_tree().get_nodes_in_group("core_projectiles"):
 		bullet.set_physics_process(false)
 		bullet.queue_free()
@@ -890,6 +917,8 @@ func _recover() -> void:
 		grenade.set_physics_process(false)
 		grenade.queue_free()
 	respawns += 1
+	player.weapon.effects.clear()
+	player.weapon.clear_dropped_magazines()
 	player.reset_to(level.player_spawn())
 	if is_instance_valid(level.physics_crate): level.physics_crate.reset_crate()
 	if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.reset_mannequin()

@@ -5,7 +5,7 @@ var hero: CoreMovementPlayer
 var checks := 0
 var failures := 0
 var fixtures: Array[Node] = []
-var directory := "/private/tmp/explosions-%d" % OS.get_process_id()
+var directory := OS.get_temp_dir().path_join("explosions-%d" % OS.get_process_id())
 const ORIGIN := Vector2(-1200,728)
 
 func _initialize() -> void: call_deferred("run")

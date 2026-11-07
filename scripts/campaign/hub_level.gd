@@ -36,6 +36,7 @@ func _ready() -> void:
 		for floor_body in stair_floors: route.pass_through_floors.append(route.get_path_to(floor_body))
 	fuel_field = CoreFuelField.new()
 	add_child(fuel_field)
+	_install_terraforming()
 
 func _draw() -> void:
 	pass

@@ -2,37 +2,9 @@ class_name CoreHybridBody
 extends Node2D
 ## Whole-body baked pictures; the arms attach to each picture's shoulders.
 const POSES = preload("res://resources/core/hybrid/poses.gd")
-const HARRY = preload("res://scripts/campaign/harry_anatomy.gd")
-const HARRY_MOTION = preload("res://scripts/campaign/harry_motion.gd")
-const HARRY_STG = preload("res://scripts/campaign/harry_stg_pose.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
-const TEXTURES = {
-	"idle":preload("res://resources/core/hybrid/idle.png"),
-	"walk":preload("res://resources/core/hybrid/walk.png"),
-	"run":preload("res://resources/core/hybrid/run.png"),
-	"jump":preload("res://resources/core/hybrid/jump.png"),
-	"dash":preload("res://resources/core/hybrid/dash.png"),
-	"dash_back":preload("res://resources/core/hybrid/dash_back.png"),
-	"climb":preload("res://resources/core/hybrid/climb.png"),
-	"crouch":preload("res://resources/core/hybrid/crouch.png"),
-	"crouch_walk":preload("res://resources/core/hybrid/crouch_walk.png"),
-	"sprint":preload("res://resources/core/hybrid/sprint.png"),
-	"slide":preload("res://resources/core/hybrid/slide.png"),
-	"push":preload("res://resources/core/hybrid/push.png"),
-	"pull":preload("res://resources/core/hybrid/pull.png")
-	,"barrel_tip":preload("res://resources/core/hybrid/barrel_tip.png")
-	,"barrel_roll":preload("res://resources/core/hybrid/barrel_roll.png")
-}
 const RUN_STRIDE := 96.0
 const ADS_STAGES := 5
-const ADS_TEXTURES = {
-	"idle":preload("res://resources/core/hybrid/idle_ads.png"),
-	"walk":preload("res://resources/core/hybrid/walk_ads.png"),
-	"run":preload("res://resources/core/hybrid/run_ads.png"),
-	"jump":preload("res://resources/core/hybrid/jump_ads.png"),
-	"crouch":preload("res://resources/core/hybrid/crouch_ads.png"),
-	"crouch_walk":preload("res://resources/core/hybrid/crouch_walk_ads.png")
-}
 var player: CoreMovementPlayer
 var sprite: Sprite2D
 var state := "idle"
@@ -44,14 +16,10 @@ var landing_left := 0.0
 var push_last_position := Vector2.ZERO
 var far_arm: CoreHybridArm
 var near_arm: CoreHybridArm
-var deform_frame_data: Dictionary = {}
-var harry_channels: Dictionary = {}
-var _harry_pose_key := 0
-var _harry_pose: Dictionary = {}
 var down_aim_blend := 0.0
 
 func down_aim_wanted() -> bool:
-	if not (player.uses_painted_cels() or HARRY_STG.applies(player)) or not state in ["idle","crouch"]: return false
+	if player.weapon.equipped_weapon_id.is_empty() or not state in ["idle","crouch"]: return false
 	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
 	if player.weapon.reloading or player.climbing or player.pushing or player.slide_left > 0 or player.dash_left > 0: return false
 	if player.grenades and player.grenades.busy(): return false
@@ -59,7 +27,7 @@ func down_aim_wanted() -> bool:
 
 func uses_down_aim_pose() -> bool:
 	if player.crouching and player.weapon.requires_standing_for_down_aim(): return false
-	return (player.uses_painted_cels() or HARRY_STG.applies(player)) and state in ["idle","crouch"] and down_aim_blend > 0
+	return not player.weapon.equipped_weapon_id.is_empty() and state in ["idle","crouch"] and down_aim_blend > 0
 
 func _ready() -> void:
 	if not player: player = get_parent() as CoreMovementPlayer
@@ -71,12 +39,6 @@ func _ready() -> void:
 	add_child(sprite)
 	far_arm = CoreHybridArm.new()
 	near_arm = CoreHybridArm.new()
-	if not player.character_id.is_empty():
-		var skin := preload("res://scripts/campaign/player_skin.gd").new()
-		skin.player = player
-		add_child(skin)
-		far_arm.character_id = player.character_id
-		near_arm.character_id = player.character_id
 	reset_visual()
 
 func reset_visual() -> void:
@@ -87,9 +49,11 @@ func reset_visual() -> void:
 	state = "idle"
 	frame = 0
 	facing = 1
-	_update_deform_pose(0,true)
 	_show_frame()
 	update_arms()
+
+func animation_stride() -> float:
+	return 128.0 if state=="sprint" else 64.0 if state=="walk" else RUN_STRIDE
 
 func advance(delta: float) -> void:
 	facing = player.weapon.look_facing()
@@ -159,7 +123,7 @@ func advance(delta: float) -> void:
 	elif player.mode in ["walk","run","sprint"]:
 		state = player.mode
 		var travel := player.velocity.length()*signf(player.velocity.x)*facing
-		var stride := (200.0 if state == "sprint" else 80.0 if state == "walk" else 160.0) if player.uses_painted_cels() else (128.0 if state == "sprint" else 64.0 if state == "walk" else RUN_STRIDE)
+		var stride := animation_stride()
 		phase = fposmod(phase+travel*delta/(stride*player.body_scale),1)
 		frame = floori(phase*8)
 	else:
@@ -167,22 +131,26 @@ func advance(delta: float) -> void:
 		frame = 0
 	previous_mode = player.mode
 	down_aim_blend = move_toward(down_aim_blend,1.0 if down_aim_wanted() else 0.0,delta/.16)
-	_update_deform_pose(delta)
 	_show_frame()
 	update_arms()
 
 func _show_frame() -> void:
-	sprite.visible = player.character_id.is_empty()
-	var ads_stage := head_aim_stage()
-	sprite.texture = ADS_TEXTURES[state] if ads_stage > 0 else TEXTURES[state]
-	sprite.hframes = 1 if state in ["idle","crouch"] else 8
-	sprite.vframes = ADS_STAGES if ads_stage > 0 else 1
-	sprite.scale.y = .25*_pose_height_scale()
-	sprite.frame_coords = Vector2i(frame,ads_stage)
+	sprite.hide()
 	scale.x = facing
+	queue_redraw()
+
+func _draw() -> void:
+	if not near_arm or not player.weapon: return
+	var pose := ragdoll_pose()
+	for key in ["left_thigh","left_shin","left_foot","right_thigh","right_shin","right_foot","pelvis","torso","head"]:
+		var part: Dictionary = pose.parts[key]
+		draw_set_transform_matrix(Transform2D(part.rotation*facing,part.position*Vector2(facing,1)))
+		var size: Vector2 = part.dimensions
+		draw_rect(Rect2(-size*.5,size),Color("455963") if key.begins_with("left") else Color("7f969e"))
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func head_aim_stage() -> int:
-	if not player.weapon or not ADS_TEXTURES.has(state): return 0
+	if not player.weapon or not state in ["idle","walk","run","jump","crouch","crouch_walk"]: return 0
 	var blend := smoothstep(0,1,player.weapon.ads_blend)
 	if player.weapon.reloading:
 		var progress := player.weapon.reload_progress()
@@ -204,36 +172,12 @@ func _blend_data(a: Variant,b: Variant,amount: float) -> Variant:
 		return result
 	return lerpf(float(a),float(b),amount)
 
-func _update_deform_pose(delta: float,snap := false) -> void:
-	if not player.uses_deformed_skin():
-		deform_frame_data.clear()
-		return
-	var target: Dictionary = HARRY_MOTION.channels(state,phase,frame)
-	if HARRY_STG.applies(player):
-		target = HARRY_MOTION.stg_channels(target,down_aim_blend if uses_down_aim_pose() else 0.0,player.weapon.ads_blend,player.weapon.aim_direction)
-	var duration := player.visuals.settings.deform_pose_smoothing
-	if snap or harry_channels.is_empty() or duration <= 0: harry_channels = target.duplicate(true)
-	else: harry_channels = _blend_data(harry_channels,target,1-exp(-delta/duration))
-	deform_frame_data.clear()
-
-func harry_pose(standing := false) -> Dictionary:
-	if standing: return HARRY.pose({},facing)
-	var key := hash([harry_channels,facing])
-	if key != _harry_pose_key or _harry_pose.is_empty():
-		_harry_pose_key = key
-		_harry_pose = HARRY.pose(harry_channels,facing)
-	return _harry_pose
-
 func shoulder(side: String) -> Vector2:
-	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").shoulder(player,side)
-	if player.uses_deformed_skin(): return harry_pose().joints[("left" if side == "far" else "right")+"_shoulder"]
-	var values: Array = (deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame])[side]
+	var values: Array = POSES.DATA[state][frame][side]
 	var point := Vector2(float(values[0]),float(values[1]))
-	if player.uses_deformed_skin(): point += Vector2(-2,0) if side == "near" else Vector2(-2,1)
 	return point*Vector2(facing,_pose_height_scale())
 
 func eye_anchor() -> Vector2:
-	if player.uses_deformed_skin(): return harry_pose().parts.head.position+Vector2(3*facing,-1)
 	# The painted eye starts at (+2,-11) relative to the near shoulder.
 	# Match the bake's neck pivot, translation and rotation for each head stage.
 	var blend := float(head_aim_stage())/(ADS_STAGES-1)
@@ -244,17 +188,19 @@ func ads_anchor() -> Vector2:
 	# Eleven pixels of stock end at the shoulder for horizontal aiming.
 	return shoulder("near")+Vector2(facing*11,0)
 
+func _configure_arm_lengths() -> void:
+	for arm in [far_arm,near_arm]:
+		arm.upper_length = 14.5 if not player.weapon.equipped_weapon_id.is_empty() else 0.0
+		arm.lower_length = 13.5 if not player.weapon.equipped_weapon_id.is_empty() else 0.0
+		# Fixed segment lengths prevent the elbow folding back on itself.
+		arm.minimum_reach = 11.75 if uses_down_aim_pose() else 0.0
+
+func arm_reach(_side: String) -> float:
+	return 27.85
+
 func update_arms() -> void:
 	if not near_arm: return
-	for arm in [far_arm,near_arm]:
-		arm.upper_length = 10.8 if player.uses_painted_cels() else 14.5 if not player.character_id.is_empty() else 0.0
-		arm.lower_length = 10.2 if player.uses_painted_cels() else 13.5 if not player.character_id.is_empty() else 0.0
-		if player.uses_deformed_skin():
-			arm.upper_length = HARRY.UPPER_ARM
-			arm.lower_length = HARRY.FOREARM
-		# Separate downward reach limits for Sofia's open pose and Harry's STG.
-		# Fixed segment lengths prevent the elbow folding back on itself.
-		arm.minimum_reach = (10.2 if HARRY_STG.applies(player) else 11.75) if uses_down_aim_pose() else 0.0
+	_configure_arm_lengths()
 	if far_arm.get_parent() == player.visuals: player.visuals.arrange_layers()
 	if player.grenades and player.grenades.busy():
 		far_arm.pose(shoulder("far"),player.grenades.hand_point("far"),facing,true)
@@ -266,8 +212,6 @@ func update_arms() -> void:
 		for side in ["far","near"]:
 			var arm := far_arm if side == "far" else near_arm
 			var desired_height := 33.0 if side == "far" else 45.0
-			if (player.uses_painted_cels() and not player.ladder_side_view) or player.uses_deformed_skin():
-				desired_height = -shoulder(side).y+(-12 if side == "far" else 12)
 			var rungs_start := (LADDER.rung_origin(player.ladder)-player.global_position.y)/player.body_scale
 			var spacing := LADDER.RUNG_SPACING/player.body_scale
 			var step := LADDER.HAND_STRIDE/player.body_scale
@@ -279,25 +223,6 @@ func update_arms() -> void:
 			var last_rung := rungs_start+floorf(((player.ladder.end.y-player.global_position.y)/player.body_scale-1/player.body_scale-rungs_start)/spacing)*spacing
 			rung = clampf(rung,rungs_start-(LADDER.TOP_EXTENSION/player.body_scale),last_rung)
 			var hand := Vector2(LADDER.hand_x(player.ladder,side == "far",player.ladder_side_view)/player.body_scale,rung)
-			if player.uses_painted_cels() or player.uses_deformed_skin():
-				# Choose a reachable rung before IK, including the side-view cels.
-				# Clamping the arm alone leaves
-				# its painted glove floating between the character and the ladder.
-				var socket := shoulder(side)
-				var reach_y := sqrt(maxf(0,pow(arm.upper_length+arm.lower_length-.05,2)-pow(hand.x-socket.x,2)))
-				var low := rungs_start+ceilf((socket.y-reach_y-rungs_start)/spacing)*spacing
-				var high := rungs_start+floorf((socket.y+reach_y-rungs_start)/spacing)*spacing
-				hand.y = clampf(rung,low,high)
-				# A narrow rail can lie beside the shoulder. Pick another reachable
-				# hold instead of forcing an almost fully folded elbow (over 120°).
-				var minimum := sqrt(arm.upper_length*arm.upper_length+arm.lower_length*arm.lower_length-arm.upper_length*arm.lower_length)
-				if hand.distance_to(socket) < minimum:
-					var minimum_y := sqrt(maxf(0,minimum*minimum-pow(hand.x-socket.x,2)))
-					var above := rungs_start+floorf((socket.y-minimum_y-rungs_start)/spacing)*spacing
-					var below := rungs_start+ceilf((socket.y+minimum_y-rungs_start)/spacing)*spacing
-					var chosen := above if above >= low else below
-					if below <= high and absf(below-rung) < absf(chosen-rung): chosen = below
-					hand.y = chosen
 			arm.pose(shoulder(side),hand,-1 if side == "far" else 1,side == "far")
 	else:
 		var gun_pose := player.weapon.visual_pose()
@@ -313,16 +238,7 @@ func update_arms() -> void:
 		near_arm.pose(near_shoulder,gun_pose.rear_grip,near_bend,false)
 
 func weapon_mount_points() -> Array:
-	if player.uses_deformed_skin():
-		var pose := harry_pose()
-		return [pose.parts.head.position,pose.joints.neck,pose.joints.waist]
-	# The mount needs three torso anchors, not thirteen ragdoll parts and all joints.
-	if player.uses_painted_cels():
-		var drawn = preload("res://scripts/campaign/sofia_drawn_data.gd")
-		var pose: Dictionary = drawn._baseline_readonly(drawn.selection(player))
-		var mirror := Vector2(facing,1)
-		return [pose.parts.head.position*mirror,pose.joints.neck*mirror,pose.joints.waist*mirror]
-	var data: Dictionary = deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame]
+	var data: Dictionary = POSES.DATA[state][frame]
 	var skeleton: Dictionary = data.skeleton
 	var mirror := Vector2(facing,_pose_height_scale())
 	var neck := Vector2(skeleton.neck[0],skeleton.neck[1])
@@ -332,11 +248,9 @@ func weapon_mount_points() -> Array:
 	return [head*mirror,neck*mirror,Vector2(data.hip[0],data.hip[1])*mirror]
 
 func ragdoll_pose(standing := false) -> Dictionary:
-	if player.uses_deformed_skin(): return HARRY.capture(self,standing)
-	if player.uses_painted_cels(): return preload("res://scripts/campaign/sofia_drawn_data.gd").capture(player,standing)
 	# Use the exact baked frame and articulated arms at the instant of impact.
 	# A sprint, crouch or airborne hit must not reset the body to a T-pose.
-	var data: Dictionary = POSES.DATA.idle[0] if standing else deform_frame_data if not deform_frame_data.is_empty() and player.uses_deformed_skin() else POSES.DATA[state][frame]
+	var data: Dictionary = POSES.DATA.idle[0] if standing else POSES.DATA[state][frame]
 	var skeleton: Dictionary = data.skeleton
 	var y_scale := 1.0 if standing else _pose_height_scale()
 	var mirror := Vector2(facing,y_scale)
@@ -357,7 +271,6 @@ func ragdoll_pose(standing := false) -> Dictionary:
 		var side: String = entry[0]
 		var arm: CoreHybridArm = entry[1]
 		var shoulder_point := Vector2(data["far" if side == "left" else "near"][0],data["far" if side == "left" else "near"][1])*mirror if standing else arm.shoulder
-		if standing and player.uses_deformed_skin(): shoulder_point += (Vector2(-2,1) if side == "left" else Vector2(-2,0))*mirror
 		var elbow_point := shoulder_point+Vector2(-3,15)*mirror if standing else arm.elbow
 		var hand_point := shoulder_point+Vector2(15,10)*mirror if standing else arm.hand
 		_pose_segment(parts,side+"_upper_arm",shoulder_point,elbow_point,6.8)
@@ -380,4 +293,3 @@ func ragdoll_pose(standing := false) -> Dictionary:
 
 func _pose_segment(parts: Dictionary,key: String,a: Vector2,b: Vector2,width: float) -> void:
 	parts[key] = {"position":(a+b)*.5,"rotation":Vector2.DOWN.angle_to(b-a),"dimensions":Vector2(width,maxf(2,a.distance_to(b)))}
-

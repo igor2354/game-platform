@@ -14,13 +14,12 @@ const RADIUS := 14.0
 const WORLD_MASK := 1 | 4 | 8
 const ENEMY_MASK := 4
 @export var tuning: CoreMovementSettings
-@export var character_id := "" # Empty preserves the original polygon hero.
-@export var sofia_cel_variant := false # Selected Sofia uses the same painted skin in both modes.
+@export var rig_reference_scale := 1.0
 var requested_body_scale := 1.0
 var body_scale := 1.0
 
 func reference_body_scale() -> float:
-	return CoreWorldUnits.LEGACY_SOFIA_SCALE if character_id == "sofia" else 1.0
+	return rig_reference_scale
 
 func character_scale() -> float:
 	return body_scale/reference_body_scale()
@@ -72,17 +71,11 @@ func _apply_body_scale() -> void:
 		weapon._visual_pose_key = 0
 	queue_redraw()
 
-func uses_deformed_skin() -> bool:
-	return character_id == "harry" and is_instance_valid(visuals) and visuals.settings.deform_skin_enabled
-
 func ragdoll_recovery_pose(_prone := false) -> Dictionary:
 	return scaled_pose(body.ragdoll_pose(true))
 
-func uses_painted_cels() -> bool:
-	return sofia_cel_variant and character_id == "sofia" and is_instance_valid(visuals) and visuals.settings.sofia_cels_enabled
-
 func uses_smooth_recovery() -> bool:
-	return uses_deformed_skin() or uses_painted_cels()
+	return false
 
 func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
 	# Anatomy solvers work in original concept units, independently of world size.
@@ -94,19 +87,8 @@ func constrain_recovery_points(points: Dictionary,_feet: Vector2) -> void:
 		for key in points: points[key] = _feet+(points[key]-_feet)*body_scale
 
 func _constrain_unscaled_recovery(points: Dictionary,_feet: Vector2) -> void:
-	if uses_deformed_skin():
-		preload("res://scripts/campaign/harry_anatomy.gd").constrain_recovery(points,body.facing)
-		return
-	if not uses_painted_cels(): return
-	for side in ["left","right"]:
-		var shoulder: Vector2 = points[side+"_shoulder"]
-		var direction: Vector2 = points[side+"_hand"]-shoulder
-		var distance := clampf(direction.length(),.61,20.99)
-		direction = direction.normalized() if direction.length_squared() > .001 else Vector2(body.facing,0)
-		var along := (10.8*10.8-10.2*10.2+distance*distance)/(2*distance)
-		var height := sqrt(maxf(0,10.8*10.8-along*along))
-		points[side+"_hand"] = shoulder+direction*distance
-		points[side+"_elbow"] = shoulder+direction*along+Vector2(-direction.y,direction.x)*height*body.facing
+	pass
+
 var parkour: RefCounted
 var stairs: RefCounted
 
@@ -143,6 +125,7 @@ var weapon: CoreShootingController
 var dash_held := false
 var visuals: CorePlayerVisuals
 var body: CoreHybridBody
+var sole_effects = preload("res://scripts/core/sole_effects.gd").new()
 var movement_shape: CollisionShape2D
 var dash_overlap_exceptions: Array[PhysicsBody2D] = []
 var dash_stunned_enemies: Dictionary = {}
@@ -211,7 +194,9 @@ func _ready() -> void:
 	visuals = CorePlayerVisuals.new()
 	visuals.player = self
 	add_child(visuals)
-	body = CoreHybridBody.new()
+	body = preload("res://scripts/core/user_standing_body.gd").new()
+	sole_effects.player = self
+	add_child(sole_effects)
 	body.player = self
 	visuals.add_child(body)
 	visuals.add_child(body.far_arm)
@@ -226,6 +211,8 @@ func _ready() -> void:
 	add_child(blast_ragdoll)
 
 func reset_to(point: Vector2) -> void:
+	sole_effects.reset()
+	if weapon and is_instance_valid(weapon.shovel): weapon.shovel.cancel_cycle()
 	if stairs: stairs.cancel()
 	if parkour: parkour.cancel(false)
 	collision_layer = 2
@@ -489,6 +476,7 @@ func _physics_process(delta: float) -> void:
 	var previous_position := global_position
 	var was_grounded := is_on_floor()
 	var previous_fall_speed := velocity.y
+	var previous_motion := Vector2(get_real_velocity().x, previous_fall_speed)
 	var was_dashing := dash_left > 0
 	var was_sliding := slide_left > 0
 	hurt_left = maxf(0,hurt_left-delta)
@@ -600,6 +588,8 @@ func _physics_process(delta: float) -> void:
 	weapon.finish_tick()
 	body.update_arms()
 	_emit_movement_noise(previous_position,was_grounded,previous_fall_speed,was_dashing or was_sliding or slide_left > 0)
+	sole_effects.contact_tick(previous_position, previous_motion, was_grounded,
+		climbing or was_dashing or dash_left > 0 or was_sliding or slide_left > 0, delta)
 	queue_redraw()
 
 func _scatter_debris(from: Vector2,delta: float) -> void:
@@ -910,6 +900,25 @@ func _capture_ground_gait(axis: float) -> void:
 	sprinting = _can_sprint(axis)
 	air_move_speed = motion_value("push_speed") if pushing else (motion_value("sprint_speed") if sprinting else motion_value("slow_walk_speed") if walking else motion_value("run_speed"))*backward_speed_multiplier(axis)
 
+func braced_in_terrain() -> bool:
+	# A narrow cut can hold the capsule on two steep banks that Godot
+	# classifies as walls. Use actual travel: velocity.y keeps accumulating.
+	if is_on_floor() or velocity.y < 0.0 or absf(get_real_velocity().y) > 12.0:
+		return false
+	var left := false
+	var right := false
+	var supports_weight := false
+	for i in get_slide_collision_count():
+		var contact := get_slide_collision(i)
+		var collider := contact.get_collider()
+		if not is_instance_valid(collider) or not (collider.has_meta("terra_owner") or collider.has_method("shovel_target")):
+			continue
+		var normal := contact.get_normal()
+		left = left or normal.x > .55
+		right = right or normal.x < -.55
+		supports_weight = supports_weight or normal.y < -.05
+	return supports_weight and ((left and right) or velocity.y >= 80.0)
+
 func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 	var grounded := is_on_floor()
 	if grounded:
@@ -937,7 +946,7 @@ func _tick_run(axis: float,delta: float,jump_held: bool) -> void:
 		velocity.x = move_toward(velocity.x,axis*run_speed,rate*delta)
 		velocity.y = minf(velocity.y+motion_value("gravity")*delta,motion_value("fall_speed"))
 		ground_speed = velocity.x
-	if tuning.jump_enabled and jump_buffer > 0 and (is_on_floor() or coyote > 0):
+	if tuning.jump_enabled and jump_buffer > 0 and (is_on_floor() or coyote > 0 or braced_in_terrain()):
 		_try_stand()
 		var jump_multiplier := tuning.sprint_jump_multiplier if sprinting else tuning.slow_walk_jump_multiplier if walking else tuning.walk_jump_multiplier
 		velocity.x *= jump_multiplier

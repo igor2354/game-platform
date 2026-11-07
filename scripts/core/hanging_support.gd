@@ -8,6 +8,7 @@ var health := 15.0
 var hits := 0
 
 func _ready() -> void:
+	set_meta("terra_material",4 if is_rope else 5)
 	collision_layer = HIT_LAYER
 	collision_mask = 0
 	monitoring = false

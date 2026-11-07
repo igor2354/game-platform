@@ -34,6 +34,7 @@ var previous_velocity := Vector2.ZERO
 var shape_node: CollisionShape2D
 
 func _ready() -> void:
+	set_meta("terra_material",5)
 	if not tuning: tuning = CoreExplosionSettings.new()
 	add_to_group("explosive_barrels")
 	home_transform = global_transform
@@ -207,6 +208,7 @@ func _break_shell(explode: bool) -> void:
 		piece.dimensions = Vector2(7+(i%3),4+(i%2))
 		piece.wood_color = shell_color().lightened(.12) if i%3 else Color("9e8b69")
 		get_parent().add_child(piece)
+		piece.set_meta("terra_material",5)
 		piece.global_position = global_position+Vector2.from_angle(i*TAU/12)*12
 		piece.linear_velocity = Vector2.from_angle(i*TAU/12)*(130 if explode else 45)+Vector2(0,-80)
 		piece.angular_velocity = (i%5-2)*2

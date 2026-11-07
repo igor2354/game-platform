@@ -6,12 +6,15 @@ const TILES=[preload("res://resources/campaign/hub_8k/tile_00.png"),preload("res
 var tiles: Array[Texture2D]=[]
 var geometry: Node2D
 var patch_count:=0
+var clip_region := Rect2()
+var rotated_patch := false
 func _ready() -> void:
 	z_index=-10
 	texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
 	tiles.assign(TILES)
 	queue_redraw()
 func patch(destination: Rect2, source: Rect2, feather := false) -> void:
+	if clip_region.has_area() and not rotated_patch and not clip_region.intersects(destination): return
 	var full:=Rect2(source.position*SOURCE_SCALE,source.size*SOURCE_SCALE)
 	for i in 8:
 		var section:=full.intersection(Rect2(i*960,0,960,2560))
@@ -52,9 +55,12 @@ func _draw() -> void:
 	for flight in geometry.stair_flights:
 		var start: Vector2=flight[0];var end: Vector2=flight[1]
 		var length:=start.distance_to(end)
+		if clip_region.has_area() and not clip_region.intersects(Rect2(start,Vector2.ZERO).expand(end).grow(100)): continue
+		rotated_patch = true
 		draw_set_transform(start,(end-start).angle())
 		patch(Rect2(0,3,length,13),Rect2(668,359,60,4))
 		draw_set_transform(Vector2.ZERO)
+		rotated_patch = false
 		var count:=ceili(absf(end.y-start.y)/18)
 		for i in count+1:
 			var p: Vector2=start.lerp(end,float(i)/count)

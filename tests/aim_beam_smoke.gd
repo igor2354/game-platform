@@ -26,12 +26,11 @@ func block(lab: Node,rect: Rect2) -> StaticBody2D:
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(directory)
 	for mode in ["polygon","prologue","prologue_v2"]:
-		for character in ["sofia","harry"]:
+		for character in ["mannequin"]:
 			var app := FRONT.new()
 			app.load_user_settings = false
 			app.test_settings_directory = directory.path_join(mode+character)
 			DirAccess.make_dir_recursive_absolute(app.test_settings_directory)
-			app.selected_character = character
 			app.selected_level = mode
 			root.add_child(app)
 			app.launch(mode != "polygon")

@@ -25,6 +25,7 @@ func _ready() -> void:
 	physics_material_override = material
 
 func rebuild(size: Vector2,kind: int) -> void:
+	set_meta("terra_material",[3,4,5][kind])
 	dimensions = size
 	var shape := get_node_or_null("Shape") as CollisionShape2D
 	if not shape:

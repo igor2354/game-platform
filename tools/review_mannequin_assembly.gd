@@ -43,7 +43,7 @@ func run() -> void:
 	root.size = Vector2i(1400,900)
 	root.content_scale_size = Vector2i(1400,900)
 	RenderingServer.set_default_clear_color(Color("23313a"))
-	var folder := ProjectSettings.globalize_path("res://../../../1_Персонажи/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/")
+	var folder := ProjectSettings.globalize_path("res://../../../6_Концепты геймплея/АНИМАЦИЯ/Для анимации/Кандидаты/Зомби_мужчина_01_Подготовка_2026-11-01/")
 	var sheet := Sheet.new()
 	sheet.source = ImageTexture.create_from_image(Image.load_from_file(folder+"00_source_sheet.png"))
 	sheet.kit = ImageTexture.create_from_image(Image.load_from_file(folder+"02_costume_layers_candidate.png"))

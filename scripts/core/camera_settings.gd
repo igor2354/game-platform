@@ -14,10 +14,8 @@ const SWITCHES := [
 	["pixel_enabled", "Пиксельный фильтр", "Визуал", "Размер пикселя задаётся ниже. Работает отдельно и вместе с нуаром; интерфейс остаётся чётким."],
 	["world_pixel_enabled", "Пиксели закреплены за уровнем", "Сетка уровня", "Постоянная плотность в координатах мира. Приоритет над экранным фильтром и режимом целевой высоты. Интерфейс — полное разрешение."],
 	["stable_pixel_enabled", "Стабильный пиксельный мир", "Пиксельный мир", "Низкое разрешение мира и целочисленное увеличение. Интерфейс и все меню — в полном разрешении. Приоритет над старым пиксельным фильтром."],
-	["scale_reference_enabled", "Линейка и образцы масштаба на полигоне", "Визуал", "Рабочая сверка по Софии и коллажу. В прологе не создаётся. Размеры образцов ещё не утверждены."],
+	["scale_reference_enabled", "Линейка и образцы масштаба на полигоне", "Визуал", "Рабочая сверка по базовому масштабу и коллажу. В прологе не создаётся. Размеры образцов ещё не утверждены."],
 	["noir_enabled", "Чёрно-белый нуар · красные акценты", "Нуар", "Обрабатывает игровой мир; интерфейс и прицел сохраняют цвет. Выключение сохраняет параметры фильтра."],
-	["deform_skin_enabled", "Гарри: деформируемый рисунок", "Визуал", "Цельные рукава и ноги на сетке. Выключение возвращает прежний сегментный облик и сохраняет параметры."],
-	["sofia_cels_enabled", "София: рисованные кадры", "Визуал", "Цельные кадры с собственной анатомией на полигоне и в кампании; физика получает их текущую позу. Выключение возвращает прежний облик."],
 	["forest_enabled", "Лесные фоны у старта полигона", "Окружение", "4K-лес слева и анимированный лунный лес справа. Коллизии и геометрия прежние. Выключение сохраняет все параметры."],
 	["forest_wind_enabled", "Ветер только в листве", "Окружение", "Колебания красной листвы. Стволы, крупные ветви и цельные силуэты елей неподвижны."],
 	["forest_clouds_enabled", "Движение облаков", "Окружение", "Мягкая деформация неба; луна остаётся неподвижной."],
@@ -79,9 +77,6 @@ const PARAMS := [
 	["character_blur_strength","Интенсивность блюра героя",0.0,1.0,.05,"×","Визуал"],
 	["character_blur_length","Максимальное размытие",0.0,32.0,1.0,"px экрана","Визуал"],
 	["character_blur_start_speed","Блюр от скорости",0.0,1000.0,10.0,"px/с","Визуал"],
-	["deform_pose_smoothing","Гарри: плавность перехода поз",0.0,.20,.01,"с","Визуал"],
-	["deform_joint_volume","Гарри: объём локтей и коленей",0.0,1.2,.05,"×","Визуал"],
-	["sofia_cel_correction","София: поправка головы к прицелу",0.0,1.0,.05,"×","Визуал"],
 	["noir_strength","Сила фильтра",0.0,1.0,.05,"×","Нуар"],
 	["noir_contrast","Контраст полутонов",.6,1.6,.05,"×","Нуар"],
 	["noir_gamma","Осветление полутонов",.5,1.8,.05,"×","Нуар"],
@@ -147,6 +142,8 @@ const PARAMS := [
 @export var forest_water_strength := 1.0
 @export var forest_water_speed := 1.0
 
+const LEGACY_SKIN_KEYS = ["deform_skin_enabled","sofia_cels_enabled","deform_pose_smoothing","deform_joint_volume","sofia_cel_correction"]
+
 func framing_values() -> Dictionary:
 	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled}
 
@@ -154,8 +151,11 @@ func as_dictionary() -> Dictionary:
 	var values := {"scale_basis_version":2,"limit_to_level":limit_to_level,"character_linear_filter":character_linear_filter,"deform_mesh_debug":deform_mesh_debug}
 	for entry in SWITCHES: values[entry[0]] = get(entry[0])
 	for param in PARAMS: values[param[0]] = get(param[0])
+	for key in LEGACY_SKIN_KEYS: values[key] = get(key)
 	return values
 func apply_values(values: Dictionary) -> void:
+	for key in LEGACY_SKIN_KEYS:
+		if typeof(values.get(key)) == typeof(get(key)): set(key,values[key])
 	for entry in SWITCHES:
 		if values.get(entry[0]) is bool: set(entry[0],values[entry[0]])
 	for param in PARAMS:

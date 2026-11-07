@@ -7,6 +7,7 @@ var wood_color := Color("89613f")
 var contact_cooldown := 0.0
 
 func _ready() -> void:
+	set_meta("terra_material",4)
 	add_to_group("crate_debris")
 	mass = .06
 	# Solid against the world and other chips, passable to characters. Player

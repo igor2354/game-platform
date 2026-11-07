@@ -2,7 +2,7 @@ class_name CoreCharacterRagdoll
 extends Node2D
 ## Combat actor stays authoritative for HP; an articulated physical proxy moves it.
 const LAYER := 128
-const PLAYER_SKIN = preload("res://scripts/core/player_ragdoll_skin.gd")
+const PLAYER_SKIN = preload("res://scripts/core/mannequin_01_ragdoll_skin.gd")
 const ZOMBIE_SKIN = preload("res://scripts/core/zombie_ragdoll_skin.gd")
 var actor: Node2D
 var rig: Node2D
@@ -37,11 +37,14 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		for part in rig.parts.values(): part.linear_velocity += impulse
 		return
 	var pose: Dictionary = capture_pose() if initial_pose.is_empty() else initial_pose
-	if actor is CoreMovementPlayer and not actor.character_id.is_empty() and not actor.weapon.equipped_weapon_id.is_empty():
+	if actor is CoreMovementPlayer and not actor.weapon.equipped_weapon_id.is_empty():
 		pose.weapon_pose = actor.weapon.visual_pose().duplicate(true)
 		for key in ["breech","rear_grip","front_grip"]: pose.weapon_pose[key] *= actor.body_scale
 	recovering = false
 	recovery_finished = false
+	recovery_points.clear()
+	recovery_source.clear()
+	recovery_target.clear()
 	active = true
 	original_layer = actor.collision_layer
 	original_mask = actor.collision_mask
@@ -94,10 +97,7 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		player_skin.rig = rig
 		player_skin.player = actor
 		player_skin.facing = pose.facing
-		player_skin.painted_head_stage = pose.get("painted_head_stage",0)
-		# Keep the exact painted phase as the physical mesh's bind pose.
-		player_skin.painted_cel_pose = actor.scaled_pose(pose,1.0/actor.body_scale)
-		player_skin.scale = Vector2.ONE*actor.body_scale
+		player_skin.capture(actor.body.capture_skin())
 		rig.add_child(player_skin)
 	elif actor is CoreZombie:
 		zombie_skin = actor.call("create_ragdoll_skin") if actor.has_method("create_ragdoll_skin") else ZOMBIE_SKIN.new()
@@ -189,7 +189,7 @@ func _try_recover() -> void:
 	var ground := get_world_2d().direct_space_state.intersect_ray(ray)
 	if ground.is_empty(): return
 	var size: Vector2 = Vector2(28*actor.body_scale,height) if actor is CoreMovementPlayer else actor.body_size
-	# Harry's target is a full standing pose, even if the hit began crouched.
+	# The standing target is a full standing pose, even if the hit began crouched.
 	if actor is CoreMovementPlayer and actor.uses_smooth_recovery(): size.y = CoreMovementPlayer.HEIGHT*actor.body_scale
 	if actor is CoreEnemyDummy:
 		var legless: bool = not actor.has_part("left_leg") and not actor.has_part("right_leg")
@@ -252,6 +252,9 @@ func _begin_recovery(feet: Vector2) -> void:
 		for entry in [["hand","_forearm"],["tip","_foot"]]:
 			var part: RigidBody2D = rig.parts[side+entry[1]]
 			recovery_source.points[side+"_"+entry[0]] = part.to_global(Vector2(0,part.dimensions.y*.5))
+	# A second blast can arrive before the first recovery animation tick.
+	# Publish a complete current pose before allowing that transition.
+	recovery_points = recovery_source.points.duplicate()
 	rig.set_simulation_enabled(false)
 
 func _tick_recovery(delta: float) -> void:
@@ -286,7 +289,7 @@ func _tick_recovery(delta: float) -> void:
 		var target_pose := Transform2D(to.rotation,recovery_feet+to.position)
 		var pose: Transform2D = from.pose.interpolate_with(target_pose,blend)
 		var dimensions: Vector2 = from.dimensions.lerp(to.dimensions,blend)
-		if key == "head" and (recovery_target.get("concept",false) or recovery_target.get("harry_anatomy",false)):
+		if key == "head" and (recovery_target.get("concept",false)):
 			# Use the same neck pivot as the physical joint, not an unrelated
 			# interpolation of the head's centre through the lifting torso.
 			var neck_anchor: Vector2 = Transform2D(to.rotation,to.position).affine_inverse()*recovery_target.joints.neck
@@ -313,6 +316,10 @@ func _tick_recovery(delta: float) -> void:
 		_try_recover()
 
 func _interrupt_recovery() -> void:
+	var anchors := {}
+	for definition in rig.JOINTS:
+		var key: String = definition[0]
+		anchors[key] = recovery_points.get(key,rig.parts[definition[1]].to_global(joint_anchors[key]))
 	recovering = false
 	recovery_finished = false
 	rig.set_simulation_enabled(true)
@@ -326,7 +333,7 @@ func _interrupt_recovery() -> void:
 		joint.node_b = NodePath()
 		brace.node_a = NodePath()
 		brace.node_b = NodePath()
-		joint.global_position = recovery_points[key]
+		joint.global_position = anchors[key]
 		brace.global_position = joint.global_position+rig.parts[definition[1]].global_transform.x*12*rig.body_scale
 		joint_anchors[key] = rig.parts[definition[1]].to_local(joint.global_position)
 		brace.set_meta("anchor_a",rig.parts[definition[1]].to_local(brace.global_position))

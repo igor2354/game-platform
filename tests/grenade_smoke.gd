@@ -1,4 +1,18 @@
 extends SceneTree
+const GRENADE_VISUAL = preload("res://scripts/core/grenade_blast_visual.gd")
+
+class AtlasPreview extends Node2D:
+	func _draw() -> void:
+		for sheet in 3:
+			for row in 3:
+				var visual := GRENADE_VISUAL.new()
+				visual.sheet = sheet
+				visual.row = row
+				visual.size = 0.43
+				for phase in 3:
+					draw_set_transform(Vector2(85 + phase * 155 + sheet * 480, 145 + row * 210))
+					visual.draw_phase(self, phase, 1.0 if phase < 2 else 0.55, 1.0, 0.0)
+		draw_set_transform(Vector2.ZERO)
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
@@ -143,6 +157,7 @@ func run() -> void:
 	gren.input_trigger(true)
 	await frames(35)
 	check(not gren.preparing() and hero.health < 100 and get_nodes_in_group("core_explosions").size() > 0,"an unthrown grenade detonates in the hand and harms its owner")
+	check(get_nodes_in_group("core_explosions").any(func(blast): return blast.grenade_visual != null),"real grenade selects a sprite sequence")
 	await clean()
 	hero.set_invulnerable(true)
 	gren.prepare()
@@ -183,7 +198,63 @@ func run() -> void:
 	gren.refill()
 	profile.grenades_enabled = false
 	check(not gren.prepare(),"a disabled grenade mechanic cannot prepare new grenades")
+	var overlay := lab.particle_overlay
+	var settings := lab.player.tuning
+	check(overlay.tabs.get_tab_title(0) == "Частицы и эффекты" and overlay.rows.has("casing_smoke_duration") and overlay.rows.has("grenade_smoke_duration") and overlay.feature_toggles.has("terra_visuals_enabled"),"visual page exposes particle and grenade controls")
+	overlay.rows.surface_chip_size.number.value = 2.6
+	check(is_equal_approx(settings.surface_chip_size, 2.6) and is_equal_approx(overlay.rows.surface_chip_size.slider.value, 2.6),"particle size slider and number stay in sync")
+	settings.grenade_sprites_enabled = false
+	settings.grenade_smoke_duration = 3.0
+	check(settings.save_saved(lab.settings_path) == OK,"particle settings saved to isolated profile")
+	var restored := CoreMovementSettings.new()
+	restored.load_saved(lab.settings_path)
+	check(is_equal_approx(restored.surface_chip_size, 2.6) and not restored.grenade_sprites_enabled and restored.grenade_smoke_duration == 3.0,"particle controls and smoke duration survive CFG")
+	restored = CoreMovementSettings.new()
+	restored.apply_values(JSON.parse_string(JSON.stringify(settings.as_dictionary())))
+	check(is_equal_approx(restored.surface_chip_size, 2.6) and not restored.grenade_sprites_enabled and restored.grenade_smoke_duration == 3.0,"particle controls and smoke duration survive JSON")
+	var smoke := GRENADE_VISUAL.new()
+	var smoke_rng := RandomNumberGenerator.new()
+	smoke.configure(Vector2.ZERO, [], restored, smoke_rng)
+	check(smoke.smoke_opacity(2.0) > 0.0 and smoke.smoke_opacity(3.2) == 0.0 and is_equal_approx(smoke.end_time(), 3.17),"extended smoke survives past the original explosion visual")
+	smoke.smoke_duration = 0.0
+	check(smoke.smoke_opacity(0.2) == 0.0 and is_equal_approx(smoke.end_time(), 0.34),"zero smoke duration retains the initial flash and peak window")
+	settings.grenade_sprites_enabled = true
+	var long_tail := CoreExplosion.spawn(lab, Vector2(0, -10000), profile, null, null, true)
+	long_tail._process(1.2)
+	check(not long_tail.is_queued_for_deletion() and long_tail.grenade_visual.smoke_opacity(long_tail.elapsed) > 0.0,"explosion node retains extended smoke")
+	long_tail._process(2.1)
+	check(long_tail.is_queued_for_deletion(),"explosion node releases after smoke ends")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 533
+	var variants := {}
+	for kind in [-1, 1, 3]:
+		var contacts := [] if kind < 0 else [{"point":Vector2(0,8),"kind":kind,"normal":Vector2.UP}]
+		for i in 100:
+			var visual := GRENADE_VISUAL.new()
+			visual.configure(Vector2.ZERO, contacts, settings, rng)
+			variants[Vector2i(visual.sheet, visual.row)] = true
+	check(variants.size() == 9,"all nine sequences can be selected by surface")
+	var valid_regions := 0
+	for key in variants:
+		var visual := GRENADE_VISUAL.new()
+		visual.sheet = key.x
+		visual.row = key.y
+		var texture: Texture2D = visual.SHEETS[key.x]
+		for phase in 3:
+			var region := visual.frame_region(phase)
+			if Rect2(Vector2.ZERO, texture.get_size()).encloses(region) and region.has_point(visual.ANCHORS[key.x][key.y][phase]):
+				valid_regions += 1
+	check(valid_regions == 27,"all 27 regions and phase anchors fit their textures")
 	lab.queue_free()
 	await process_frame
+	if "--capture-blasts" in OS.get_cmdline_user_args():
+		root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
+		root.size = Vector2i(1450, 660)
+		RenderingServer.set_default_clear_color(Color("3a414a"))
+		root.add_child(AtlasPreview.new())
+		await frames(3)
+		await RenderingServer.frame_post_draw
+		var folder := preload("res://tools/media_paths.gd").path("docs/core/grenade_atlas_20261103")
+		check(root.get_texture().get_image().save_png(folder.path_join("all_27_frames.png")) == OK,"saved atlas preview")
 	print("RESULT: %d/%d checks passed" % [checks-failures,checks])
 	quit(0 if failures == 0 else 1)

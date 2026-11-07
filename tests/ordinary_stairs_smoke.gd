@@ -24,7 +24,7 @@ func run() -> void:
 	app.load_user_settings=false
 	app.test_settings_directory=OS.get_environment("TEMP").path_join("ordinary-stairs-%d"%OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(app.test_settings_directory)
-	root.add_child(app);app.selected_character="sofia";app.selected_level="hub";app.launch(true)
+	root.add_child(app);app.selected_level="hub";app.launch(true)
 	await frames(10)
 	var hero: CoreMovementPlayer=app.game.player
 	var routes:=get_nodes_in_group("ordinary_stairs")

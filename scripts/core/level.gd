@@ -10,6 +10,7 @@ const LADDER = preload("res://scripts/core/ladder_geometry.gd")
 const PROLOGUE_START := FOREST.ORIGIN+Vector2(2*FOREST.UPM,0)
 var forest: Node2D
 var atmosphere_opacity := 0.0
+var laboratory_art: Node2D
 var fog_ceilings: Dictionary = {}
 
 func player_spawn() -> Vector2:
@@ -103,10 +104,14 @@ func _ready() -> void:
 		if prologue_version == 2:
 			var bounds := campaign_bounds()
 			_solid(Rect2(bounds.position.x-40,bounds.position.y,40,bounds.size.y),false)
+			get_child(-1).set_meta("surface_boundary",true)
 			_solid(Rect2(bounds.end.x,bounds.position.y,40,bounds.size.y),false)
+			get_child(-1).set_meta("surface_boundary",true)
 		else:
 			_solid(Rect2(FOREST.ORIGIN.x-40,-1500,40,3000),false)
+			get_child(-1).set_meta("surface_boundary",true)
 			_solid(Rect2(FOREST.BOUNDS.end.x,-1500,40,3000),false)
+			get_child(-1).set_meta("surface_boundary",true)
 	for rect in floors+obstacles: _solid(rect,false)
 	for rect in platforms:
 		solid_platforms.append_array(preload("res://scripts/core/platform_surfaces.gd").split(rect,ladders))
@@ -116,12 +121,15 @@ func _ready() -> void:
 		var body := StaticBody2D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
+		body.set_meta("terra_material",1 if prologue_mode else 3)
 		var shape := CollisionPolygon2D.new()
 		shape.polygon = points
 		body.add_child(shape)
 		add_child(body)
 	_solid(Rect2(LEFT_BOUND-40,0,40,1200),false)
+	get_child(-1).set_meta("terra_boundary",true)
 	_solid(Rect2(BASE_WIDTH if prologue_mode else WIDTH,0,40,1200),false)
+	get_child(-1).set_meta("terra_boundary",true)
 	var ramp := StaticBody2D.new()
 	var ramp_shape := CollisionPolygon2D.new()
 	ramp_shape.polygon = PackedVector2Array(BARREL_RAMP)
@@ -210,6 +218,19 @@ func _ready() -> void:
 			enemy.body_size *= CoreWorldUnits.LEGACY_SOFIA_SCALE
 			enemy._update_body_shape()
 			enemy._sync_zones()
+		# Keep laboratory textures out of the other maps' load path.
+		laboratory_art = load("res://scripts/core/polygon_laboratory.gd").new()
+		laboratory_art.name = "LaboratoryArt"
+		add_child(laboratory_art)
+		indoor_lighting.textured_background = true
+		indoor_lighting.queue_redraw()
+	_install_terraforming()
+
+func _install_terraforming() -> void:
+	var terra := preload("res://scripts/campaign/prologue_terraforming.gd").new()
+	terra.name = "Terraforming"
+	terra.level = self
+	add_child(terra)
 
 func _create_patrol(illustrated: bool) -> CoreZombie:
 	var actor := preload("res://scripts/core/live_zombie.gd").new()
@@ -251,9 +272,9 @@ func _solid(rect: Rect2,one_way: bool) -> void:
 	add_child(body)
 
 func _draw() -> void:
-	# Prologue 1 now has transparent art. Its own debug overlay draws these
-	# supports; the old lab drawing must not leak through the empty backdrop.
-	if prologue_mode and prologue_version == 1 and is_instance_valid(forest) and not forest.debug_geometry:
+	if is_instance_valid(laboratory_art): return
+	# Destroyed panorama areas must not reveal the original blocking drawing.
+	if prologue_mode and is_instance_valid(forest) and not forest.debug_geometry:
 		return
 	var grid_color := Color(Color("253039"),1.0-atmosphere_opacity*.95)
 	var test_right := BASE_WIDTH if prologue_mode else WIDTH
