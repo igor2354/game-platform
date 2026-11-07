@@ -8,12 +8,15 @@ var instigator: Node
 var elapsed := 0.0
 var resolved := false
 var affected: Dictionary = {}
+var surface_erosion: Dictionary = {}
+var grenade_visual_requested := false
+var grenade_visual: RefCounted
 var debug_contacts: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
 var audio: AudioStreamPlayer2D
 static var sound: AudioStreamWAV
 
-static func spawn(parent: Node,point: Vector2,profile: CoreExplosionSettings = null,origin_body: PhysicsBody2D = null,attacker: Node = null) -> CoreExplosion:
+static func spawn(parent: Node,point: Vector2,profile: CoreExplosionSettings = null,origin_body: PhysicsBody2D = null,attacker: Node = null,grenade_visual_enabled := false) -> CoreExplosion:
 	if not is_instance_valid(parent) or not parent.is_inside_tree() or parent.get_tree().paused or not point.is_finite(): return null
 	var settings := profile.snapshot() if profile else CoreExplosionSettings.new()
 	if not settings.explosions_enabled: return null
@@ -21,6 +24,7 @@ static func spawn(parent: Node,point: Vector2,profile: CoreExplosionSettings = n
 	blast.tuning = settings
 	blast.source = origin_body
 	blast.instigator = attacker
+	blast.grenade_visual_requested = grenade_visual_enabled
 	parent.add_child(blast)
 	blast.global_position = point
 	blast.detonate()
@@ -31,8 +35,20 @@ func detonate() -> void:
 	resolved = true
 	rng.randomize()
 	add_to_group("core_explosions")
+	var surface_effect = preload("res://scripts/core/surface_impact.gd")
+	var host := surface_effect.scope(self)
+	var visual_settings := surface_effect.settings_for(host)
+	var use_grenade_visual := grenade_visual_requested and (visual_settings == null or visual_settings.grenade_sprites_enabled)
+	var surface_contacts := surface_effect.blast_contacts(self) if tuning.explosion_visuals_enabled and (use_grenade_visual or surface_effect.enabled(host)) else []
+	if tuning.explosion_visuals_enabled and use_grenade_visual:
+		var visual_rng := RandomNumberGenerator.new()
+		visual_rng.randomize()
+		grenade_visual = preload("res://scripts/core/grenade_blast_visual.gd").new()
+		grenade_visual.configure(global_position,surface_contacts,visual_settings,visual_rng)
 	_resolve_blast()
 	get_tree().call_group("explosion_observers","on_explosion",global_position,tuning,self)
+	surface_effect.blast(self,surface_contacts,surface_erosion)
+	surface_erosion.clear()
 	if tuning.explosion_audio_enabled:
 		if not sound: sound = CoreCombatAudio.make_stream("explosion")
 		audio = AudioStreamPlayer2D.new()
@@ -162,13 +178,20 @@ func _resolve_blast() -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	if elapsed >= 1.05:
-		queue_free()
+	var end := maxf(1.05, grenade_visual.end_time()) if grenade_visual else 1.05
+	if elapsed >= end:
+		var particles := get_node_or_null("SurfaceImpactParticles")
+		if particles == null or not particles.is_physics_processing(): queue_free()
+		else: queue_redraw()
 		return
 	queue_redraw()
 
 func _draw() -> void:
 	if not tuning or not tuning.explosion_visuals_enabled: return
+	if grenade_visual:
+		grenade_visual.draw_on(self,elapsed)
+		return
+	if elapsed >= 1.05: return
 	var size := tuning.explosion_radius
 	if elapsed < .18:
 		var flash := 1-elapsed/.18

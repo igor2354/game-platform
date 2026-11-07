@@ -52,6 +52,5 @@ func _physics_process(_delta: float) -> void:
 		global_rotation = forearm.global_rotation+wrist_angle
 		global_position = forearm.to_global(Vector2(0,forearm.dimensions.y*.5))-global_transform.basis_xform(grip_local)
 func _draw() -> void:
-	var harry_stg = preload("res://scripts/campaign/harry_stg_pose.gd")
 	draw_set_transform(Vector2.ZERO,0,Vector2.ONE*player.body_scale)
-	CATALOG.draw_weapon(self,player.weapon.equipped_weapon_id,Vector2.ZERO,Vector2.RIGHT,Vector2(0,weapon_facing),0,true,harry_stg.art_data() if harry_stg.applies(player) else {})
+	CATALOG.draw_weapon(self,player.weapon.equipped_weapon_id,Vector2.ZERO,Vector2.RIGHT,Vector2(0,weapon_facing),0,true)

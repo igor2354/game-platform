@@ -137,7 +137,7 @@ func explode() -> void:
 	profile.explosion_impulse = tuning.grenade_blast_impulse
 	profile.explosion_shockwave_radius = tuning.grenade_shockwave_radius
 	if is_instance_valid(controller): controller.on_grenade_finished(self)
-	CoreExplosion.spawn(get_parent(),global_position,profile,self,instigator if is_instance_valid(instigator) else null)
+	CoreExplosion.spawn(get_parent(),global_position,profile,self,instigator if is_instance_valid(instigator) else null,true)
 	queue_free()
 func _draw() -> void:
 	draw_set_transform(Vector2.ZERO,0,Vector2.ONE*body_scale)

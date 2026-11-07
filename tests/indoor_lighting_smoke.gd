@@ -2,7 +2,7 @@ extends SceneTree
 var checks := 0
 var failures := 0
 var lab: CoreMovementLab
-var directory := "/private/tmp/indoor-lighting-%d" % OS.get_process_id()
+var directory := OS.get_temp_dir().path_join("indoor-lighting-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -157,7 +157,7 @@ func run() -> void:
 	lab._recover()
 	check(not lamp.broken and lamp.health == 60 and not tuning.lighting_enabled,"F8 repairs the room without changing balance settings")
 	var campaign := new_lab(true)
-	check(campaign.level.indoor_lighting == null and campaign.level.indoor_zombie == null and campaign.level.enemies.size() == 6 and campaign.level.floors[1].end.x == 5900,"the campaign keeps its old test floor and gets no lighting room or additional enemy")
+	check(campaign.level.indoor_lighting == null and campaign.level.indoor_zombie == null,"the prologue does not instantiate the Polygon lighting fixture")
 	campaign.queue_free()
 	lab.queue_free()
 	await frames(3)

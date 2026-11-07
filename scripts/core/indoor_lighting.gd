@@ -10,6 +10,7 @@ var tuning: CoreZombieSettings
 var lamp: CoreBreakableLamp
 var shade: ColorRect
 var observers: Array[Node2D] = []
+var textured_background := false
 
 func _ready() -> void:
 	add_to_group("indoor_lighting")
@@ -76,6 +77,8 @@ func refresh() -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	# Only the procedural wall drawing is replaced; shade, lamp and AI stay live.
+	if textured_background: return
 	draw_rect(BOUNDS,Color("414c50"))
 	for y in range(548,760,38):
 		draw_line(Vector2(6020,y),Vector2(6940,y),Color("364044"),2)

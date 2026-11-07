@@ -14,6 +14,7 @@ var polygon := PackedVector2Array()
 const MATERIAL = preload("res://scripts/core/hanging_material.gd")
 
 func _ready() -> void:
+	set_meta("terra_material",[3,4,5][assembly.contents])
 	collision_layer = 1
 	collision_mask = 1|2|4|8|128
 	if assembly.container == CoreHangingLoad.ContainerKind.NET: collision_mask |= 32

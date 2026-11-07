@@ -2,6 +2,8 @@ extends Control
 signal closed
 var resolution_selector: OptionButton
 var fullscreen_toggle: CheckButton
+var fps_number: SpinBox
+var fps_counter_toggle: CheckButton
 var status: Label
 var apply_button: Button
 var back_button: Button
@@ -34,7 +36,10 @@ func _ready() -> void:
 	add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation",12)
-	panel.add_child(box)
+	var scroll:=ScrollContainer.new()
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll);scroll.add_child(box)
+	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	var title := Label.new()
 	title.text = "НАСТРОЙКИ ИГРЫ"
 	title.add_theme_font_size_override("font_size",28)
@@ -47,6 +52,11 @@ func _ready() -> void:
 	fullscreen_toggle = CheckButton.new()
 	fullscreen_toggle.text = "Полный экран"
 	box.add_child(fullscreen_toggle)
+	var fps_row:=HBoxContainer.new();box.add_child(fps_row)
+	var fps_label:=Label.new();fps_label.text="Ограничение FPS";fps_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL;fps_row.add_child(fps_label)
+	fps_number=SpinBox.new();fps_number.min_value=0;fps_number.max_value=200;fps_number.step=1;fps_number.suffix="FPS";fps_number.custom_minimum_size.x=150;fps_row.add_child(fps_number)
+	var fps_hint:=Label.new();fps_hint.text="0 — стандартный потолок 200 FPS. Можно выбрать ниже.";fps_hint.add_theme_font_size_override("font_size",16);box.add_child(fps_hint)
+	fps_counter_toggle=CheckButton.new();fps_counter_toggle.text="Показывать счётчик FPS";box.add_child(fps_counter_toggle)
 	var hint := Label.new()
 	hint.text = "В окне — размер окна. В полном экране — детализация мира.\nИнтерфейс сохраняет чёткость. Пиксельный стиль может\nиспользовать меньшую детализацию, выбранную в F5."
 	hint.add_theme_font_size_override("font_size",17)
@@ -107,6 +117,8 @@ func refresh() -> void:
 		resolution_selector.add_item("%d × %d" % [options.resolution.x,options.resolution.y])
 	resolution_selector.select(choices.find(options.resolution))
 	fullscreen_toggle.set_pressed_no_signal(options.fullscreen)
+	fps_number.set_value_no_signal(options.fps_limit)
+	fps_counter_toggle.set_pressed_no_signal(options.show_fps)
 	for key in ["hip","ads"]:
 		var value: float = options.aim_sensitivity(key == "ads")*100.0
 		sensitivity_sliders[key].set_value_no_signal(value)
@@ -123,7 +135,7 @@ func close() -> void:
 	closed.emit()
 
 func _apply() -> void:
-	var result: int = options.apply_preferences(choices[resolution_selector.selected],fullscreen_toggle.button_pressed,sensitivity_sliders.hip.value/100.0,sensitivity_sliders.ads.value/100.0)
+	var result: int = options.apply_preferences(choices[resolution_selector.selected],fullscreen_toggle.button_pressed,sensitivity_sliders.hip.value/100.0,sensitivity_sliders.ads.value/100.0,int(fps_number.value),fps_counter_toggle.button_pressed)
 	status.text = "Применено и сохранено." if result == OK else "Применено, но сохранить не удалось (%d)." % result
 
 func _input(event: InputEvent) -> void:

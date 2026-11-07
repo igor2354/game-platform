@@ -47,7 +47,7 @@ func run() -> void:
 	lab=load("res://scenes/campaign/prologue_v2.tscn").instantiate();lab.load_user_settings=false
 	var temp:=OS.get_environment("TEMP").path_join("v2-manual-%d"%OS.get_process_id());DirAccess.make_dir_recursive_absolute(temp)
 	for key in ["settings_path","shooting_settings_path","camera_settings_path","zombie_settings_path","ragdoll_settings_path"]:lab.set(key,temp.path_join(key+".cfg"))
-	lab.get_node("World/Player").character_id="sofia";lab.get_node("World/Player").sofia_cel_variant=true
+	lab.get_node("World/Player").rig_reference_scale=CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab);await frames(12);hero=lab.player
 	preload("res://scripts/campaign/catalog.gd").equip(hero.weapon,"stg44");hero.weapon.tuning.sound_enabled=false
 	if OS.get_environment("UBERSHRIKE_MANUAL_CAPTURE")=="1":

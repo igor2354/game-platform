@@ -3,6 +3,15 @@ extends Resource
 
 const SAVE_PATH := "user://core_shooting.cfg"
 const SWITCHES := [
+	["assault_tracer_enabled", "Трассер STG-44", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
+	["smg_tracer_enabled", "Трассер MP-40", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
+	["rifle_tracer_enabled", "Трассер СВТ", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
+	["pistol_tracer_enabled", "Трассер 1911", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
+	["smg_flash_enabled", "Вспышка MP-40 V2", "Вспышка", "Свой лист, все9 рисунков. Порядок стадий сохраняется, вариант каждой стадии случаен. Выключение не стирает параметры."],
+	["rifle_flash_enabled", "Вспышка СВТ V2", "Вспышка", "Свой лист, все9 рисунков. Порядок стадий сохраняется, вариант каждой стадии случаен. Выключение не стирает параметры."],
+	["pistol_flash_enabled", "Вспышка 1911 V2", "Вспышка", "Свой лист, все9 рисунков. Порядок стадий сохраняется, вариант каждой стадии случаен. Выключение не стирает параметры."],
+	["assault_flash_enabled", "Вспышка STG-44 V2", "Вспышка", "Все9 рисунков листа штурмовой винтовки. Стадии идут по порядку; на каждую стадию выбирается один из3 вариантов. Не влияет на пули. Выключение сохраняет параметры."],
+	["enemy_impact_enabled", "Кровь при попадании", "Импакт", "Направленные капли в точке попадания по живому противнику. Только визуал: без оглушения и изменения урона. Выключение сохраняет параметры."],
 	["ads_spread_enabled", "Разброс очереди в ADS", "Прицел", "В ADS выстрелы накапливают отдельный реальный разброс. Луч и перекрестие показывают тот же угол. Выключение сохраняет параметры; разброс движения независим."],
 	["aim_beam_enabled", "Луч вместо перекрестия", "Прицел", "Два варианта прицела. Выключено — прежнее перекрестие; включено — светлый сектор реального разброса. Видим только игроку."],
 	["weapon_enabled", "Оружие включено", "Оружие", "Отключает стрельбу, прицеливание и перезарядку, сохраняя боезапас."],
@@ -19,6 +28,62 @@ const SWITCHES := [
 	["movement_spread_enabled", "Разброс от движения включён", "Разброс в движении", "Выключение сразу убирает штраф за движение. Базовый разброс и рост при очереди сохраняются."]
 ]
 @export var weapon_enabled := true
+@export var assault_tracer_enabled := true
+@export var assault_tracer_ignition := 0.02
+@export var assault_tracer_decay := 0.04
+@export var assault_tracer_length := 0.65
+@export var assault_tracer_width := 0.018
+@export var assault_tracer_opacity := 1.0
+@export var smg_tracer_enabled := true
+@export var smg_tracer_ignition := 0.02
+@export var smg_tracer_decay := 0.035
+@export var smg_tracer_length := 0.45
+@export var smg_tracer_width := 0.014
+@export var smg_tracer_opacity := 1.0
+@export var rifle_tracer_enabled := true
+@export var rifle_tracer_ignition := 0.02
+@export var rifle_tracer_decay := 0.045
+@export var rifle_tracer_length := 0.9
+@export var rifle_tracer_width := 0.016
+@export var rifle_tracer_opacity := 1.0
+@export var pistol_tracer_enabled := true
+@export var pistol_tracer_ignition := 0.02
+@export var pistol_tracer_decay := 0.03
+@export var pistol_tracer_length := 0.35
+@export var pistol_tracer_width := 0.012
+@export var pistol_tracer_opacity := 1.0
+@export var smg_flash_enabled := true
+@export var smg_flash_ignition := 0.01
+@export var smg_flash_peak := 0.015
+@export var smg_flash_decay := 0.035
+@export var smg_flash_size := 1.0
+@export var smg_flash_opacity := 1.0
+@export var rifle_flash_enabled := true
+@export var rifle_flash_ignition := 0.012
+@export var rifle_flash_peak := 0.022
+@export var rifle_flash_decay := 0.045
+@export var rifle_flash_size := 1.0
+@export var rifle_flash_opacity := 1.0
+@export var pistol_flash_enabled := true
+@export var pistol_flash_ignition := 0.01
+@export var pistol_flash_peak := 0.015
+@export var pistol_flash_decay := 0.03
+@export var pistol_flash_size := 1.0
+@export var pistol_flash_opacity := 1.0
+@export var assault_flash_enabled := true
+@export var assault_flash_ignition := .012
+@export var assault_flash_peak := .018
+@export var assault_flash_decay := .040
+@export var assault_flash_size := 1.0
+@export var assault_flash_opacity := 1.0
+@export var enemy_impact_enabled := true
+@export var enemy_impact_count := 26.0
+@export var enemy_impact_duration := .15
+@export var enemy_impact_size := 1.0
+@export var enemy_impact_reach := 1.0
+@export var enemy_impact_spread := 48.0
+@export var enemy_impact_gravity := 300.0
+@export var enemy_impact_opacity := .95
 @export var aim_beam_enabled := true
 @export var ads_spread_enabled := true
 @export var ads_spread := 0.0
@@ -44,6 +109,53 @@ const SWITCHES := [
 
 enum FireMode { AUTO, SINGLE }
 const PARAMS := [
+	["assault_tracer_ignition","STG-44 · Появление",0.005,0.1,0.001,"с","Трассеры"],
+	["assault_tracer_decay","STG-44 · Затухание",0.01,0.15,0.001,"с","Трассеры"],
+	["assault_tracer_length","STG-44 · Длина",0.1,3,0.01,"м","Трассеры"],
+	["assault_tracer_width","STG-44 · Толщина",0.005,0.08,0.001,"м","Трассеры"],
+	["assault_tracer_opacity","STG-44 · Непрозрачность",0.1,1,0.05,"доля","Трассеры"],
+	["smg_tracer_ignition","MP-40 · Появление",0.005,0.1,0.001,"с","Трассеры"],
+	["smg_tracer_decay","MP-40 · Затухание",0.01,0.15,0.001,"с","Трассеры"],
+	["smg_tracer_length","MP-40 · Длина",0.1,3,0.01,"м","Трассеры"],
+	["smg_tracer_width","MP-40 · Толщина",0.005,0.08,0.001,"м","Трассеры"],
+	["smg_tracer_opacity","MP-40 · Непрозрачность",0.1,1,0.05,"доля","Трассеры"],
+	["rifle_tracer_ignition","СВТ · Появление",0.005,0.1,0.001,"с","Трассеры"],
+	["rifle_tracer_decay","СВТ · Затухание",0.01,0.15,0.001,"с","Трассеры"],
+	["rifle_tracer_length","СВТ · Длина",0.1,3,0.01,"м","Трассеры"],
+	["rifle_tracer_width","СВТ · Толщина",0.005,0.08,0.001,"м","Трассеры"],
+	["rifle_tracer_opacity","СВТ · Непрозрачность",0.1,1,0.05,"доля","Трассеры"],
+	["pistol_tracer_ignition","1911 · Появление",0.005,0.1,0.001,"с","Трассеры"],
+	["pistol_tracer_decay","1911 · Затухание",0.01,0.15,0.001,"с","Трассеры"],
+	["pistol_tracer_length","1911 · Длина",0.1,3,0.01,"м","Трассеры"],
+	["pistol_tracer_width","1911 · Толщина",0.005,0.08,0.001,"м","Трассеры"],
+	["pistol_tracer_opacity","1911 · Непрозрачность",0.1,1,0.05,"доля","Трассеры"],
+	["smg_flash_ignition","MP-40 · Возникновение",0.005,0.08,0.001,"с","Вспышка"],
+	["smg_flash_peak","MP-40 · Полная сила",0.005,0.08,0.001,"с","Вспышка"],
+	["smg_flash_decay","MP-40 · Затухание",0.005,0.15,0.001,"с","Вспышка"],
+	["smg_flash_size","MP-40 · Размер",0.25,3,0.05,"×","Вспышка"],
+	["smg_flash_opacity","MP-40 · Непрозрачность",0.1,1,0.05,"доля","Вспышка"],
+	["rifle_flash_ignition","СВТ · Возникновение",0.005,0.08,0.001,"с","Вспышка"],
+	["rifle_flash_peak","СВТ · Полная сила",0.005,0.08,0.001,"с","Вспышка"],
+	["rifle_flash_decay","СВТ · Затухание",0.005,0.15,0.001,"с","Вспышка"],
+	["rifle_flash_size","СВТ · Размер",0.25,3,0.05,"×","Вспышка"],
+	["rifle_flash_opacity","СВТ · Непрозрачность",0.1,1,0.05,"доля","Вспышка"],
+	["pistol_flash_ignition","1911 · Возникновение",0.005,0.08,0.001,"с","Вспышка"],
+	["pistol_flash_peak","1911 · Полная сила",0.005,0.08,0.001,"с","Вспышка"],
+	["pistol_flash_decay","1911 · Затухание",0.005,0.15,0.001,"с","Вспышка"],
+	["pistol_flash_size","1911 · Размер",0.25,3,0.05,"×","Вспышка"],
+	["pistol_flash_opacity","1911 · Непрозрачность",0.1,1,0.05,"доля","Вспышка"],
+	["assault_flash_ignition","STG-44 · Возникновение",.005,.08,.001,"с","Вспышка"],
+	["assault_flash_peak","STG-44 · Полная сила",.005,.08,.001,"с","Вспышка"],
+	["assault_flash_decay","STG-44 · Затухание",.005,.15,.001,"с","Вспышка"],
+	["assault_flash_size","STG-44 · Размер",.25,3.0,.05,"×","Вспышка"],
+	["assault_flash_opacity","STG-44 · Непрозрачность",.1,1.0,.05,"доля","Вспышка"],
+	["enemy_impact_count","Количество капель",4.0,64.0,1.0,"шт.","Импакт"],
+	["enemy_impact_duration","Время рассеивания",.05,.5,.01,"с","Импакт"],
+	["enemy_impact_size","Размер капель",.3,3.0,.05,"×","Импакт"],
+	["enemy_impact_reach","Дальность выброса",.2,3.0,.05,"×","Импакт"],
+	["enemy_impact_spread","Угол выброса ±",5.0,90.0,1.0,"°","Импакт"],
+	["enemy_impact_gravity","Падение капель",0.0,1200.0,10.0,"ед./с²","Импакт"],
+	["enemy_impact_opacity","Непрозрачность",.1,1.0,.05,"доля","Импакт"],
 	["ads_spread","Начальный разброс ADS ±",0.0,15.0,.1,"°","Прицел"],
 	["ads_max_spread","Максимальный разброс ADS ±",0.0,35.0,.1,"°","Прицел"],
 	["ads_spread_per_shot","Рост разброса ADS за выстрел",0.0,5.0,.05,"°","Прицел"],
@@ -108,6 +220,7 @@ const PARAMS := [
 	["camera_shake","Дрожание камеры",0.0,5.0,.01,"px","Отдача"],
 	["camera_return","Возврат камеры",5.0,60.0,.01,"/с","Отдача"],
 	["kill_camera_boost","Усиление при убийстве",0.0,4.0,.01,"×","Отдача"],
+	["casing_volume","Громкость падения гильз",-60.0,0.0,1.0,"dB","Звук"],
 	["shot_volume","Громкость выстрела",-40.0,0.0,1.0,"dB","Звук"],
 	["hit_volume","Громкость попадания",-40.0,0.0,1.0,"dB","Звук"],
 	["kill_volume","Громкость убийства",-40.0,0.0,1.0,"dB","Звук"],
@@ -182,6 +295,7 @@ const PARAMS := [
 @export var camera_shake := 1.2
 @export var camera_return := 22.0
 @export var kill_camera_boost := 1.8
+@export var casing_volume := -15.0
 @export var shot_volume := -18.0
 @export var hit_volume := -13.0
 @export var kill_volume := -10.0

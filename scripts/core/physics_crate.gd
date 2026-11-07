@@ -19,6 +19,7 @@ var reset_pending := false
 var reset_ticks_left := 0
 
 func _ready() -> void:
+	set_meta("terra_material",4)
 	add_to_group("pushable_crates")
 	home_transform = global_transform
 	intact_layer = collision_layer

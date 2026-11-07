@@ -33,9 +33,9 @@ var close_button: Button
 var status: Label
 enum Section { PLAYER, ZOMBIE, TESTING, PHYSICS, FOG }
 const SECTIONS := ["Игрок","Зомби","Тестирование","Физика","Туман войны"]
-const OVERLAY_SECTIONS := [Section.PLAYER,Section.PLAYER,Section.PLAYER,Section.ZOMBIE,Section.PHYSICS,Section.PLAYER,Section.FOG]
-const OVERLAY_NAMES := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Физика","Здоровье","Туман войны"]
-const PLAYER_OVERLAYS := [0,1,2,5]
+const OVERLAY_SECTIONS := [Section.PLAYER,Section.PLAYER,Section.PLAYER,Section.ZOMBIE,Section.PHYSICS,Section.PLAYER,Section.FOG,Section.PLAYER]
+const OVERLAY_NAMES := ["Движение","Стрельба и урон","Камера и визуал","Зомби","Физика","Здоровье","Туман войны","Визуал"]
+const PLAYER_OVERLAYS := [0,1,2,5,7]
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -160,6 +160,15 @@ func _ready() -> void:
 		_prepare_action()
 		lab.player.weapon.refill_ammunition())
 	tools_page.add_child(ammo_button)
+	var shovel: Node2D = lab.player.weapon.shovel
+	if is_instance_valid(shovel):
+		tools_page.add_child(_button("Выдать / выбрать окопную лопату · X",func():
+			_prepare_action()
+			shovel.issue()))
+	if lab.level.has_method("prepare_shovel_crater"):
+		tools_page.add_child(_button("Подготовить учебную воронку",func():
+			_prepare_action()
+			lab.level.prepare_shovel_crater()))
 	enemy_tools = CoreEnemyTools.new()
 	enemy_tools.lab = lab
 	tools_page.add_child(enemy_tools)
@@ -270,7 +279,9 @@ func _apply_debug() -> void:
 	# Debug geometry is an independent test overlay, not the settings window.
 	lab.player.debug_shape = debug_toggle.button_pressed
 	lab.player.queue_redraw()
-	if lab.level.forest: lab.level.forest.set_debug_geometry(debug_toggle.button_pressed)
+	# All maps use the same live collision overlay, never the old opaque drawing.
+	if lab.level.forest: lab.level.forest.set_debug_geometry(false)
+	if is_instance_valid(lab.blocking_overlay): lab.blocking_overlay.set_debug_enabled(debug_toggle.button_pressed)
 	for enemy in lab.level.enemies:
 		enemy.debug_zones = lab.player.debug_shape
 		enemy.queue_redraw()

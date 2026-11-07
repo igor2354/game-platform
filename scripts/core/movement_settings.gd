@@ -14,7 +14,21 @@ const SCALED_MOTION_KEYS := ["run_speed","sprint_speed","slow_walk_speed","jump_
 	"slow_walk_braking","slow_walk_air_acceleration","slide_braking","slide_min_speed",
 	"slide_damage_min_speed","slide_knockdown_min_speed"]
 const SWITCHES := [
+	["terra_bake_enabled","Запекать осевшие обломки","Терраформинг","Контакт с тем же материалом, сохранение формы/полостей, повторное разрушение и падение без опоры. Выключение сохраняет готовые завалы."],
+	["terra_fracture_enabled","Надлом под весом","Терраформинг","Тонкие перегруженные соединения ломаются. Независимо от отделения полностью оторванных частей; параметры сохраняются при выключении."],
+	["terra_explosions_enabled","Разрушение окружения взрывами","Терраформинг","Отдельно от пуль; выключение сохраняет уже сделанные разрушения."],
+	["terra_visuals_enabled","Пыль и сколы окружения","Частицы и эффекты","Выбросы материала от пуль и взрывов, включая неразрушаемые поверхности."],
+	["casing_smoke_enabled","Дымок от вылета гильз","Частицы и эффекты","Короткий дымовой след после выброса гильзы."],
+	["muzzle_smoke_enabled","Дым из ствола","Частицы и эффекты","Струя при состоявшемся выстреле."],
+	["muzzle_residual_enabled","Остаточный дым из ствола","Частицы и эффекты","Тонкая струйка после нескольких магазинов стрельбы с короткими паузами."],
+	["sole_effects_enabled","Контакт подошв с поверхностью","Частицы и эффекты","Пыль при торможении и приземлении, следы на размеченной грязи и мокром полу."],
+	["grenade_sprites_enabled","Анимация взрыва гранаты","Частицы и эффекты","Использовать покадровые эффекты гранаты."],
+	["terra_collapse_enabled","Физическое отделение без опоры","Терраформинг","Изолированные участки падают и сохраняются как физические тела."],
+	["terra_bullets_enabled","Разрушение грунта пулями","Терраформинг","Локальное накопление повреждений от попаданий; выключение сохраняет отверстия."],
+	["shovel_enabled","Лопата включена","Лопата","Разрешает применять выданную окопную лопату."],
+	["terra_enabled","Терраформинг включён","Терраформинг","Выключение сохраняет разрушенный грунт."],
 	["stairs_enabled", "Обычные лестницы", "Маршевые лестницы", "A/D + W для входа вверх, A/D + S вниз. На марше A/D; отпускание останавливает."],
+	["parkour_hold_move_enabled","Подъём при удержании Пробела и движения","Паркур","Цепочка подъёмов в сторону движения, без повторного нажатия."],
 	["parkour_enabled", "Паркур включён", "Паркур", "Лицом к краю удерживайте пробел для хвата. Повторное нажатие — подъём, C — прервать. Низкое узкое препятствие преодолевается сразу."],
 	["sprint_auto_parkour_enabled", "Автопаркур при спринте", "Паркур", "Shift + движение: автоматически преодолевать препятствия от колена до груди. Размеры считаются относительно роста героя; C — прервать."],
 	["run_enabled", "Бег включён", "Бег", "Отключает обычный бег. Ходьба, приседание, спринт и специальные действия включаются отдельно."],
@@ -31,8 +45,88 @@ const SWITCHES := [
 	["health_enabled", "Получать урон", "Здоровье", "Выключено: входящий урон не уменьшает HP. Ручное изменение HP, лечение и отдельное бессмертие остаются доступны."],
 	["push_enabled", "Захват и перемещение включены", "Толкание", "G — взять/отпустить предмет; A/D — толкать и тянуть. Выключение освобождает руки; гравитация и импульсы пуль сохраняются."]
 ]
+@export var parkour_hold_move_enabled := true
 @export var parkour_enabled := true
 @export var stairs_enabled := true
+@export var shovel_enabled := true
+@export var shovel_reach := 265.0
+@export var shovel_area := 100.0
+@export var shovel_width := 80.0
+@export var shovel_depth := 37.0
+@export var shovel_cycle := .62
+@export var shovel_noise := .65
+@export var shovel_volume := -18.0
+@export var terra_enabled := true
+@export var terra_explosions_enabled := true
+@export var terra_visuals_enabled := true
+@export var casing_smoke_enabled := true
+@export var casing_smoke_opacity := 0.72
+@export var casing_smoke_size := 1.35
+@export var casing_smoke_duration := 0.24
+@export var muzzle_smoke_enabled := true
+@export var muzzle_residual_enabled := true
+@export var muzzle_smoke_size := 1.0
+@export var muzzle_smoke_opacity := 0.46
+@export var muzzle_smoke_duration := 0.52
+@export var muzzle_smoke_rise := 28.0
+@export var muzzle_smoke_drift := 9.0
+@export var muzzle_smoke_speed := 82.0
+@export var muzzle_smoke_length := 18.0
+@export var muzzle_smoke_spread := 9.0
+@export var muzzle_smoke_heat := 0.31
+@export var muzzle_smoke_cooling := 0.72
+@export var muzzle_smoke_threshold := 0.4
+@export var muzzle_smoke_rate := 9.0
+@export var muzzle_residual_magazines := 2.0
+@export var muzzle_residual_seconds := 10.0
+@export var sole_effects_enabled := true
+@export var sole_effects_size := 1.0
+@export var sole_effects_opacity := 0.75
+@export var muzzle_smoke_stg44 := 1.0
+@export var muzzle_smoke_mp40 := 1.0
+@export var muzzle_smoke_svt := 1.0
+@export var muzzle_smoke_m1911 := 1.0
+@export var surface_chip_size := 2.0
+@export var surface_dust_size := 1.65
+@export var surface_particle_opacity := 1.45
+@export var surface_particle_count := 1.0
+@export var surface_particle_speed := 1.0
+@export var surface_particle_lifetime := 1.0
+@export var grenade_sprites_enabled := true
+@export var grenade_sprite_size := 1.0
+@export var grenade_sprite_opacity := 1.0
+@export var grenade_smoke_duration := 0.85
+@export var terra_bullets_enabled := true
+@export var terra_bullet_power := .12
+@export var terra_bullet_size := 1.0
+@export var terra_seed := 1042.0
+@export var terra_energy := 140.0
+@export var terra_sand_strength := 8.0
+@export var terra_earth_strength := 16.0
+@export var terra_clay_strength := 30.0
+@export var terra_rock_strength := 65.0
+@export var terra_wood_strength := 45.0
+@export var terra_metal_strength := 100.0
+@export var terra_collapse_enabled := true
+@export var terra_fracture_enabled := true
+@export var terra_bake_enabled := true
+@export var terra_bake_delay := .8
+@export var terra_bake_speed := 5.0
+@export var terra_bake_patch_size := 256.0
+@export var terra_debris_budget_ms := 1.0
+@export var terra_mass_multiplier := 1.0
+@export var terra_mass_strength_exponent := .35
+@export var terra_joint_strength := .6
+@export var terra_joint_section_power := 2.0
+@export var terra_joint_damage_power := 1.0
+@export var terra_lever_length := 96.0
+@export var terra_compression_multiplier := 32.0
+@export var terra_support_budget_ms := 2.0
+@export var terra_crater_depth := .32
+@export var terra_crater_width := .22
+@export var terra_resistance := 1.0
+@export var terra_radius_multiplier := 2.0
+@export var terra_variation := .6
 @export var stairs_speed := 160.0
 @export var stairs_run_multiplier := 2.0
 @export var stairs_sprint_multiplier := 3.0
@@ -55,6 +149,72 @@ const SWITCHES := [
 
 # key, label, minimum, maximum, step, unit, group
 const PARAMS := [
+	["casing_smoke_opacity","Непрозрачность дымка гильз",0.0,1.0,.05,"×","Частицы и эффекты"],
+	["casing_smoke_size","Размер дымка гильз",.25,3.0,.05,"×","Частицы и эффекты"],
+	["casing_smoke_duration","Время рассеивания дымка гильз",.05,1.0,.01,"с","Частицы и эффекты"],
+	["muzzle_smoke_size","Размер дыма из ствола",0.25,3.0,0.05,"×","Частицы и эффекты"],
+	["muzzle_smoke_opacity","Непрозрачность дыма из ствола",0.0,1.0,0.01,"×","Частицы и эффекты"],
+	["muzzle_smoke_duration","Рассеивание дыма из ствола",0.1,2.0,0.05,"с","Частицы и эффекты"],
+	["muzzle_smoke_rise","Подъём дыма",0.0,100.0,1.0,"ед./с","Частицы и эффекты"],
+	["muzzle_smoke_drift","Дрейф дыма",0.0,60.0,1.0,"ед./с","Частицы и эффекты"],
+	["muzzle_smoke_speed","Начальная скорость струи",10.0,300.0,1.0,"ед./с","Частицы и эффекты"],
+	["muzzle_smoke_length","Длина начальной струи",2.0,60.0,1.0,"ед.","Частицы и эффекты"],
+	["muzzle_smoke_spread","Разброс направления дыма",0.0,40.0,1.0,"°","Частицы и эффекты"],
+	["muzzle_smoke_heat","Нагрев за выстрел",0.05,1.0,0.01,"×","Частицы и эффекты"],
+	["muzzle_smoke_cooling","Скорость остывания",0.1,3.0,0.05,"×/с","Частицы и эффекты"],
+	["muzzle_smoke_threshold","Плотность дыма при остывании",0.05,0.95,0.01,"×","Частицы и эффекты"],
+	["muzzle_smoke_rate","Частота остаточного дыма",1.0,18.0,1.0,"/с","Частицы и эффекты"],
+	["muzzle_residual_magazines","Нагрузка до остаточного дыма",1.0,5.0,0.25,"магаз.","Частицы и эффекты"],
+	["muzzle_residual_seconds","Остывание дымящегося ствола",2.0,20.0,0.5,"с","Частицы и эффекты"],
+	["sole_effects_size","Размер эффектов подошв",0.4,2.5,0.05,"×","Частицы и эффекты"],
+	["sole_effects_opacity","Видимость эффектов подошв",0.0,1.0,0.05,"×","Частицы и эффекты"],
+	["muzzle_smoke_stg44","STG-44 · интенсивность дыма",0.1,3.0,0.05,"×","Частицы и эффекты"],
+	["muzzle_smoke_mp40","MP-40 · интенсивность дыма",0.1,3.0,0.05,"×","Частицы и эффекты"],
+	["muzzle_smoke_svt","СВТ · интенсивность дыма",0.1,3.0,0.05,"×","Частицы и эффекты"],
+	["muzzle_smoke_m1911","1911 · интенсивность дыма",0.1,3.0,0.05,"×","Частицы и эффекты"],
+	["surface_chip_size","Размер сколов",.25,5.0,.05,"×","Частицы и эффекты"],
+	["surface_dust_size","Размер пылевого облака",.25,5.0,.05,"×","Частицы и эффекты"],
+	["surface_particle_opacity","Плотность пыли и сколов",0.0,4.0,.05,"×","Частицы и эффекты"],
+	["surface_particle_count","Количество частиц",.25,3.0,.05,"×","Частицы и эффекты"],
+	["surface_particle_speed","Скорость разлёта",.25,3.0,.05,"×","Частицы и эффекты"],
+	["surface_particle_lifetime","Длительность частиц",.25,3.0,.05,"×","Частицы и эффекты"],
+	["grenade_sprite_size","Размер взрыва гранаты",.25,3.0,.05,"×","Частицы и эффекты"],
+	["grenade_sprite_opacity","Непрозрачность взрыва гранаты",0.0,1.0,.05,"×","Частицы и эффекты"],
+	["grenade_smoke_duration","Длительность остаточной дымки",0.0,6.0,.05,"с","Частицы и эффекты"],
+	["terra_bake_delay","Покой перед запеканием",.2,5.0,.1,"с","Терраформинг"],
+	["terra_bake_speed","Предельная скорость для запекания",.1,20.0,.1,"px/с","Терраформинг"],
+	["terra_bake_patch_size","Размер локального объединения",64.0,512.0,16.0,"px","Терраформинг"],
+	["terra_debris_budget_ms","Бюджет завалов за кадр",.25,4.0,.25,"мс","Терраформинг"],
+	["terra_mass_multiplier","Масса грунта / новых обломков",.05,10.0,.05,"×","Терраформинг"],
+	["terra_mass_strength_exponent","Рост массы с прочностью",0.0,1.0,.05,"степень","Терраформинг"],
+	["terra_joint_strength","Несущая способность соединений",.01,10.0,.01,"× прочности","Терраформинг"],
+	["terra_joint_section_power","Влияние толщины перемычки",1.0,4.0,.1,"степень","Терраформинг"],
+	["terra_joint_damage_power","Ослабление повреждённой связи",0.0,3.0,.1,"степень","Терраформинг"],
+	["terra_lever_length","Длина рычага навеса",16.0,512.0,8.0,"px","Терраформинг"],
+	["terra_compression_multiplier","Опора снизу · сжатие",1.0,100.0,1.0,"×","Терраформинг"],
+	["terra_support_budget_ms","Общий бюджет опор за кадр",.25,8.0,.25,"мс","Терраформинг"],
+	["terra_wood_strength","Прочность дерева · новый материал",1.0,200.0,1.0,"","Терраформинг"],
+	["terra_metal_strength","Прочность металла · вагон",1.0,400.0,1.0,"","Терраформинг"],
+	["terra_crater_depth","Относительная глубина кратера",.1,1.0,.02,"× радиуса","Терраформинг"],
+	["terra_crater_width","Расширение на прочном материале",0.0,.6,.02,"×","Терраформинг"],
+	["terra_bullet_power","Пули · урон окружению",.01,3.0,.01,"× урона","Терраформинг"],
+	["terra_bullet_size","Пули · размер пробоин",.25,6.0,.05,"×","Терраформинг"],
+	["terra_sand_strength","Прочность песка · новый грунт",1.0,100.0,1.0,"","Терраформинг"],
+	["terra_earth_strength","Прочность земли · новый грунт",1.0,150.0,1.0,"","Терраформинг"],
+	["terra_clay_strength","Прочность глины · новый грунт",1.0,200.0,1.0,"","Терраформинг"],
+	["terra_rock_strength","Прочность камня · новый грунт",1.0,300.0,1.0,"","Терраформинг"],
+	["terra_seed","Seed · применяется при восстановлении",0.0,99999.0,1.0,"","Терраформинг"],
+	["terra_energy","Взрывы · энергия разрушения",10.0,1000.0,5.0,"","Терраформинг"],
+	["terra_resistance","Сопротивление материалов",.1,5.0,.05,"×","Терраформинг"],
+	["shovel_reach","Досягаемость",80.0,420.0,1.0,"ед.","Лопата"],
+	["shovel_area","Площадь выемки",25.0,100.0,1.0,"%","Лопата"],
+	["shovel_width","Ширина выемки",16.0,80.0,1.0,"ед.","Лопата"],
+	["shovel_depth","Глубина выемки",16.0,37.0,1.0,"ед.","Лопата"],
+	["shovel_cycle","Длительность цикла",.25,2.0,.01,"с","Лопата"],
+	["shovel_noise","Шум для зомби",0.0,3.0,.05,"×","Лопата"],
+	["shovel_volume","Громкость для игрока",-60.0,0.0,1.0,"дБ","Лопата"],
+	["terra_radius_multiplier","Взрывы · размер зоны разрушения",.5,6.0,.1,"×","Терраформинг"],
+	["terra_variation","Неоднородность плотности",0.0,.95,.05,"×","Терраформинг"],
 	["stairs_speed","Ходьба Ctrl по маршу",40.0,300.0,1.0,"px/с","Маршевые лестницы"],
 	["stairs_run_multiplier","Множитель бега по маршу",1.0,4.0,.05,"×","Маршевые лестницы"],
 	["stairs_sprint_multiplier","Множитель спринта по маршу",1.0,5.0,.05,"×","Маршевые лестницы"],
@@ -70,8 +230,8 @@ const PARAMS := [
 	["parkour_vault_width","Предел ширины препятствия · при 1×",79.8,456.0,.01,"px","Паркур"],
 	["parkour_clearance","Зазор над препятствием · при 1×",5.7,45.6,.01,"px","Паркур"],
 	["parkour_hang_time","Минимальное время фиксации хвата",0.05,0.6,0.01,"с","Паркур"],
-	["parkour_mantle_time","Время подъёма",0.0877193,0.52631579,0.01,"с","Паркур"],
-	["parkour_vault_time","Время преодоления",0.0877193,0.42105263,0.01,"с","Паркур"],
+	["parkour_mantle_time","Время подъёма",0.0877193,2.65,0.01,"с","Паркур"],
+	["parkour_vault_time","Время преодоления",0.0877193,2.15,0.01,"с","Паркур"],
 	["parkour_regrab_delay","Задержка повторного захвата",0.1,1.0,0.05,"с","Паркур"],
 	["parkour_drop_limit","Допустимый спуск за препятствием · при 1×",0.0,228.0,.01,"px","Паркур"],
 	["run_speed","Скорость бега",285.0,2137.5,0.01,"px/с","Бег"],
@@ -148,8 +308,8 @@ const PARAMS := [
 @export var parkour_vault_width := 273.6
 @export var parkour_clearance := 11.4
 @export var parkour_hang_time := 0.14
-@export var parkour_mantle_time := 0.22807017543859648
-@export var parkour_vault_time := 0.1929824561403509
+@export var parkour_mantle_time := 0.65
+@export var parkour_vault_time := 0.5
 @export var parkour_regrab_delay := 0.25
 @export var parkour_drop_limit := 91.2
 @export var sprint_auto_min_height_ratio := .25
