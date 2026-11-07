@@ -113,7 +113,8 @@ func handle_input(event: InputEvent) -> void:
 			weapon.consume_manual_recoil(point-before)
 		return
 	if event is InputEventMouseMotion:
-		var motion: Vector2 = _canvas_projection().affine_inverse().basis_xform(event.relative)*weapon.tuning.aim_mouse_sensitivity
+		var sensitivity: float = weapon.tuning.aim_mouse_sensitivity*host.display_options.aim_sensitivity(weapon.aiming)
+		var motion: Vector2 = _canvas_projection().affine_inverse().basis_xform(event.relative)*sensitivity
 		var before := point
 		shift_world(motion)
 		weapon.consume_manual_recoil(point-before)

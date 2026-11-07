@@ -15,6 +15,7 @@ var state_left := 0.0
 var unseen_left := 0.0
 var last_seen_position := Vector2.ZERO
 var walk_phase := 0.0
+var stationary_target := false
 var attacks_started := 0
 var attacks_landed := 0
 var windup_duration := .4
@@ -119,6 +120,7 @@ func take_projectile_hit(amount: float,part: String,direction := Vector2.RIGHT,a
 	return killed
 
 func _react_to_damage(attack_origin: Vector2) -> void:
+	if stationary_target: return
 	if test_frozen: return
 	if not tuning.damage_reaction_enabled: return
 	if health <= 0 or get_tree().paused or not is_instance_valid(target) or target.health <= 0: return
@@ -164,6 +166,7 @@ func effective_vision_angle() -> float:
 	return tuning.vision_angle*CoreIndoorLighting.vision_factors(self).y
 
 func sees_player(radius: float) -> bool:
+	if stationary_target: return false
 	if is_stunned(): return false
 	if not tuning.vision_enabled: return false
 	if not is_instance_valid(target) or target.health <= 0: return false
@@ -179,6 +182,7 @@ func sees_player(radius: float) -> bool:
 	return _clear_sight(eye_point(),point) and (is_zero_approx(tuning.vision_offset_x) or _clear_sight(origin,point))
 
 func hear_noise(point: Vector2,loudness: float,kind := "step") -> bool:
+	if stationary_target: return false
 	if test_frozen: return false
 	if not tuning.hearing_enabled: return false
 	if health <= 0 or get_tree().paused or not is_instance_valid(target) or target.health <= 0: return false
@@ -474,10 +478,14 @@ func _try_crawl_step(direction: float,delta: float) -> bool:
 	return true
 
 func _physics_process(delta: float) -> void:
+	if stationary_target:
+		super._physics_process(delta)
+		return
 	if blast_ragdoll and blast_ragdoll.active:
 		super._physics_process(delta)
 		return
 	if test_frozen: return
+	var motion_start := global_position
 	# Keep a fallen enemy available for arena respawn without simulating an
 	# endless fall beneath the playable level. Ordinary lower landings survive.
 	if global_position.y > CoreMovementLevel.FALL_LIMIT:
@@ -646,7 +654,7 @@ func _physics_process(delta: float) -> void:
 		rotation = Vector2(-normal.y,normal.x).angle()
 	elif not is_prone(): rotation = 0
 	if is_on_wall() and not stepped and state == State.PATROL: patrol_direction *= -1
-	walk_phase += absf(velocity.x)*delta/48*TAU
+	walk_phase += absf((global_position-motion_start).dot(global_transform.x.normalized()))/48*TAU
 	super._physics_process(delta)
 
 func _on_health_changed(was_alive: bool) -> void:
@@ -751,6 +759,7 @@ func _draw_part(part: String,rect: Rect2,color: Color) -> void:
 
 func _draw() -> void:
 	super._draw()
+	if stationary_target: return
 	if blast_ragdoll and blast_ragdoll.active: return
 	var top := -body_size.y if not is_prone() else -34*body_size.y/64
 	var color := Color("ff947b") if state in [State.CHASE,State.WINDUP,State.RECOVERY] else Color("a0bb87")

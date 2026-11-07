@@ -28,6 +28,8 @@ func setup(side := 1.0,ads := false) -> void:
 	hero.set_physics_process(false)
 	hero.reset_to(Vector2(1800,760))
 	gun.tuning.apply_values(lab.shooting_overlay.defaults.as_dictionary())
+	# Exact projectile/reticle checks isolate recoil from the independent ADS spread.
+	gun.tuning.ads_spread_enabled = false
 	gun.tuning.apply_values({"magazine_enabled":false,"sound_enabled":false,"damage_enabled":false,"hip_spread":0,"hip_max_spread":0,"sway_radius":0,"recoil_back":0,"camera_kick":0,"camera_shake":0,"recoil_angle":3,"hip_recoil_climb":1,"hip_recoil_horizontal":0,"ads_recoil_angle":1,"ads_recoil_climb":.5,"ads_recoil_horizontal":0})
 	gun.aiming = ads
 	gun.ads_blend = 1 if ads else 0

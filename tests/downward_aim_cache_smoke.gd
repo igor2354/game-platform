@@ -26,6 +26,9 @@ func run() -> void:
 	gun.tuning.sound_enabled = false
 	MOUNT.diagnostics_enabled = true
 	for data in CATALOG.WEAPONS:
+		# Keep this geometry/cache regression independent of random recoil samples.
+		gun.recoil_rng.seed = 2354
+		gun.rng.seed = 2354
 		hero.reset_to(Vector2(12400,760) if campaign else Vector2(1900,760))
 		CATALOG.equip(gun,data.id)
 		hero.body.state = "idle"

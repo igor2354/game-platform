@@ -1,10 +1,7 @@
 class_name CoreScaleReference
 extends Node2D
-## Opt-in polygon fixture. Artwork scale follows the user's collage, not the capsule.
-const FOREST = preload("res://resources/campaign/prologue_forest_4k.png")
+## Opt-in polygon measurements without the removed photographic reference.
 const ORIGIN := Vector2(-5600,760)
-const ROAD_PIXEL := Vector2(1800,1658)
-const ART_SCALE := CoreWorldUnits.REFERENCE_HEIGHT/CoreWorldUnits.COLLAGE_HEIGHT
 var player: CoreMovementPlayer
 var fixtures: Array[StaticBody2D] = []
 var raised := false
@@ -57,8 +54,6 @@ func _exit_tree() -> void:
 	if raised and is_instance_valid(player): player.z_index = original_z
 
 func _draw() -> void:
-	var rect := Rect2(ORIGIN-ROAD_PIXEL*ART_SCALE,FOREST.get_size()*ART_SCALE)
-	draw_texture_rect(FOREST,rect,false)
 	draw_line(ORIGIN+Vector2(-230,0),ORIGIN+Vector2(230,0),Color("aad8cb"),.6)
 	var font := reference_font
 	for i in range(-6,7):

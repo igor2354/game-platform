@@ -1,4 +1,4 @@
-extends CoreConceptZombie
+extends "res://scripts/core/live_zombie.gd"
 ## Same illustrated soldier and AI, uniformly enlarged to the approved world scale.
 func melee_reach() -> float:
 	# Retain the tuned hand reach beyond the actor's widened collision body.

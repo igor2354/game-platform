@@ -1,5 +1,6 @@
 class_name CoreMovementLab
 extends Node2D
+signal return_to_menu_requested
 
 const SettingsFile := preload("res://scripts/core/settings_file.gd")
 const SettingsFileDialog := preload("res://scripts/core/settings_file_dialog.gd")
@@ -29,6 +30,9 @@ var noir_filter: CoreNoirFilter
 var stable_pixels: CoreStablePixelRenderer
 var scale_reference: CoreScaleReference
 var blocking_overlay: Node2D
+var fog_of_war: Node2D
+var fog_overlay: CoreMovementOverlay
+var fog_readout: Label
 var player_scale_readout: Label
 var scale_reference_button: Button
 
@@ -78,8 +82,12 @@ var settings_dialog_open := false
 var settings_dialog_exporting := false
 var settings_dialog_was_paused := false
 var windowed_mode := Window.MODE_WINDOWED
+var pause_menu: CanvasLayer
+
+var display_options: RefCounted
 
 func _ready() -> void:
+	display_options = preload("res://scripts/ui/display_options.gd").access(get_tree(),load_user_settings)
 	_setup_input()
 	add_to_group("explosion_observers")
 	Engine.time_scale = 1
@@ -97,8 +105,8 @@ func _ready() -> void:
 	for enemy in level.enemies:
 		enemy.damage_tuning = player.weapon.tuning
 		enemy.posture_changed.connect(player.allow_exit_overlapping_enemies)
-	level.zombie.target = player
-	var zombie_defaults := level.zombie.tuning.duplicate() as CoreZombieSettings
+	if is_instance_valid(level.zombie): level.zombie.target = player
+	var zombie_defaults := (level.zombie.tuning if is_instance_valid(level.zombie) else load("res://resources/core/zombie.tres")).duplicate() as CoreZombieSettings
 	zombie_defaults.apply_values(zombie_defaults.as_dictionary())
 	zombie_settings = zombie_defaults.duplicate() as CoreZombieSettings
 	for enemy in level.enemies:
@@ -107,7 +115,7 @@ func _ready() -> void:
 			enemy.target = player
 			if is_instance_valid(level.indoor_lighting): level.indoor_lighting.observers.append(enemy)
 	var camera_defaults := load("res://resources/core/camera.tres").duplicate() as CoreCameraSettings
-	if level.prologue_mode and level.prologue_version == 2:
+	if level.prologue_mode and (level.prologue_version == 2 or level.hub_mode):
 		camera_defaults.player_scale_enabled = true
 		camera_defaults.player_scale = 1.0
 	camera_defaults.apply_values(camera_defaults.as_dictionary())
@@ -116,14 +124,14 @@ func _ready() -> void:
 	player.weapon.camera_settings = camera_settings
 	var ragdoll_defaults := CoreRagdollSettings.new()
 	for param in CoreRagdollSettings.PARAMS:
-		if param[6] == "Манекен": ragdoll_defaults.set(param[0],level.ragdoll_mannequin.get(param[0]))
+		if param[6] == "Манекен" and is_instance_valid(level.ragdoll_mannequin): ragdoll_defaults.set(param[0],level.ragdoll_mannequin.get(param[0]))
 	ragdoll_settings = ragdoll_defaults.duplicate() as CoreRagdollSettings
 	if load_user_settings: player.tuning.load_saved(settings_path)
 	if load_user_settings: player.weapon.tuning.load_saved(shooting_settings_path)
 	if load_user_settings: camera_settings.load_saved(camera_settings_path)
 	if load_user_settings: zombie_settings.load_saved(zombie_settings_path)
 	if load_user_settings: ragdoll_settings.load_saved(ragdoll_settings_path)
-	if level.prologue_mode and level.prologue_version == 2:
+	if level.prologue_mode and (level.prologue_version == 2 or level.hub_mode):
 		# The new blockout starts at its approved reference size; do not write profiles.
 		camera_settings.player_scale_enabled = true
 		camera_settings.player_scale = 1.0
@@ -151,11 +159,7 @@ func _ready() -> void:
 		scale_reference.player = player
 		add_child(scale_reference)
 
-	if not campaign_mode:
-		moon_forest = preload("res://scripts/core/moon_forest.gd").new()
-		moon_forest.name = "MoonForest"
-		moon_forest.lab = self
-		add_child(moon_forest)
+	# The polygon is an unobstructed animation/combat test space.
 	_build_hud()
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.layer = 20
@@ -264,14 +268,16 @@ func _ready() -> void:
 	ragdoll_box.add_child(hint)
 	ragdoll_reset_button = ragdoll_overlay._button("Восстановить манекен",func():
 		developer_mode._prepare_action()
-		level.ragdoll_mannequin.reset_mannequin())
+		if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.reset_mannequin())
 	ragdoll_activate_button = ragdoll_overlay._button("Включить ragdoll",func():
 		developer_mode._prepare_action()
-		level.ragdoll_mannequin.activate())
+		if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.activate())
 	ragdoll_teleport_button = ragdoll_overlay._button("К манекену",func():
 		developer_mode._prepare_action()
 		_teleport_player(Vector2(-190,CoreMovementLevel.FLOOR)))
 	ragdoll_teleport_button.tooltip_text = "Перейти к ящику и манекену"
+	for control in [ragdoll_reset_button,ragdoll_activate_button,ragdoll_teleport_button]:
+		control.disabled = not is_instance_valid(level.ragdoll_mannequin)
 	var ragdoll_actions := HBoxContainer.new()
 	ragdoll_box.add_child(ragdoll_actions)
 	for button in [ragdoll_reset_button,ragdoll_activate_button,ragdoll_teleport_button]:
@@ -300,6 +306,30 @@ func _ready() -> void:
 	grenade_box.add_child(ragdoll_overlay._button("Пополнить гранаты",func():
 		developer_mode._prepare_action()
 		player.grenades.refill()))
+	fog_overlay = CoreMovementOverlay.new()
+	fog_overlay.settings = camera_settings
+	fog_overlay.defaults = camera_defaults
+	fog_overlay.profile_owner = camera_overlay
+	fog_overlay.settings_path = camera_settings_path
+	fog_overlay.params = CoreCameraSettings.FOG.PARAMS
+	for entry in CoreCameraSettings.FOG.PARAMS+CoreCameraSettings.FOG.SWITCHES: fog_overlay.profile_keys.append(entry[0])
+	fog_overlay.groups = CoreCameraSettings.FOG.GROUPS.duplicate()
+	fog_overlay.heading_text = "ТУМАН ВОЙНЫ"
+	fog_overlay.help_text = "Обзор по блокингу. ИИ и физика скрытых целей продолжают работать."
+	fog_overlay.hosted = true
+	fog_overlay.settings_changed.connect(_camera_settings_changed)
+	overlay_layer.add_child(fog_overlay)
+	fog_overlay.tabs.custom_minimum_size.y = 200
+	var fog_tools: VBoxContainer = fog_overlay.tabs.get_tab_control(3).get_child(0)
+	fog_readout = fog_overlay._label("",14)
+	fog_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	fog_tools.add_child(fog_readout)
+	fog_tools.add_child(fog_overlay._button("Забыть разведанные помещения",func():
+		developer_mode._prepare_action()
+		fog_of_war.clear_memory()))
+	fog_tools.add_child(fog_overlay._button("Перечитать геометрию блокинга",func():
+		developer_mode._prepare_action()
+		fog_of_war.rebuild_geometry()))
 	for overlay in _ui_overlays():
 		overlay.export_requested.connect(_open_settings_dialog.bind(true))
 		overlay.import_requested.connect(_open_settings_dialog.bind(false))
@@ -323,9 +353,40 @@ func _ready() -> void:
 	stable_pixels.name = "StablePixels"
 	stable_pixels.lab = self
 	add_child(stable_pixels)
+	display_options.changed.connect(stable_pixels.apply_settings)
+	get_window().size_changed.connect(stable_pixels.apply_settings)
+	pause_menu = preload("res://scripts/ui/pause_menu.gd").new()
+	add_child(pause_menu)
+	pause_menu.resume_requested.connect(func(): _set_pause(false))
+	pause_menu.restart_requested.connect(_restart_from_pause)
+	pause_menu.menu_requested.connect(_return_from_pause)
+	fog_of_war = preload("res://scripts/core/fog_of_war.gd").new()
+	fog_of_war.lab = self
+	add_child(fog_of_war)
 	_camera_settings_changed()
 
+func _set_pause(value: bool) -> void:
+	if value:
+		if player.grenades.preparing(): player.grenades.cancel_charge()
+		pause_menu.open()
+	else: pause_menu.close()
+	get_tree().paused = value
+	suppress_mouse_until_release = true
+	player.weapon.queued_single_press = false
+	player.queued_grab_press = false
+	if aim_cursor: aim_cursor.sync_context()
+
+func _restart_from_pause() -> void:
+	_set_pause(false)
+	_recover()
+
+func _return_from_pause() -> void:
+	_set_pause(false)
+	if return_to_menu_requested.has_connections(): return_to_menu_requested.emit()
+	else: get_tree().change_scene_to_file("res://scenes/frontend.tscn")
+
 func _blocks_keyboard() -> bool:
+	if pause_menu and pause_menu.screen.visible: return true
 	if level_map and level_map.visible: return true
 	if settings_dialog_open: return true
 	if developer_mode and developer_mode.blocks_keyboard_input(): return true
@@ -338,13 +399,13 @@ func _overlays() -> Array[CoreMovementOverlay]:
 
 func _ui_overlays() -> Array[CoreMovementOverlay]:
 	# Health is a separate view of the existing movement profile.
-	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay]
+	return [movement_overlay,shooting_overlay,camera_overlay,zombie_overlay,ragdoll_overlay,health_overlay,fog_overlay]
 
 func _ragdoll_settings_changed() -> void:
 	player.grenades.tuning = ragdoll_settings
 	for grenade in get_tree().get_nodes_in_group("core_grenades"):
 		if is_ancestor_of(grenade): grenade.apply_tuning()
-	level.ragdoll_mannequin.apply_muscle_settings(ragdoll_settings.as_dictionary())
+	if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.apply_muscle_settings(ragdoll_settings.as_dictionary())
 	level.fuel_field.tuning = ragdoll_settings
 	for barrel in level.explosive_barrels:
 		barrel.tuning = ragdoll_settings
@@ -518,6 +579,8 @@ func _teleport_zombie() -> void:
 	_teleport_player(CoreMovementLevel.ZOMBIE_TEST_SPAWN)
 
 func _teleport_player(point: Vector2) -> void:
+	# Polygon shortcut destinations are outside this separate safe level.
+	if level.hub_mode and not level.campaign_bounds().has_point(point): return
 	if player.grenades.preparing(): player.grenades.throw_held(true)
 	player.reset_to(point)
 	_clear_projectiles()
@@ -577,9 +640,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("core_fire_mode") and not event.is_echo():
 		player.weapon.tuning.set_fire_mode(1-player.weapon.tuning.fire_mode)
 		shooting_overlay._sync()
-	if event.is_action_pressed("core_pause"):
-		if player.grenades.preparing(): player.grenades.cancel_charge()
-		get_tree().paused = not get_tree().paused
+	if event.is_action_pressed("core_pause") and not event.is_echo(): _set_pause(not get_tree().paused)
 	if event.is_action_pressed("core_reset"):
 		get_tree().paused = false
 		_recover()
@@ -588,6 +649,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _input(event: InputEvent) -> void:
 	if transition_active: return
+	if pause_menu and pause_menu.screen.visible:
+		if pause_menu.settings.visible: return
+		if event.is_action_pressed("core_pause") and not event.is_echo():
+			_set_pause(false)
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("core_reset") and not event.is_echo():
+			_restart_from_pause()
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("core_fullscreen") and not event.is_echo(): display_options.toggle_fullscreen()
+		return
 	if get_tree().paused and event.is_action("core_fire") and player.grenades.preparing():
 		player.grenades.cancel_charge()
 		player.grenades.trigger_held = event.is_pressed()
@@ -636,12 +707,7 @@ func _input(event: InputEvent) -> void:
 			return
 
 func _toggle_fullscreen() -> void:
-	var window := get_window()
-	if window.mode == Window.MODE_FULLSCREEN or window.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
-		window.mode = windowed_mode
-	else:
-		windowed_mode = Window.MODE_MAXIMIZED if window.mode == Window.MODE_MAXIMIZED else Window.MODE_WINDOWED
-		window.mode = Window.MODE_FULLSCREEN
+	display_options.toggle_fullscreen()
 
 func _build_level_map() -> void:
 	var map_layer := CanvasLayer.new()
@@ -683,6 +749,7 @@ func _camera_settings_changed() -> void:
 	blocking_overlay.apply_settings(camera_settings)
 	player.request_character_scale(camera_settings.player_scale if camera_settings.player_scale_enabled else 1.0)
 	if stable_pixels: stable_pixels.apply_settings()
+	if is_instance_valid(fog_of_war): fog_of_war.apply_settings()
 	if noir_filter: noir_filter.apply_settings(camera_settings)
 	if scale_reference: scale_reference.set_enabled(camera_settings.scale_reference_enabled)
 	if map_button:
@@ -824,8 +891,8 @@ func _recover() -> void:
 		grenade.queue_free()
 	respawns += 1
 	player.reset_to(level.player_spawn())
-	level.physics_crate.reset_crate()
-	level.ragdoll_mannequin.reset_mannequin()
+	if is_instance_valid(level.physics_crate): level.physics_crate.reset_crate()
+	if is_instance_valid(level.ragdoll_mannequin): level.ragdoll_mannequin.reset_mannequin()
 	_reset_explosives()
 	_reset_hanging_loads()
 	_clear_projectiles()

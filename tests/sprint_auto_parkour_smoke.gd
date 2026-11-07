@@ -61,6 +61,11 @@ func run() -> void:
 	for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:lab.set(entry[0],directory.path_join(entry[1]))
 	lab.get_node("World/Player").character_id="sofia";lab.get_node("World/Player").sofia_cel_variant=true
 	root.add_child(lab);await frames(10);hero=lab.player;CATALOG.equip(hero.weapon,"stg44");hero.weapon.tuning.sound_enabled=false
+	# Diagnostic isolation: exercise the old movement with stair motion bypassed.
+	if "--stairs-bypass" in OS.get_cmdline_user_args():
+		var stub:=GDScript.new()
+		stub.source_code="extends RefCounted\nvar flight: Node2D\nfunc cancel(): pass\nfunc tick(_dt,_x,_y,_allowed): return false\n"
+		if stub.reload()==OK: hero.stairs=stub.new()
 	check(lab.movement_overlay.feature_toggles.has("sprint_auto_parkour_enabled") and lab.movement_overlay.rows.has("sprint_auto_max_height_ratio"),"developer menu exposes independent toggle and numeric tuning")
 	check(lab.level.forest.ladders.all(func(r):return is_equal_approx(r.size.x,51.3)),"all seventeen ver2 ladders use 2.85x reference width")
 	var maximum_grip_error := 0.0

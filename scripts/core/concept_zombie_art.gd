@@ -1,7 +1,7 @@
 class_name CoreConceptZombieArt
 extends RefCounted
 ## Native cutout rig, sampled into sixteen authored poses per animation.
-const ATLAS = preload("res://resources/core/concept_zombie/parts.png")
+static var atlas: Texture2D
 const FRAME_COUNT := 16
 const CELL := 256
 const BAKE_SCALE := 3.0
@@ -141,6 +141,11 @@ static func pose(clip: String,frame: int) -> Dictionary:
 	if poses.has(cache_key): return poses[cache_key]
 	var loop: bool = CLIPS[clip][1]
 	var t := float(frame)/(16 if loop else 15)
+	var result := continuous_pose(clip,t)
+	poses[cache_key] = result
+	return result
+
+static func continuous_pose(clip: String,t: float) -> Dictionary:
 	var p := _standing(t,0)
 	if clip in ["patrol","chase"]: p = _standing(t,6 if clip == "patrol" else 10,1 if clip == "patrol" else 3)
 	elif clip in ["prone_idle","crawl","crawl_windup","crawl_strike","crawl_recover","crawl_hurt","shove","prone_death","prone_stunned"]:
@@ -185,11 +190,14 @@ static func pose(clip: String,frame: int) -> Dictionary:
 			if p[key] is Vector2 and not ("ankle" in key or "tip" in key): p[key] += Vector2(0,sin(t*PI)*5)
 	if clip == "prone_death":
 		p.head_angle += t*.3
+	return assemble_pose(p,clip.begins_with("crawl") or clip in ["prone_idle","shove","prone_death","prone_stunned"])
+
+static func assemble_pose(p: Dictionary,prone: bool) -> Dictionary:
 	# Re-solve after blends and actions, never interpolate a knee through its
 	# opposite bend or stretch a segment during falling/getting up.
 	_attach_shoulders(p)
 	_constrain_limbs(p)
-	var result := {"parts":{},"joints":{},"prone":clip.begins_with("crawl") or clip in ["prone_idle","shove","prone_death","prone_stunned"]}
+	var result := {"parts":{},"joints":{},"prone":prone}
 	_piece(result,"torso",p.neck,p.waist,17)
 	var head_angle := clampf(p.head_angle,result.parts.torso.rotation-.95,result.parts.torso.rotation+.75)
 	# The lower neck sits inside the collar, with overlap at every rotation.
@@ -204,14 +212,14 @@ static func pose(clip: String,frame: int) -> Dictionary:
 		_piece(result,side+"_shin",p[side+"_knee"],p[side+"_ankle"],6)
 		result.parts[side+"_foot"] = {"position":p[side+"_ankle"]+Vector2(2,2),"rotation":0.0,"dimensions":Vector2(10,4),"anatomy":side+"_leg"}
 		for joint in ["shoulder","elbow","hip","knee","ankle"]: result.joints[side+"_"+joint] = p[side+"_"+joint]
-	poses[cache_key] = result
 	return result
 
 static func draw_piece(canvas: CanvasItem,key: String,transform: Transform2D,dimensions: Vector2,tint := Color.WHITE) -> void:
 	prepare_regions()
+	if atlas == null: atlas = load("res://resources/core/concept_zombie/parts.png")
 	canvas.draw_set_transform_matrix(transform)
 	var size := dimensions+Vector2(.5,.9)
-	canvas.draw_texture_rect_region(ATLAS,Rect2(-size*.5,size),regions[key],tint)
+	canvas.draw_texture_rect_region(atlas,Rect2(-size*.5,size),regions[key],tint)
 
 static func draw_pose(canvas: CanvasItem,values: Dictionary,base := Transform2D.IDENTITY,visible: Array = [],flash_part := "",dead := false) -> void:
 	for key in ORDER:

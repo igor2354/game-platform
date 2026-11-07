@@ -62,7 +62,7 @@ func run() -> void:
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
 	for values in defaults.values(): total += values.size()-(1 if values.has("scale_basis_version") else 0)-(1 if values.has("parkour_basis_version") else 0)
-	check(total == 382 and dev.navigation.size() == 4 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика"],"all 382 values, including blocking overlay visibility and opacity, remain in the four-section workspace")
+	check(total == 408 and dev.navigation.size() == 5 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика","Туман войны"],"all 408 values and the dedicated fog category remain in the shared developer workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")
 	check(dev.player_tabs.get_tab_count() == 4 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье","Player groups movement, shooting, camera and health")

@@ -5,6 +5,7 @@ const ART = preload("res://scripts/core/concept_zombie_art.gd")
 var animation_name := "idle"
 var animation_frame := 0
 var animation_elapsed := 0.0
+var animation_phase := 0.0
 var visual_hit_left := 0.0
 var visual_fall_left := 0.0
 var visual_getup_left := 0.0
@@ -54,15 +55,19 @@ func _physics_process(delta: float) -> void:
 		var elapsed := maxf(0,recovery_duration-state_left)
 		phase = elapsed/strike_time if animation_name.ends_with("strike") else (elapsed-strike_time)/maxf(.001,recovery_duration-strike_time)
 	elif animation_name == "shove": phase = 1-shove_left/maxf(.001,shove_duration)
-	elif animation_name in ["patrol","chase","crawl"]: phase = walk_phase/TAU*(2.0 if animation_name == "patrol" else 1.2 if animation_name == "chase" else .9)
+	elif animation_name in ["patrol","chase","crawl"]: phase = locomotion_animation_phase(animation_name)
 	elif animation_name in ["death","prone_death"]: phase = death_elapsed/float(ART.CLIPS[animation_name][0])
 	elif animation_name == "fall": phase = 1-visual_fall_left/.42
 	elif animation_name == "get_up": phase = 1-visual_getup_left/.65
 	elif animation_name == "land": phase = 1-visual_land_left/.24
 	elif animation_name in ["hurt","crawl_hurt"]: phase = 1-visual_hit_left/.28
+	animation_phase = fposmod(phase,1.0) if ART.CLIPS[animation_name][1] else clampf(phase,0,1)
 	animation_frame = posmod(floori(phase*16),16) if ART.CLIPS[animation_name][1] else clampi(floori(phase*16),0,15)
 	_sync_zones()
 	queue_redraw()
+
+func locomotion_animation_phase(clip: String) -> float:
+	return preload("res://scripts/core/mannequin_art.gd").phase_from_distance(walk_phase/TAU*48,clip,body_size.x/32*global_transform.x.length())
 
 func _select_animation() -> String:
 	if health <= 0: return "prone_death" if death_was_prone else "death"
@@ -192,8 +197,11 @@ func constrain_recovery_points(points: Dictionary,feet: Vector2) -> void:
 			points[side+"_"+limb[1]] = basis*solved[0]
 			points[side+"_"+limb[2]] = basis*solved[1]
 
+func pose_scale() -> Vector2:
+	return body_size/Vector2(32,64)
+
 func _physical_pose(values: Dictionary,prone_override: Variant = null) -> Dictionary:
-	var proportions := body_size/Vector2(32,64)
+	var proportions := pose_scale()
 	var mirror := Transform2D(Vector2(facing*proportions.x,0),Vector2(0,proportions.y),reaction_offset)
 	var basis := global_transform
 	basis.origin = Vector2.ZERO
