@@ -959,6 +959,7 @@ func draw_reload_magazine(canvas: Node2D) -> void:
 		else: preload("res://scripts/campaign/catalog.gd").draw_magazine(canvas,equipped_weapon_id,pose.magazine_point,pose.direction,pose.normal)
 
 func draw_weapon(canvas: Node2D,layer := 0) -> void:
+	if player.body and player.body.sprite.visible and player.body.has_method("uses_run_atlas") and player.body.uses_run_atlas(): return
 	if shovel_selected(): return
 	if layer < 0 and (equipped_weapon_id.is_empty()): return
 	var pose := visual_pose()
