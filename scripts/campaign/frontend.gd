@@ -13,7 +13,7 @@ var selected_level := "prologue"
 var page := "main"
 var stage: Control
 var layer: CanvasLayer
-var game: CoreMovementLab
+var game: Node
 var buttons: Dictionary = {}
 var menu_font: SystemFont
 var busy := false
@@ -225,17 +225,19 @@ func _weapons() -> void:
 	for index in rows.size():
 		_label(rows[index],Rect2(657,651+index*26,850,27),19,null,Color("8c877e"))
 	_button("back","‹  Назад",Rect2(40,820,220,58),func(): show_page("levels" if selected_mode == "campaign" else "main"))
+	if selected_mode != "campaign":
+		_button("legacy_polygon","Полигон 2D · прежние системы",Rect2(635,760,560,48),func(): launch(false,true))
 	_button("apply","Применить  ›",Rect2(1270,820,290,58),func(): launch(selected_mode == "campaign"),true)
 
 func begin_selection(campaign: bool) -> void:
 	selected_mode = "campaign" if campaign else "polygon"
 	show_page("weapons")
 
-func launch(campaign: bool) -> void:
+func launch(campaign: bool, legacy := false) -> void:
 	if busy or is_instance_valid(game): return
 	busy = true
 	stage.hide()
-	var scene_path := "res://scenes/main.tscn"
+	var scene_path := "res://scenes/main.tscn" if legacy else "res://scenes/core/polygon_3d.tscn"
 	if campaign: scene_path = "res://scenes/campaign/prologue_v2.tscn" if selected_level == "prologue_v2" else "res://scenes/campaign/prologue.tscn"
 	if campaign and selected_level == "terra": scene_path = "res://scenes/campaign/terra.tscn"
 	if campaign and selected_level == "hub": scene_path = "res://scenes/campaign/hub.tscn"
@@ -245,12 +247,14 @@ func launch(campaign: bool) -> void:
 	if not test_settings_directory.is_empty():
 		for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:
 			game.set(entry[0],test_settings_directory.path_join(entry[1]))
-	game.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
+	if campaign or legacy: game.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	add_child(game)
-	CATALOG.equip(game.player.weapon,selected_weapon)
-	game.shooting_overlay.defaults.apply_values(CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].values)
-	game.shooting_overlay._sync()
-	game.suppress_mouse_until_release = true
+	if campaign or legacy:
+		CATALOG.equip(game.player.weapon,selected_weapon)
+		game.shooting_overlay.defaults.apply_values(CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].values)
+		game.shooting_overlay._sync()
+		game.suppress_mouse_until_release = true
+	if not campaign and not legacy: game.combat.equip(selected_weapon)
 	game_bar = CanvasLayer.new()
 	game_bar.layer = 60
 	game.add_child(game_bar)

@@ -97,8 +97,8 @@ func start(impulse: Vector2,duration: float,tension: float,initial_pose: Diction
 		player_skin.rig = rig
 		player_skin.player = actor
 		player_skin.facing = pose.facing
-		player_skin.capture(actor.body.capture_skin())
 		rig.add_child(player_skin)
+		player_skin.attach_visual(actor.body.mannequin_visual)
 	elif actor is CoreZombie:
 		zombie_skin = actor.call("create_ragdoll_skin") if actor.has_method("create_ragdoll_skin") else ZOMBIE_SKIN.new()
 		zombie_skin.name = "ZombieSkin"
@@ -349,6 +349,8 @@ func cancel() -> void:
 	recovery_finished = false
 	actor.collision_layer = original_layer if actor is CoreMovementPlayer or actor.health > 0 else 0
 	actor.collision_mask = original_mask
+	if is_instance_valid(player_skin):
+		player_skin.detach_visual()
 	for node in hidden_nodes:
 		if is_instance_valid(node): node.show()
 	if is_instance_valid(rig):
