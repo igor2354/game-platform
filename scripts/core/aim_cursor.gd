@@ -87,7 +87,7 @@ func sync_context() -> void:
 	if not is_instance_valid(host) or not is_instance_valid(host.developer_mode): return
 	_sync_projection()
 	var focused := focus_override or DisplayServer.get_name() == "headless" or get_window().has_focus()
-	var wanted: bool = focused and not get_tree().paused and not host.developer_mode.enabled and not host.settings_dialog_open
+	var wanted: bool = focused and not get_tree().paused and not host.developer_mode.enabled and not host.settings_dialog_open and not (is_instance_valid(host.game_hud) and host.game_hud.editing)
 	if wanted != active:
 		if wanted:
 			if not initialized: point = host.get_global_mouse_position()

@@ -3,7 +3,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var path := "/private/tmp/zombie-overlay-%d.cfg" % OS.get_process_id()
+var path := OS.get_environment("TEMP").path_join("zombie-overlay-%d.cfg") % OS.get_process_id()
 
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
@@ -28,6 +28,7 @@ func new_lab(load_saved: bool) -> void:
 	lab.settings_path = path+"-movement"
 	lab.shooting_settings_path = path+"-shooting"
 	lab.camera_settings_path = path+"-camera"
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 func same_values(actual: Dictionary,expected: Dictionary) -> bool:
 	if actual.size() != expected.size(): return false

@@ -14,11 +14,12 @@ func run() -> void:
 	root.add_child(app)
 	for entry in [[false,"prologue"],[true,"prologue_v2"]]:
 		app.selected_level=entry[1]
-		app.launch(entry[0])
+		app.launch(entry[0],true)
 		await frames(8)
 		var hero: CoreMovementPlayer = app.game.player
 		var body = hero.body
-		check(body.get_script().resource_path.ends_with("user_standing_body.gd") and body.bones.size()==18 and body.mesh_pieces.size()==6,"weighted model shared on "+str(entry))
+		check(body.mannequin_visual.rig.get_bone_count()==153 and body.mannequin_visual.get_parent()==body,"Genesis9 visual shared on "+str(entry))
+		check(body.mannequin_visual.rig.global_position.is_zero_approx(),"imported skeleton is centered before the depth turn")
 		check(body.bones.NearHip.position.is_equal_approx(body.bones.FarHip.position),"projected hip roots coincide")
 		var lengths: Array[float] = []
 		for key in ["NearElbow","NearWrist","FarElbow","FarWrist","NearKnee","FarKnee"]: lengths.append(body.bones[key].position.length())
@@ -38,11 +39,13 @@ func run() -> void:
 		var before := Time.get_ticks_usec()
 		hero.blast_ragdoll.start(Vector2(25,-45),.2,.6)
 		print("WEIGHTED_KNOCKDOWN_SETUP_USEC ",Time.get_ticks_usec()-before)
-		check(hero.blast_ragdoll.active and not hero.blast_ragdoll.player_skin.pieces.is_empty(),"physical fall retains new artwork")
-		check(hero.blast_ragdoll.player_skin.pieces.all(func(p):return p.mesh!=null),"all corpse surfaces come from weighted mesh")
+		check(hero.blast_ragdoll.active and body.mannequin_visual.get_parent()==hero.blast_ragdoll.player_skin,"physical fall reuses the live 3D visual")
+		check(is_instance_valid(body.mannequin_visual.rig) and body.mannequin_visual.rig.get_bone_count()==153,"physical fall retains the Genesis9 skeleton")
 		await frames(12)
+		check(not body.mannequin_visual.fall_view.basis.is_equal_approx(Basis.IDENTITY),"physical fall turns the model out of profile")
 		hero.blast_ragdoll.cancel()
-		check(hero.visuals.visible and hero.collision_layer==2,"ragdoll cancellation restores live renderer and collider")
+		check(hero.visuals.visible and hero.collision_layer==2 and body.mannequin_visual.get_parent()==body,"ragdoll cancellation restores live renderer and collider")
+		check(body.mannequin_visual.fall_view.basis.is_equal_approx(Basis.IDENTITY),"restored model faces in profile")
 		var index := 0
 		for key in ["NearElbow","NearWrist","FarElbow","FarWrist","NearKnee","FarKnee"]:
 			check(is_equal_approx(lengths[index],body.bones[key].position.length()),"action preserved bone length "+key)

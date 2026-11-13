@@ -3,6 +3,9 @@ extends Resource
 
 const SAVE_PATH := "user://core_shooting.cfg"
 const SWITCHES := [
+	["body_recoil_3d_enabled","Отдача корпусом · 3D","Оружие","Импульс через плечо и корпус, без отделения приклада."],
+	["procedural_feet_3d_enabled","Процедурные опоры · 3D","Оружие","Постановка стоп при разворотах и вертикальном наведении."],
+	["relaxed_carry_3d_enabled","Спокойная переноска STG · 3D","Оружие","Опускать STG без противников поблизости. Параметры сохраняются при отключении."],
 	["assault_tracer_enabled", "Трассер STG-44", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
 	["smg_tracer_enabled", "Трассер MP-40", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
 	["rifle_tracer_enabled", "Трассер СВТ", "Трассеры", "Свой лист: возникновение, след в полёте, затухание на месте попадания. Случайный вариант каждой стадии, без влияния на пули. Выключение сохраняет параметры."],
@@ -27,6 +30,19 @@ const SWITCHES := [
 	["magazine_enabled", "Магазин и перезарядка включены", "Магазин", "Выключено: стрельба без расхода патронов и без перезарядки. Реальный боезапас сохраняется."],
 	["movement_spread_enabled", "Разброс от движения включён", "Разброс в движении", "Выключение сразу убирает штраф за движение. Базовый разброс и рост при очереди сохраняются."]
 ]
+@export var relaxed_carry_3d_enabled := true
+@export var relaxed_carry_3d_radius := 10.0
+@export var relaxed_carry_3d_delay := 3.0
+@export var weapon_pose_3d_blend := .14
+@export var body_recoil_3d_enabled := true
+@export var body_recoil_3d_strength := 1.0
+@export var body_recoil_3d_ammo := 1.0
+@export var body_recoil_3d_hip_multiplier := 2.0
+@export var procedural_feet_3d_step_time := .16
+@export var procedural_feet_3d_lift := .045
+@export var procedural_feet_3d_stride := .16
+@export var procedural_feet_3d_turn := 20.0
+@export var procedural_feet_3d_enabled := true
 @export var weapon_enabled := true
 @export var assault_tracer_enabled := true
 @export var assault_tracer_ignition := 0.02
@@ -109,6 +125,16 @@ const SWITCHES := [
 
 enum FireMode { AUTO, SINGLE }
 const PARAMS := [
+	["body_recoil_3d_hip_multiplier","3D · Отдача от бедра",1,3,.05,"×","Оружие"],
+	["body_recoil_3d_ammo","3D · Импульс боеприпаса",.25,2,.05,"×","Оружие"],
+	["procedural_feet_3d_step_time","3D · Время перестановки стопы",.1,.35,.01,"с","Оружие"],
+	["procedural_feet_3d_lift","3D · Подъём стопы",.015,.08,.005,"м","Оружие"],
+	["procedural_feet_3d_stride","3D · Порог перестановки",.1,.35,.01,"м","Оружие"],
+	["procedural_feet_3d_turn","3D · Поворот до перестановки",10,40,1,"°","Оружие"],
+	["body_recoil_3d_strength","3D · Сила отдачи корпуса",0,2,.05,"×","Оружие"],
+	["relaxed_carry_3d_radius","3D · Радиус боевой готовности",1,30,.5,"м","Оружие"],
+	["relaxed_carry_3d_delay","3D · Переноска после стрельбы",0,10,.1,"с","Оружие"],
+	["weapon_pose_3d_blend","3D · Плавность стойки",.05,.5,.01,"с","Оружие"],
 	["assault_tracer_ignition","STG-44 · Появление",0.005,0.1,0.001,"с","Трассеры"],
 	["assault_tracer_decay","STG-44 · Затухание",0.01,0.15,0.001,"с","Трассеры"],
 	["assault_tracer_length","STG-44 · Длина",0.1,3,0.01,"м","Трассеры"],
