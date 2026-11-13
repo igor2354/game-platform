@@ -1,5 +1,8 @@
 extends CharacterBody3D
 var health := 100.0
+var max_health := 100.0
+var invulnerable := false
+var test_frozen := false
 var death_impulse := Vector3.ZERO
 var death_point := Vector3.INF
 var state := "idle"
@@ -67,15 +70,16 @@ func take_projectile_hit(damage: float,_point: Vector3,_direction: Vector3) -> v
  if health<=0: return
  death_point = _point
  death_impulse = _direction.normalized()*1.5
- health = maxf(0,health-damage)
+ health = maxf(0,health-damage) if not invulnerable else health
  refresh()
 func reset() -> void:
+ if has_node("BlastRecovery"): get_node("BlastRecovery").queue_free()
  if has_node("ZombieVisual"): get_node("ZombieVisual").ragdoll.stop()
  death_impulse = Vector3.ZERO
  death_point = Vector3.INF
  body_visual.position = Vector3(0,.9,0)
  body_visual.rotation = Vector3.ZERO
- health = 100
+ health = maximum_health()
  stun_left = 0
  knockdown_left = 0
  knockback = Vector3.ZERO
@@ -101,6 +105,7 @@ func apply_dash_stun() -> bool:
  stun_left = maxf(stun_left,1.5)
  return true
 func tick_disability(dt: float) -> bool:
+ if has_node("BlastRecovery"): return true
  if health<=0: return true
  var disabled := stun_left>0 or knockdown_left>0
  var was_prone := knockdown_left>0
@@ -120,4 +125,26 @@ func tick_disability(dt: float) -> bool:
 func _physics_process(dt: float) -> void:
  var stage := get_parent()
  var paused: bool = "paused" in stage and stage.paused
- if not paused: tick_disability(dt)
+ if not paused and not test_frozen: tick_disability(dt)
+
+func maximum_health() -> float:
+ return max_health
+func set_maximum_health(value: float) -> void:
+ if not is_finite(value): return
+ max_health = clampf(value,1,1000)
+ set_current_health(health)
+func set_current_health(value: float) -> void:
+ if not is_finite(value): return
+ var was_dead := health<=0
+ health = clampf(value,0,maximum_health())
+ if was_dead and health>0:
+  if has_node("ZombieVisual"): get_node("ZombieVisual").ragdoll.stop()
+  velocity = Vector3.ZERO
+  release_overlapping_players()
+ refresh()
+func set_invulnerable(value: bool) -> void:
+ invulnerable = value
+ if value and health<=0: set_current_health(maximum_health())
+func set_test_frozen(value: bool) -> void:
+ test_frozen = value
+ if has_node("ZombieVisual"): get_node("ZombieVisual").ragdoll.set_meta("test_frozen",value)

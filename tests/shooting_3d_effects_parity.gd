@@ -109,7 +109,7 @@ func run() -> void:
  var reset := InputEventKey.new()
  reset.pressed = true
  reset.physical_keycode = KEY_F8
- scene.combat._unhandled_key_input(reset)
+ root.push_input(reset,true)
  await frames(2)
  check(fx.casings.is_empty() and fx.trails.is_empty() and fx.chips.is_empty() and fx.bursts.is_empty() and fx.tracers.is_empty(),"F8 all effects")
  check(gun.projectiles.is_empty() and reticle.kill_marker_left==0 and fx.smoke.heat.is_empty(),"F8 bullets/markers/heat")

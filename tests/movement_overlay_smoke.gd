@@ -2,7 +2,7 @@ extends SceneTree
 var checks := 0
 var failures := 0
 var lab: CoreMovementLab
-var path := "/private/tmp/movement-overlay-test-%d.cfg" % OS.get_process_id()
+var path := OS.get_environment("TEMP").path_join("movement-overlay-test-%d.cfg") % OS.get_process_id()
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -23,6 +23,7 @@ func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	lab.settings_path = path
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	await frames(8)
 	var overlay := lab.movement_overlay

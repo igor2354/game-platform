@@ -48,7 +48,7 @@ func _ready() -> void:
  recoil.tuning = tuning
  add_child(recoil)
 
-func equip(id: String) -> void:
+func equip(id: String,preserve_projectiles := false) -> void:
  var catalog = preload("res://scripts/campaign/catalog.gd")
  var entry: Dictionary = catalog.WEAPONS[catalog.index_for(id)]
  weapon_id = entry.id
@@ -57,8 +57,9 @@ func equip(id: String) -> void:
  reserve = tuning.starting_reserve
  cooldown = 0
  reload_left = 0
- for bullet in projectiles: bullet.finished = true
- projectiles.clear()
+ if not preserve_projectiles:
+  for bullet in projectiles: bullet.finished = true
+  projectiles.clear()
  firing = false
  trigger_held = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
  trigger_needs_release = false

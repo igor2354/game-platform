@@ -43,7 +43,7 @@ func take_projectile_hit(damage: float,point: Vector3,direction: Vector3) -> voi
   last_known = target.position
   memory = tuning.damage_memory_time
 func _physics_process(dt: float) -> void:
- if not is_instance_valid(target) or get_parent().stage.paused: return
+ if test_frozen or not is_instance_valid(target) or get_parent().stage.paused: return
  if health<=0:
   state = "dead"
   return

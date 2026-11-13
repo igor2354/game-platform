@@ -366,6 +366,12 @@ func _add_row(parent: VBoxContainer,param: Array) -> void:
 	number.min_value = param[2]
 	number.max_value = param[3]
 	number.step = param[4]
+	# Migrated lower bounds need not lie on the parameter step grid.
+	# Range otherwise offsets every displayed value by that lower bound.
+	var fractional_bound := not is_equal_approx(snappedf(float(param[2]),float(param[4])),float(param[2]))
+	if fractional_bound:
+		number.step = .0000001
+		number.custom_arrow_step = param[4]
 	number.suffix = CoreWorldUnits.source_suffix(param[5])
 	number.custom_minimum_size.x = 145
 	number.value_changed.connect(_change_value.bind(key))
@@ -382,7 +388,7 @@ func _add_row(parent: VBoxContainer,param: Array) -> void:
 	var slider := HSlider.new()
 	slider.min_value = param[2]
 	slider.max_value = param[3]
-	slider.step = param[4]
+	slider.step = 0 if fractional_bound else param[4]
 	slider.focus_mode = Control.FOCUS_NONE
 	slider.custom_minimum_size.y = 18
 	slider.value_changed.connect(_change_value.bind(key))

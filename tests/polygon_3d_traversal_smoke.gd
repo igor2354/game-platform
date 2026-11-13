@@ -20,8 +20,17 @@ func run() -> void:
   if route[2]: Input.action_press("core_jump")
   var resets := 0
   var previous: Vector3 = player.position
+  var rearm := false
   for i in 900:
    await physics_frame
+   # A second obstacle requires a fresh jump press after landing.
+   # Holding Space across the gap intentionally does not auto-repeat parkour.
+   if route[2] and player.is_on_floor() and not player.parkour.active and player.parkour.jump_rearm_required:
+    Input.action_release("core_jump")
+    rearm = true
+   elif rearm:
+    Input.action_press("core_jump")
+    rearm = false
    if absf(player.position.x-previous.x)>2.5: resets += 1
    previous = player.position
    if (player.position.x*geometry.U-route[1])*signf(route[1]-route[0])>=0: break

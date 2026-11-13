@@ -1,4 +1,5 @@
 extends Node
+var native_player := false
 var skeleton: Skeleton3D
 var simulator: PhysicalBoneSimulator3D
 var bodies: Array[PhysicalBone3D] = []
@@ -20,6 +21,7 @@ func prepare(rig: Skeleton3D,segments: Array) -> void:
  set_physics_process(false)
  rng.randomize()
  skeleton = rig
+ native_player = skeleton.find_bone("r_upperarm")>=0
  simulator = PhysicalBoneSimulator3D.new()
  simulator.active = false
  skeleton.add_child(simulator)
@@ -44,6 +46,11 @@ func prepare(rig: Skeleton3D,segments: Array) -> void:
   var frame := Transform3D(Basis(Quaternion(Vector3.UP,delta.normalized())),(pose.origin+end)*.5)
   body.body_offset = pose.affine_inverse()*frame
   body.joint_offset = body.body_offset.affine_inverse()
+  if "shin" in body.bone_name:
+   body.joint_type = PhysicalBone3D.JOINT_TYPE_HINGE
+   # Hinge Z is anatomical right (+X in both native skeletons).
+   var knee_frame := Transform3D(pose.basis.inverse()*Basis(Vector3.UP,Vector3.BACK,Vector3.RIGHT),Vector3.ZERO)
+   body.joint_offset = body.body_offset.affine_inverse()*knee_frame
   simulator.add_child(body)
   configure_joint(body)
   var collider := CollisionShape3D.new()
@@ -53,11 +60,6 @@ func prepare(rig: Skeleton3D,segments: Array) -> void:
   collider.shape = capsule
   body.add_child(collider)
   bodies.append(body)
- # Neighbouring proxy capsules overlap naturally at joints. Do not let them
- # fight each other; corpses remain able to collide with other corpses.
- for a in bodies:
-  for b in bodies:
-   if a!=b: a.add_collision_exception_with(b)
  # Cache physical parent links, including chains that skip nonphysical neck/hand bones.
  for child in bodies:
   var parent_index := skeleton.get_bone_parent(skeleton.find_bone(child.bone_name))
@@ -66,10 +68,14 @@ func prepare(rig: Skeleton3D,segments: Array) -> void:
    for candidate in bodies:
     if candidate.bone_name==skeleton.get_bone_name(parent_index): parent_body = candidate
    if parent_body!=null:
-    var capsule: CapsuleShape3D = child.get_child(0).shape
-    joints.append({"a":parent_body,"b":child,"rest":Quaternion.IDENTITY,"inertia":maxf(.00001,child.mass*capsule.radius*capsule.radius*.5)})
+    joints.append({"a":parent_body,"b":child,"rest":Quaternion.IDENTITY,"inertia":segment_inertia(child)})
     break
    parent_index = skeleton.get_bone_parent(parent_index)
+ # Skin volumes overlap at joints and in some animation poses. Self-contact
+ # must not compete with anatomical joints during the hand-off to physics.
+ for a in bodies:
+  for b in bodies:
+   if a!=b: a.add_collision_exception_with(b)
 func start(velocity := Vector3.ZERO,impulse := Vector3.ZERO,point := Vector3.INF) -> void:
  if active: return
  active = true
@@ -119,7 +125,7 @@ func stop() -> void:
 
 func _physics_process(_dt: float) -> void:
  apply_settings()
- var paused: bool = (is_instance_valid(stage) and stage.paused) or not settings.simulation_enabled
+ var paused: bool = (is_instance_valid(stage) and stage.paused) or not settings.simulation_enabled or get_meta("test_frozen",false)
  if paused==frozen:
   if not paused:
    resist_joints()
@@ -164,16 +170,23 @@ func resist_joints() -> void:
   var angle := error.get_angle()
   if angle<.0001: continue
   var relative_spin := b.angular_velocity-a.angular_velocity
-  var parent_capsule: CapsuleShape3D = a.get_child(0).shape
-  var parent_inertia := maxf(.00001,a.mass*parent_capsule.radius*parent_capsule.radius*.5)
+  var parent_inertia := segment_inertia(a)
   var effective_inertia := 1.0/(1.0/float(joint.inertia)+1.0/parent_inertia)
-  var torque: Vector3 = (error.get_axis()*angle*45.0*strength-relative_spin*settings.muscle_damping*settings.muscle_tension)*effective_inertia
+  var torque: Vector3 = (error.get_axis()*angle*(90.0 if native_player else 45.0)*strength-relative_spin*settings.muscle_damping*settings.muscle_tension)*effective_inertia
   torque = torque.limit_length(effective_inertia*120.0)
   PhysicsServer3D.body_apply_torque(b.get_rid(),torque)
   PhysicsServer3D.body_apply_torque(a.get_rid(),-torque)
 
 func configure_joint(body: PhysicalBone3D) -> void:
- var span := 25.0 if body.bone_name in ["spine","chest","spine1","head"] else 65.0
+ if body.joint_type==PhysicalBone3D.JOINT_TYPE_HINGE:
+  body.set("joint_constraints/angular_limit_enabled",true)
+  body.set("joint_constraints/angular_limit_lower",(-120.0 if native_player else -145.0) if "shin" in body.bone_name else 0.0)
+  body.set("joint_constraints/angular_limit_upper",0.0 if "shin" in body.bone_name else 135.0)
+  body.set("joint_constraints/angular_limit_bias",.3)
+  body.set("joint_constraints/angular_limit_softness",.9)
+  body.set("joint_constraints/angular_limit_relaxation",1.0)
+  return
+ var span := (18.0 if native_player else 25.0) if body.bone_name in ["spine","chest","spine1","head"] else 45.0 if native_player and ("thigh" in body.bone_name or "forearm" in body.bone_name) else 65.0
  # PhysicalBone3D dynamic joint properties accept degrees (unlike PhysicsServer3D).
  body.set("joint_constraints/swing_span",span)
  body.set("joint_constraints/twist_span",20.0)
@@ -190,3 +203,7 @@ func apply_impact() -> void:
   hit_body.apply_impulse(pending_impulse,pending_point-hit_body.global_position)
  else: hit_body.apply_central_impulse(pending_impulse)
  pending_impulse = Vector3.ZERO
+
+func segment_inertia(body: PhysicalBone3D) -> float:
+ var capsule: CapsuleShape3D = body.get_child(0).shape
+ return maxf(.00001,body.mass*(capsule.height*capsule.height+3*capsule.radius*capsule.radius)/12.0 if native_player else body.mass*capsule.radius*capsule.radius*.5)

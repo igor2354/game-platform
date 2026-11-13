@@ -28,7 +28,9 @@ func run() -> void:
  if player_rig.bodies[0].global_position.distance_to(start)<.05: failures += 1
  for ragdoll in [player_rig,enemy_rig]:
   for body in ragdoll.bodies:
-   if not body.global_transform.is_finite() or body.global_position.y < -1: failures += 1
+   if not body.global_transform.is_finite() or body.global_position.y < -1:
+    failures += 1
+    print("RAGDOLL_FAILURE ",body.bone_name," at ",body.global_position)
  scene.player.reset()
  enemy.reset()
  dummy.reset()

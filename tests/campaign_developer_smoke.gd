@@ -10,12 +10,12 @@ func _initialize() -> void:
 func new_lab(saved := false) -> void:
 	lab = load("res://scenes/campaign/prologue.tscn").instantiate()
 	lab.load_user_settings = saved
-	lab.get_node("World/Player").character_id = "sofia"
 	lab.settings_path = directory+"/movement.cfg"
 	lab.shooting_settings_path = directory+"/shooting.cfg"
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	if not saved: CATALOG.equip(lab.player.weapon,"stg44")
 	else: lab.player.weapon.equipped_weapon_id = "stg44"

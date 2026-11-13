@@ -16,6 +16,7 @@ var beam_origin_cache := Vector3.INF
 var beam_axis_cache := Vector3.INF
 var beam_spread_cache := -1.0
 func _ready() -> void:
+ process_priority = 20
  set_physics_process(false)
  combat.gun.impact_resolved.connect(on_impact)
  combat.gun.effects_reset.connect(clear)
@@ -40,7 +41,7 @@ func on_impact(_hit: Dictionary,_direction: Vector3,_damage: float,target_hit: b
   killed = true
 func allowed() -> bool:
  var player = combat.stage.player
- return combat.cursor_active and not combat.stage.paused and combat.gun.tuning.weapon_enabled and combat.pivot.visible and combat.gun.reload_left<=0 and player.health>0 and not player.sprinting
+ return combat.cursor_active and not combat.stage.paused and combat.gun.tuning.weapon_enabled and combat.pivot.visible and combat.gun.reload_left<=0 and player.health>0 and not player.sprinting and (combat.gun.firing or combat.stance_calm<.01 or combat.gun.weapon_id!="stg44")
 func hit(a: Vector3,b: Vector3) -> Dictionary:
  ray.from = a
  ray.to = b
@@ -57,7 +58,7 @@ func _physics_process(_dt: float) -> void:
  var count: int = BEAM.SEGMENTS if half_angle>.000001 else 0
  for i in count+1:
   var angle := lerpf(-half_angle,half_angle,float(i)/count) if count else 0.0
-  var target: Vector3 = origin+combat.aim_direction.rotated(Vector3.BACK,angle)*reach
+  var target: Vector3 = origin+combat.shot_direction().rotated(Vector3.BACK,angle)*reach
   var result := hit(origin,target)
   beam_points.append(result.position if not result.is_empty() else target)
 func _process(dt: float) -> void:
@@ -67,11 +68,11 @@ func _process(dt: float) -> void:
  if not allowed() or not combat.gun.tuning.aim_beam_enabled:
   beam_points.clear()
   beam_physics_frame = -1
- elif beam_physics_frame!=Engine.get_physics_frames() or beam_origin_cache!=current_origin or beam_axis_cache!=combat.aim_direction or beam_spread_cache!=spread:
+ elif beam_physics_frame!=Engine.get_physics_frames() or beam_origin_cache!=current_origin or beam_axis_cache!=combat.shot_direction() or beam_spread_cache!=spread:
   _physics_process(0)
   beam_physics_frame = Engine.get_physics_frames()
   beam_origin_cache = current_origin
-  beam_axis_cache = combat.aim_direction
+  beam_axis_cache = combat.shot_direction()
   beam_spread_cache = spread
  if not combat.stage.paused:
   marker_left = maxf(0,marker_left-dt)

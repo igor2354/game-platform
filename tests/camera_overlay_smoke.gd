@@ -23,6 +23,7 @@ func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
 	lab.camera_settings_path = path
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	await frames(8)
 	var overlay := lab.camera_overlay

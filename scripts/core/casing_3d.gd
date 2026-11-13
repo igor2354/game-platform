@@ -15,6 +15,8 @@ var support: Node3D
 var kind := 3
 var last_contact := -1.0
 var quiet_time := 0.0
+var ground_ray := PhysicsRayQueryParameters3D.new()
+var stable_time := 0.0
 var last_normal := Vector3.ZERO
 var last_contact_point := Vector3.ZERO
 func prepare(host: Node3D,id: String,point: Vector3,axis: Vector3) -> void:
@@ -26,6 +28,8 @@ func prepare(host: Node3D,id: String,point: Vector3,axis: Vector3) -> void:
  collision_mask = 1|8
  gravity_scale = 750.0/100.97598/float(ProjectSettings.get_setting("physics/3d/default_gravity",9.8))
  continuous_cd = true
+ linear_damp = .2
+ angular_damp = 1.5
  contact_monitor = true
  max_contacts_reported = 4
  physics_material_override = PhysicsMaterial.new()
@@ -34,11 +38,14 @@ func prepare(host: Node3D,id: String,point: Vector3,axis: Vector3) -> void:
  var collider := CollisionShape3D.new()
  var shape := CapsuleShape3D.new()
  shape.radius = size.y*.5
+ shape.margin = .0005
  shape.height = size.x
  collider.shape = shape
  collider.rotation.z = PI/2
  add_child(collider)
+ ground_ray.collision_mask = 1|8
  host.add_child(self)
+ ground_ray.exclude = [get_rid()]
  global_position = point
  launch_height = point.y
  var art: Array = SOURCE.ART[id]
@@ -77,7 +84,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
     physics_material_override.bounce = SOURCE.BOUNCE[kind]
     physics_material_override.friction = clampf(SOURCE.DRAG[kind]/220.0,.05,1)
    var incoming := previous_velocity.dot(normal)
-   if incoming<-.06 and age-last_contact>.07:
+   # Gravity/contact chatter is not a new audible impact.
+   if incoming<-.22 and age-last_contact>.12:
     var tangent := previous_velocity-normal*incoming
     state.linear_velocity = tangent*(.36 if kind<2 else .67)+normal*(-incoming)*SOURCE.BOUNCE[kind]
     effects.casing_contact(self,kind,point)
@@ -86,11 +94,44 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
     support = object
     effects.register_support(self,support)
    var stable_slope := sqrt(1-pow(float(SOURCE.ROLL_SLOPE[kind]),2))
-   if normal.y>stable_slope and state.linear_velocity.length()<SOURCE.STOP_SPEED/100.97598:
+   if normal.y>stable_slope and state.linear_velocity.length()<.18:
+    state.angular_velocity *= exp(-state.step*12)
+   if normal.y>stable_slope and state.linear_velocity.length()<.18 and state.angular_velocity.length()<1.0:
     quiet_time += state.step
     if quiet_time>=.2:
      state.linear_velocity = Vector3.ZERO
      state.angular_velocity = Vector3.ZERO
      state.sleeping = true
    else: quiet_time = 0
+ settle_contact(state)
  previous_velocity = state.linear_velocity
+
+func settle_contact(state: PhysicsDirectBodyState3D) -> void:
+ var center := state.transform.origin
+ ground_ray.from = center+Vector3.UP*.05
+ ground_ray.to = center-Vector3.UP*.08
+ var hit := state.get_space_state().intersect_ray(ground_ray)
+ if hit.is_empty():
+  stable_time=0
+  return
+ var normal: Vector3 = hit.normal
+ if normal.y<.8 or center.y<hit.position.y-.02: return
+ var radius := size.y*.5+absf(normal.dot(state.transform.basis.x))*maxf(0,(size.x-size.y)*.5)
+ var gap: float = normal.dot(center-hit.position)-radius
+ if gap>.004 or state.linear_velocity.length()>.3:
+  stable_time=0
+  return
+ if gap<.0005:
+  var pose := state.transform
+  pose.origin += normal*(.0005-gap)
+  state.transform=pose
+ # Only remove residual contact energy after actual flight/bounces.
+ var speed := state.linear_velocity.dot(normal)
+ if absf(speed)<.18: state.linear_velocity-=normal*speed
+ state.linear_velocity*=exp(-state.step*8)
+ state.angular_velocity*=exp(-state.step*18)
+ stable_time+=state.step
+ if stable_time>.5 and state.linear_velocity.length()<.03 and state.angular_velocity.length()<.2:
+  state.linear_velocity=Vector3.ZERO
+  state.angular_velocity=Vector3.ZERO
+  state.sleeping=true

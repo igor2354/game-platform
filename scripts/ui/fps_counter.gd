@@ -15,5 +15,8 @@ func refresh() -> void:
 	visible=options.show_fps;set_process(visible)
 	if visible:label.text="FPS: %.0f"%Engine.get_frames_per_second();remaining=0
 func _process(delta: float) -> void:
+	var huds := get_tree().get_nodes_in_group("runtime_game_hud")
+	visible = options.show_fps and (huds.is_empty() or huds[0].settings.hud_telemetry_enabled)
+	label.position.y = 48 if not huds.is_empty() else 8
 	remaining-=delta
 	if remaining<=0:label.text="FPS: %.0f"%Engine.get_frames_per_second();remaining=.25

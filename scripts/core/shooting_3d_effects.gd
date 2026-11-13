@@ -25,6 +25,7 @@ var last_impact := {}
 var last_casing_contact := {}
 var supports: Dictionary = {}
 func _ready() -> void:
+ process_priority = 30
  combat = get_parent()
  rng.randomize()
  casing_audio.rng.randomize()
@@ -77,9 +78,9 @@ func projectile(bullet: Dictionary) -> void:
  tracers.append({"helper":helper,"node":GEO.node(self),"bullet":bullet})
 func shot(point: Vector3,direction: Vector3) -> void:
  flash.start(combat.gun.tuning,combat.gun.weapon_id)
- smoke.shot(point,combat.aim_direction)
+ smoke.shot(point,direction)
  var casing = preload("res://scripts/core/casing_3d.gd").new()
- casing.prepare(self,combat.gun.weapon_id,combat.pivot.to_global(Vector3(.1,.04,0)),combat.aim_direction)
+ casing.prepare(self,combat.gun.weapon_id,combat.pivot.to_global(Vector3(.1,.04,0)),direction)
  casings.append(casing)
  trails.append({"case":casing,"age":0.0,"samples":[],"variant":casing.smoke_variant})
 func surface_material(body: Object,point: Vector3,normal: Vector3) -> int:
@@ -139,7 +140,8 @@ func casing_contact(_casing: RigidBody3D,kind: int,point: Vector3) -> void:
 func _physics_process(dt: float) -> void:
  var paused: bool = combat.stage.paused
  if paused!=paused_before:
-  combat.weapon_parts.set_paused(paused)
+  combat.stg_parts.set_paused(paused)
+  combat.mp40_parts.set_paused(paused)
   for body in casings:
    if not is_instance_valid(body): continue
    if paused:
@@ -237,9 +239,19 @@ func draw_flash() -> void:
  var key: String = FLASH.prefix(flash.weapon_id)
  var scale_factor: float = FLASH.world_pixel_scale(flash.weapon_id)/U*float(settings.get(key+"_size"))
  var texture: Texture2D = FLASH.texture_for(flash.weapon_id)
- var direction: Vector3 = combat.aim_direction
+ var direction: Vector3 = combat.shot_direction()
  flash_visual.mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES,GEO.material(texture))
- GEO.quad(flash_visual.mesh,combat.pivot.to_global(combat.muzzle),direction,direction.cross(Vector3.BACK),FLASH.destination(frame.x,frame.y,scale_factor,flash.weapon_id),FLASH.regions_for(flash.weapon_id)[frame.x][frame.y],texture.get_size(),Color(1,1,1,settings.get(key+"_opacity")))
+ var rect: Rect2 = FLASH.destination(frame.x,frame.y,scale_factor,flash.weapon_id)
+ var source: Rect2 = FLASH.regions_for(flash.weapon_id)[frame.x][frame.y]
+ if combat.gun.weapon_id=="stg44" and rect.position.x<0:
+  var fraction := -rect.position.x/rect.size.x
+  source.position.x += source.size.x*fraction
+  source.size.x *= 1-fraction
+  rect.size.x += rect.position.x
+  rect.position.x = 0
+ var normal := direction.cross(combat.stage.camera.global_basis.z).normalized()
+ if normal.length_squared()<.01: normal = -combat.pivot.global_basis.y
+ GEO.quad(flash_visual.mesh,combat.pivot.to_global(combat.muzzle)+direction*.003,direction,normal,rect,source,texture.get_size(),Color(1,1,1,settings.get(key+"_opacity")))
  flash_visual.mesh.surface_end()
 func draw_chips() -> void:
  for chip in chips:

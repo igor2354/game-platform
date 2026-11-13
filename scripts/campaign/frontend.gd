@@ -254,7 +254,11 @@ func launch(campaign: bool, legacy := false) -> void:
 		game.shooting_overlay.defaults.apply_values(CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].values)
 		game.shooting_overlay._sync()
 		game.suppress_mouse_until_release = true
-	if not campaign and not legacy: game.combat.equip(selected_weapon)
+	if not campaign and not legacy: game.combat.configure_loadout(selected_weapon)
+	else:
+		var loadout = preload("res://scripts/core/weapon_loadout.gd").new()
+		game.add_child(loadout)
+		loadout.configure(game.player.weapon,func(id): CATALOG.equip(game.player.weapon,id),selected_weapon,func(): return game.player.health<=0 or (game.player.weapon.input_blocker.is_valid() and game.player.weapon.input_blocker.call()))
 	game_bar = CanvasLayer.new()
 	game_bar.layer = 60
 	game.add_child(game_bar)
@@ -265,7 +269,8 @@ func launch(campaign: bool, legacy := false) -> void:
 	back.focus_mode = Control.FOCUS_NONE
 	back.pressed.connect(return_to_menu)
 	game_bar.add_child(back)
-	_label((_mode_caption() if campaign else "ПОЛИГОН")+"   /   "+CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].name,Rect2(30,152,1200,43),25,game_bar)
+	var diagnostic_caption := _label((_mode_caption() if campaign else "ПОЛИГОН")+"   /   "+CATALOG.WEAPONS[CATALOG.index_for(selected_weapon)].name,Rect2(30,152,1200,43),25,game_bar)
+	diagnostic_caption.add_to_group("gameplay_telemetry")
 	page = "game"
 	busy = false
 

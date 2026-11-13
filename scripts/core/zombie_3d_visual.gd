@@ -27,10 +27,13 @@ func _process(_dt: float) -> void:
    animator.pause()
    ragdoll.start(host.velocity,host.death_impulse,host.death_point)
   return
+ elif ragdoll.active and host.has_node("BlastRecovery"):
+  animator.pause()
+  return
  elif ragdoll.active:
   ragdoll.stop()
   current = ""
- var paused: bool = ragdoll.stage.paused
+ var paused: bool = ragdoll.stage.paused or host.test_frozen
  if paused:
   if not was_paused: resume_after_pause = animator.is_playing()
   was_paused = true

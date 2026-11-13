@@ -3,8 +3,10 @@ signal contact_hit(enemy: PhysicsBody3D, damage: float, killed: bool, direction:
 const U := 100.97598
 var tuning: CoreMovementSettings = preload("res://resources/core/movement.tres").duplicate(true)
 var geometry: Node3D
+var grenades: Node3D
 var facing := 1.0
 var health := 100.0
+var invulnerable := false
 var weapon_movement_multiplier := 1.0
 var weapon_busy := false
 var weapon_visual_facing := NAN
@@ -39,7 +41,7 @@ var walking := false
 var shape: CollisionShape3D
 var capsule: CapsuleShape3D
 var model: Node3D
-var height := 1.8064
+var height := 1.75
 var radius := .395
 var traversal := PackedVector3Array()
 var traversal_speed := 0.0
@@ -72,7 +74,7 @@ func _ready() -> void:
 func value(key: String) -> float:
  return float(tuning.get(key))/U
 
-func clear_at(feet: Vector3, h := 1.8064) -> bool:
+func clear_at(feet: Vector3, h := 1.75) -> bool:
  var test := CapsuleShape3D.new()
  test.radius = radius-.005
  test.height = h
@@ -91,14 +93,55 @@ func posture(short: bool) -> void:
  crouching = target < height-.01
 
 func take_damage(amount: float) -> void:
- health = maxf(0,health-maxf(0,amount))
+ if invulnerable or not tuning.health_enabled or health<=0 or not is_finite(amount) or amount<=0: return
+ set_current_health(health-amount)
+
+func maximum_health() -> float:
+ return clampf(tuning.max_health,1,1000)
+
+func set_invulnerable(value: bool) -> void:
+ invulnerable = value
+ if value and health<=0: set_current_health(maximum_health())
+
+func apply_health_limit() -> void:
+ set_current_health(health)
+
+func apply_feature_settings() -> void:
+ if not tuning.parkour_enabled and parkour.active: parkour.cancel(false)
+ if not tuning.dash_enabled and dash_left>0:
+  dash_left = 0
+  contacts.dash_end()
+  ground_speed = 0
+  ground_acceleration = 0
+  velocity.x = 0
+ if not tuning.slide_enabled and slide_left>0:
+  slide_left = 0
+  slide_speed = 0
+  ground_speed = 0
+  velocity.x = 0
+ if not tuning.ladder_enabled:
+  climbing = false
+  traversal.clear()
+ if not tuning.crouch_enabled and slide_left<=0: posture(false)
+
+func set_current_health(value: float) -> void:
+ if not is_finite(value): return
+ var was_dead := health<=0
+ health = clampf(value,0,maximum_health())
+ if was_dead and health>0:
+  model.death_ragdoll.stop()
+  collision_layer = 2
+  collision_mask = 1|4|8
+  velocity = Vector3.ZERO
  if health<=0:
   model.death_ragdoll.start(velocity)
   collision_layer = 0
   collision_mask = 0
 
 func reset() -> void:
- health = 100
+ if is_instance_valid(grenades): grenades.reset_state()
+ if has_node("BlastRecovery"): get_node("BlastRecovery").queue_free()
+ health = maximum_health()
  model.death_ragdoll.stop()
  collision_layer = 2
  collision_mask = 1|4|8
@@ -126,6 +169,7 @@ func _physics_process(dt: float) -> void:
    collision_layer = 0
    collision_mask = 0
   return
+ if model.death_ragdoll.active: return
  contacts.refresh()
  var axis := Input.get_axis("core_left","core_right")
  var vertical := Input.get_axis("core_down","core_up")
@@ -161,7 +205,7 @@ func _physics_process(dt: float) -> void:
  elif climbing:
   climb(axis,vertical,dt)
  else:
-  if vertical != 0 and tuning.ladder_enabled and ladder_lock <= 0:
+  if vertical != 0 and not (grenades and grenades.busy()) and tuning.ladder_enabled and ladder_lock <= 0:
    for rect in geometry.ladder_rects:
     var top: Vector3 = geometry.point(rect.position)
     var bottom: Vector3 = geometry.point(rect.end)
@@ -176,12 +220,14 @@ func _physics_process(dt: float) -> void:
   else: locomotion(axis,held,grounded,dt)
  if position.y < -3.56: reset()
  position.z = 0
- var stride := (46.96630859375 if mode == "walk" or (mode=="run" and weapon_aiming) else 256.0 if mode == "run" else 128.0 if mode == "sprint" else 64.0)*2.85/U
+ var vertical_aim: bool = not model.weapon_pose.is_empty() and absf(model.weapon_pose.combat.aim_direction.y)>.65
+ var stride := (46.96630859375 if mode == "walk" or (mode=="run" and weapon_aiming and not vertical_aim) else 256.0 if mode == "run" else 128.0 if mode == "sprint" else 64.0)*2.85/U
  var visual_face := weapon_visual_facing if is_finite(weapon_visual_facing) else facing
  var backwards := not sprinting and absf(velocity.x)>.05 and velocity.x*visual_face<0
+ stride *= model.scale.x
  phase = fposmod(phase + absf(velocity.x)*dt/stride*(-1.0 if backwards else 1.0),1)
  if climbing: phase = fposmod((position.y*U-760+ladder.position.y+6)/48.0,1)
- visual_mode = "walk" if mode=="run" and weapon_aiming else mode
+ visual_mode = "walk" if mode=="run" and weapon_aiming and not vertical_aim else mode
  visual_phase = phase
  if mode == "crouch" and absf(velocity.x)>.05: visual_mode = "crouch_walk"
  if mode == "jump":
@@ -203,7 +249,7 @@ func locomotion(axis: float,held: bool,grounded: bool,dt: float) -> void:
  walking = tuning.walk_enabled and Input.is_action_pressed("core_walk") and not crouching
  sprinting = tuning.sprint_enabled and Input.is_action_pressed("core_sprint") and axis != 0 and not walking and not crouching and not exhausted and not weapon_busy
  var short := tuning.crouch_enabled and Input.is_action_pressed("core_crouch")
- if short and not crouch_held and sprinting and grounded and tuning.slide_enabled and slide_lock<=0 and absf(ground_speed)>=value("slide_min_speed"):
+ if not (grenades and grenades.busy()) and short and not crouch_held and sprinting and grounded and tuning.slide_enabled and slide_lock<=0 and absf(ground_speed)>=value("slide_min_speed"):
   contacts.slide_hits.clear()
   slide_left = tuning.slide_duration
   slide_lock = tuning.slide_cooldown
@@ -211,7 +257,7 @@ func locomotion(axis: float,held: bool,grounded: bool,dt: float) -> void:
   dash_direction = facing
  crouch_held = short
  posture((short or slide_left>0) and dash_left<=0)
- if Input.is_action_pressed("core_dash") and not dash_held and tuning.dash_enabled and dash_lock<=0 and (grounded or (tuning.air_dash_enabled and not air_dash_used)):
+ if not (grenades and grenades.busy()) and Input.is_action_pressed("core_dash") and not dash_held and tuning.dash_enabled and dash_lock<=0 and (grounded or (tuning.air_dash_enabled and not air_dash_used)):
   posture(false)
   contacts.dash_begin()
   dash_left = tuning.dash_duration
@@ -259,7 +305,7 @@ func locomotion(axis: float,held: bool,grounded: bool,dt: float) -> void:
    velocity.x = move_toward(velocity.x,axis*speed,(value("slow_walk_air_acceleration") if walking else value("air_acceleration"))*dt)
    velocity.y = maxf(velocity.y-value("gravity")*dt,-value("fall_speed"))
    ground_speed = velocity.x
-  if parkour.try_start(axis,held) or parkour.try_sprint(axis): return
+  if not (grenades and grenades.busy()) and (parkour.try_start(axis,held) or parkour.try_sprint(axis)): return
   if buffer>0 and (grounded or coyote>0) and tuning.jump_enabled:
    posture(false)
    velocity.y = value("jump_speed")

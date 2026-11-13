@@ -19,4 +19,5 @@ func run() -> void:
  print("SHOOTING_3D_CATALOG failures=",failures)
  world.queue_free()
  await process_frame
+ await process_frame
  quit(int(failures>0))

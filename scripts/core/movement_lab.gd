@@ -50,6 +50,7 @@ var barrel_teleport_button: Button
 var barrel_reset_button: Button
 var hanging_teleport_button: Button
 var hanging_reset_button: Button
+var game_hud: Control
 var developer_mode: CoreDeveloperMode
 var developer_button: Button
 var camera_applied_values: Dictionary = {}
@@ -217,7 +218,7 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня","Размер героя"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня","Размер героя","HUD"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
@@ -382,6 +383,12 @@ func _ready() -> void:
 	fog_of_war.lab = self
 	add_child(fog_of_war)
 	_camera_settings_changed()
+	var hud_layer := CanvasLayer.new()
+	hud_layer.layer = 10
+	add_child(hud_layer)
+	game_hud = preload("res://scripts/core/game_hud.gd").new()
+	game_hud.stage = self
+	hud_layer.add_child(game_hud)
 
 func _set_pause(value: bool) -> void:
 	if value:
@@ -404,6 +411,7 @@ func _return_from_pause() -> void:
 	else: get_tree().change_scene_to_file("res://scenes/frontend.tscn")
 
 func _blocks_keyboard() -> bool:
+	if is_instance_valid(game_hud) and game_hud.editing: return true
 	if pause_menu and pause_menu.screen.visible: return true
 	if level_map and level_map.visible: return true
 	if settings_dialog_open: return true
@@ -477,6 +485,7 @@ func _broadcast_noise(point: Vector2,loudness: float,kind: String) -> void:
 		if enemy is CoreZombie: enemy.hear_noise(point,loudness,kind)
 
 func _blocks_shooting() -> bool:
+	if is_instance_valid(game_hud) and game_hud.blocks_mouse_input(hud_pointer_position): return true
 	if suppress_mouse_until_release:
 		if Input.is_action_pressed("core_fire") or Input.is_action_pressed("core_aim"): return true
 		suppress_mouse_until_release = false

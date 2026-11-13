@@ -31,6 +31,7 @@ var hit_zones: Dictionary = {}
 var detached_parts: Array[Dictionary] = []
 var body_shape: CollisionShape2D
 var debug_zones := false
+var telemetry_enabled := true
 var idle_clock := 0.0
 var knockdown_left := 0.0
 var knockdown_saved_mask := 0
@@ -397,8 +398,14 @@ func _draw_health_and_zones() -> void:
 	if health > 0:
 		draw_rect(Rect2(-20,top-7,40,4),Color("273742"))
 		draw_rect(Rect2(-20,top-7,40*health/max_health,4),Color("81c6a7"))
-	var font := ThemeDB.fallback_font
-	draw_string(font,Vector2(-32,top-14),"%s · %.0f/%.0f HP%s%s" % [identifier,health,max_health," · ∞" if invulnerable else ""," · СТОП" if test_frozen else ""],HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("d0c8b7"))
-	if hit_notice_left > 0 and last_hit_part != "":
-		var text: String = PART_NAMES[last_hit_part]+(" · ОТРЫВ" if last_hit_severed else " −%.1f" % last_hit_damage)
-		draw_string(font,Vector2(-45,top-30),text,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffa88b"))
+	if telemetry_enabled:
+		var font := ThemeDB.fallback_font
+		draw_string(font,Vector2(-32,top-14),"%s · %.0f/%.0f HP%s%s" % [identifier,health,max_health," · ∞" if invulnerable else ""," · СТОП" if test_frozen else ""],HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("d0c8b7"))
+		if hit_notice_left > 0 and last_hit_part != "":
+			var text: String = PART_NAMES[last_hit_part]+(" · ОТРЫВ" if last_hit_severed else " −%.1f" % last_hit_damage)
+			draw_string(font,Vector2(-45,top-30),text,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffa88b"))
+
+func set_telemetry_enabled(value: bool) -> void:
+	if telemetry_enabled == value: return
+	telemetry_enabled = value
+	queue_redraw()

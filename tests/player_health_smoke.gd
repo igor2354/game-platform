@@ -2,7 +2,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/player-health-%d" % OS.get_process_id()
+var directory := OS.get_environment("TEMP").path_join("player-health-%d") % OS.get_process_id()
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -22,6 +22,7 @@ func new_lab(saved := false) -> void:
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 func run() -> void:
 	root.size = Vector2i(1440,900)
@@ -57,11 +58,11 @@ func run() -> void:
 	health._update_status()
 	check(health.status.text != "Изменения не сохранены" and lab.movement_overlay.saved_values.max_health == 250,"saving Health synchronizes the shared saved-state indicator")
 	health.reset_button.pressed.emit()
-	check(hero.maximum_health() == 100 and hero.tuning.run_speed == 320 and health.rows.max_health.number.value == 100,"the original profile reset still restores all its defaults")
+	check(hero.maximum_health() == 100 and hero.tuning.run_speed == lab.movement_overlay.defaults.run_speed and health.rows.max_health.number.value == 100,"the original profile reset still restores all its defaults")
 	health.load_button.pressed.emit()
 	check(hero.maximum_health() == 250 and hero.tuning.run_speed == 410 and health.rows.max_health.number.value == 250,"the Health Load action restores the existing profile and visible controls")
 	dev.reset_all()
-	check(health.rows.max_health.number.value == 100 and hero.tuning.run_speed == 320,"global reset also synchronizes the separate Health view")
+	check(health.rows.max_health.number.value == 100 and hero.tuning.run_speed == lab.movement_overlay.defaults.run_speed,"global reset also synchronizes the separate Health view")
 	dev.set_enabled(true)
 	dev.show_overlay(5)
 	check(dev.invulnerable_toggle.is_visible_in_tree() and dev.health_number.is_visible_in_tree() and dev.health_slider.is_visible_in_tree() and dev.heal_button.is_visible_in_tree(),"all hero health tools live in Player Health")

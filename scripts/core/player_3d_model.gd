@@ -8,15 +8,25 @@ var last_points: Dictionary = {}
 var death_ragdoll: Node
 var model: Node3D
 var weapon_grips: Array = []
+var grasp_points: Array[Vector3] = []
+var palm_axes: Array[Vector3] = []
+var weapon_pose: Dictionary = {}
 var pose_initialized := false
 var rendered_pose: Array[Transform3D] = []
 var last_mode := ""
 var yaw_speed := 0.0
+var weapon_target_yaw := PI/2
+var feet = preload("res://scripts/core/player_foot_placement_3d.gd").new()
+var recoil_body := 0.0
+var recoil_speed := 0.0
 var flight_lift := 0.0
 var rendered_lift := 0.0
+var grenade_blend := 0.0
 var transition_left := 0.0
 const TRANSITION_TIME := .18
-const SOLE_CLEARANCE := .045
+const SOLE_CLEARANCE := .0174
+const HEIGHT_METERS := 1.75
+const SOURCE_HEIGHT := 1.610654
 func _ready() -> void:
  model = ASSET.instantiate()
  add_child(model)
@@ -29,6 +39,7 @@ func _ready() -> void:
   mat.roughness = .9
   mesh.material_override = mat
  model.position.y -= rig.get_bone_global_rest(indices.r_foot).origin.y
+ scale = Vector3.ONE*(HEIGHT_METERS/SOURCE_HEIGHT)
  death_ragdoll = preload("res://scripts/core/death_ragdoll_3d.gd").new()
  add_child(death_ragdoll)
  var segments := [["pelvis","spine1",9,.15],["spine1","neck1",16,.17],["head","",4,.1]]
@@ -104,15 +115,26 @@ func apply_points(points: Dictionary) -> void:
 const REFERENCE = preload("res://resources/core/user_standing/retarget_3d_clips.gd")
 func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
  if death_ragdoll.active: return
+ if delta>0:
+  recoil_speed += (-160*recoil_body-22*recoil_speed)*minf(delta,.04)
+  recoil_body = clampf(recoil_body+recoil_speed*minf(delta,.04),0,.015)
+  if recoil_body<=0 and recoil_speed<0: recoil_speed=0
+ if mode in ["run","sprint"] and get_parent() is CharacterBody3D and absf(get_parent().velocity.x)>.05 and (mode=="sprint" or (not weapon_pose.is_empty() and absf(weapon_pose.combat.aim_direction.y)>.65)): face = signf(get_parent().velocity.x)
  var yaw := PI/2 if face > 0 else -PI/2
+ if not weapon_pose.is_empty() and mode not in ["run","sprint"]:
+  var aim: Vector3 = weapon_pose.combat.aim_direction
+  var vertical := smoothstep(.68,.98,absf(aim.y))
+  yaw = lerp_angle(yaw,0.0 if aim.y<0 else PI,vertical)
+ weapon_target_yaw = yaw
  if pose_initialized and delta>0:
   var difference := angle_difference(rotation.y,yaw)
-  yaw_speed = move_toward(yaw_speed,clampf(difference*10,-TAU*1.5,TAU*1.5),delta*TAU*12)
+  # A new mouse direction must not keep turning with the old momentum.
+  yaw_speed = clampf(difference*18,-TAU*1.5,TAU*1.5)
   var step := yaw_speed*delta
   if signf(step)==signf(difference) and absf(step)>absf(difference):
    step = difference
    yaw_speed = 0
-  rotation.y += step
+  rotation.y = feet.limit_yaw(rotation.y+step) if feet.weight>.5 and mode not in ["run","sprint"] else rotation.y+step
  else:
   rotation.y = yaw
   yaw_speed = 0
@@ -168,13 +190,68 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
  apply_points(points)
  if mode in ["run","sprint"]: atlas_arms(phase,mode=="sprint")
  elif mode in ["idle","jump","crouch","crouch_walk","slide","dash","dash_back"]: free_arms(mode)
+ if not weapon_pose.is_empty():
+  preload("res://scripts/core/player_weapon_pose_3d.gd").body(self,mode)
+ finish_pose(delta)
+ feet.solve(self,mode,delta)
+ if not weapon_pose.is_empty():
+  preload("res://scripts/core/player_weapon_pose_3d.gd").mount(self,mode,delta)
  if weapon_grips.size()==2:
   for side: String in SIDES:
    var prefix: String = SIDES[side]
-   var grip: Vector3 = rig.to_local(weapon_grips[0 if side=="Near" else 1])
-   var shoulder := _joint(prefix+"upperarm")
-   _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",shoulder+Vector3(.18 if side=="Near" else -.18,-.35,-.28),grip)
- finish_pose(delta)
+   if not weapon_pose.is_empty():
+    for part in ["upperarm","forearm","hand"]: rig.reset_bone_pose(indices[prefix+part])
+   var hand_slot := 0 if side=="Near" else 1
+   if weapon_pose.is_empty():
+    var shoulder := _joint(prefix+"upperarm")
+    _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",shoulder+Vector3(.18 if side=="Near" else -.18,-.35,-.28),rig.to_local(weapon_grips[hand_slot]))
+   else:
+    var c: Node3D = weapon_pose.combat
+    var palm: Vector3 = palm_axes[hand_slot]
+    var length: float = _joint(prefix+"hand").distance_to(_joint(prefix+"hand_anchor"))*rig.global_basis.get_scale().x
+    for iteration in 24:
+     var wrist: Vector3 = grasp_points[hand_slot]-palm*length
+     var vertical := smoothstep(.55,.95,absf(c.aim_direction.y))
+     var elbow: Vector3 = wrist-palm*.23-c.pivot.global_basis.y*.10+global_basis.orthonormalized().z*(.30*vertical)+c.pivot.global_basis.z*(.04 if side=="Near" else -.04)
+     var down_weight := smoothstep(.55,.9,-c.aim_direction.y)
+     var low_elbow: Vector3 = rig.to_global(_joint(prefix+"upperarm"))+Vector3.DOWN*.40-global_basis.orthonormalized().z*.12+global_basis.orthonormalized().x*(-.35 if side=="Near" else .35)
+     elbow = elbow.lerp(low_elbow,down_weight)
+     if c.aim_direction.y<.5: elbow.y = minf(elbow.y,rig.to_global(_joint(prefix+"upperarm")).y-.14)
+     _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",rig.to_local(elbow),rig.to_local(wrist))
+     weapon_grips[hand_slot] = wrist
+     var forearm: Vector3 = (rig.to_global(_joint(prefix+"hand"))-rig.to_global(_joint(prefix+"forearm"))).normalized()
+     var angle := forearm.angle_to(palm)
+     if angle<=deg_to_rad(48) or iteration==23: break
+     palm = palm.slerp(forearm.slerp(palm,deg_to_rad(45)/angle),.5).normalized()
+    palm_axes[hand_slot] = palm
+
+ if not weapon_pose.is_empty():
+  preload("res://scripts/core/player_weapon_pose_3d.gd").hands(self)
+  for i in rig.get_bone_count(): rendered_pose[i] = rig.get_bone_pose(i)
+ grenade_hands(delta)
+
+func grenade_hands(dt: float) -> void:
+ var controller=get_parent().grenades
+ var wanted=controller!=null and controller.busy()
+ grenade_blend=move_toward(grenade_blend,1.0 if wanted else 0.0,dt*7)
+ if grenade_blend<=0 or not controller: return
+ var hand=controller.hand_point()
+ if controller.throw_progress>0:
+  hand+=controller.launch_velocity().normalized()*.28*sin((1-controller.throw_progress/.32)*PI)
+ for prefix in ["r_","l_"]:
+  var target=hand+global_basis.x*(.035 if prefix=="l_" else 0)
+  var elbow=rig.to_global(_joint(prefix+"upperarm"))+Vector3.DOWN*.25+global_basis.x*(-.18 if prefix=="r_" else .18)
+  var axis=global_basis.z.normalized()
+  var wrist=target-axis*.075
+  var current=rig.to_global(_joint(prefix+"hand"))
+  _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",rig.to_local(elbow),rig.to_local(current.lerp(wrist,grenade_blend)))
+  preload("res://scripts/core/player_weapon_pose_3d.gd").orient_hand(self,prefix,axis,Vector3.UP)
+  for finger in ["index","mid","ring","pinky"]:
+   var base_pose=rig.get_bone_global_pose(indices[prefix+finger+"1"])
+   var sign_bend=1.0 if base_pose.basis.x.cross(base_pose.basis.y).dot(rig.to_local(hand)-base_pose.origin)>=0 else -1.0
+   for segment in [1,2,3]:
+    rig.set_bone_pose_rotation(indices[prefix+finger+str(segment)],Quaternion(Vector3.RIGHT,(.7 if segment==1 else .85)*sign_bend*grenade_blend))
+ for i in rig.get_bone_count(): rendered_pose[i]=rig.get_bone_pose(i)
 
 # Shoulder/elbow/wrist landmarks read from the 16 cells of Бег_1-2.png.
 # Values are pixel offsets; only directions are transferred to Genesis9.

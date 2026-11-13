@@ -23,6 +23,8 @@ func run() -> void:
  player.set_process(false)
  combat.zombie_settings.movement_enabled = false
  combat.zombie_settings.combat_enabled = false
+ combat.gun.tuning.relaxed_carry_3d_enabled = false
+ combat.stance_calm = 0
  combat.gun.tuning.recoil_enabled = false
  combat.gun.tuning.sound_enabled = false
  player.position = Vector3(-4,0,0)
@@ -41,7 +43,7 @@ func run() -> void:
   if combat.reticle.beam_points.size()>0:
    var ray_end: Vector3 = combat.reticle.beam_points[combat.reticle.beam_points.size()/2]
    check((ray_end-combat.reticle.origin).normalized().dot(combat.pivot.global_basis.x)>.9999,"beam follows current barrel")
-  check(combat.pivot.global_basis.x.dot(combat.aim_direction)>.9999,"barrel direction "+str(step))
+  check(combat.pivot.global_basis.x.dot(combat.aim_direction.rotated(Vector3.UP,angle_difference(model.weapon_target_yaw,model.rotation.y)))>.9999,"barrel follows actual body yaw "+str(step))
   var current := hand(model,"r_")
   if previous.is_finite():
    var jump := current.distance_to(previous)

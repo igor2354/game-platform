@@ -69,4 +69,5 @@ func run() -> void:
  print("CASING_3D_MATERIALS failures=",failures," materials=4 support_remove/move audio/listener/6voices checked")
  scene.queue_free()
  await process_frame
+ await process_frame
  quit(int(failures>0))
