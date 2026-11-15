@@ -31,7 +31,7 @@ func sees_player() -> bool:
  var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from,to,1,[get_rid()]))
  return hit.is_empty() or hit.collider==target
 func hear(point: Vector3,loudness: float) -> void:
- if health<=0 or not tuning.hearing_enabled: return
+ if health<=0 or test_frozen or not tuning.hearing_enabled or not is_instance_valid(target) or target.health<=0 or not point.is_finite() or not is_finite(loudness) or loudness<=0 or get_parent().stage.paused: return
  var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(position+Vector3.UP,point,1,[get_rid()]))
  var radius := tuning.hearing_range/U*loudness*(1.0 if hit.is_empty() else tuning.noise_occlusion_multiplier)
  if position.distance_to(point)<=radius:

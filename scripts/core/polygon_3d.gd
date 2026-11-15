@@ -83,6 +83,9 @@ func _ready() -> void:
 	player.grenades = preload("res://scripts/core/grenade_controller_3d.gd").new()
 	player.grenades.stage = self
 	add_child(player.grenades)
+	var noise = preload("res://scripts/core/player_noise_3d.gd").new()
+	noise.stage = self
+	add_child(noise)
 	build_map(layer)
 	developer = preload("res://scripts/core/developer_native_3d.gd").new()
 	add_child(developer)
