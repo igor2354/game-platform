@@ -125,6 +125,8 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
   var aim: Vector3 = weapon_pose.combat.aim_direction
   var vertical := smoothstep(.68,.98,absf(aim.y))
   yaw = lerp_angle(yaw,0.0 if aim.y<0 else PI,vertical)
+ # Vertical ladders stand behind the gameplay plane: climb facing the rungs.
+ if mode == "climb": yaw = PI
  weapon_target_yaw = yaw
  if pose_initialized and delta>0:
   var difference := angle_difference(rotation.y,yaw)
@@ -186,8 +188,10 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
  var contact: float = maxf(points.NearAnkle.y,points.FarAnkle.y)-rest_ankle
  for key in points:
   if not key.ends_with("FootAxis"): points[key].y -= contact
+ if mode == "climb": points = climb_points(phase)
  last_points = {}
  apply_points(points)
+ if mode == "climb": climb_fingers()
  if mode in ["run","sprint"]: atlas_arms(phase,mode=="sprint")
  elif mode in ["idle","jump","crouch","crouch_walk","slide","dash","dash_back"]: free_arms(mode)
  if not weapon_pose.is_empty():
@@ -293,6 +297,8 @@ func finish_pose(delta: float) -> void:
  var weight := 1.0
  if pose_initialized and delta>0:
   weight = minf(1.0,delta/maxf(delta,transition_left)) if transition_left>0 else 1-exp(-delta/.025)
+  # Ladder contacts are world-anchored targets; extra lag would slide them.
+  if last_mode == "climb" and transition_left <= 0: weight = 1.0
  var next: Array[Transform3D] = []
  for i in rig.get_bone_count():
   var target := rig.get_bone_pose(i)
@@ -302,6 +308,9 @@ func finish_pose(delta: float) -> void:
  rendered_pose = next
  pose_initialized = true
  transition_left = maxf(0,transition_left-delta)
+ # On a ladder hands/feet already target world rungs; the floor snap below
+ # would pull the lowest rung contact down to the body origin.
+ if last_mode == "climb": return
  # Feet of the visual rest on the CharacterBody3D foot origin, not ankle pivots.
  var lowest := INF
  for name in ["r_foot","l_foot","r_toes","l_toes"]:
@@ -309,3 +318,80 @@ func finish_pose(delta: float) -> void:
   lowest = minf(lowest,p.y)
  rendered_lift = lerpf(rendered_lift,flight_lift,weight)
  model.position.y += SOLE_CLEARANCE+rendered_lift-lowest
+
+# Native vertical ladder: diagonal pairs (near hand + far foot, far hand + near
+# foot) alternate. Stance contacts stay on world rungs because the phase comes
+# from the body height over the rung grid; only the swinging pair moves.
+const CLIMB_CYCLE := 72.0 # polygon units per full cycle, a multiple of the 12-unit rung step
+const CLIMB_UNITS := 100.97598
+const CLIMB_RUNG_DEPTH := .45 # rung centre behind the gameplay plane, see polygon_3d_geometry
+var climb_grip: Array[float] = [1.0,1.0]
+var climb_rungs: Array[Vector3] = [Vector3.ZERO,Vector3.ZERO]
+var climb_foot_swing: Array[float] = [0.0,0.0] # r_ (near), l_ (far)
+
+func _climb_limb(phase: float,base: float,swing_first: bool) -> Vector2:
+ # x: contact height over the body origin (polygon units), y: swing weight 0..1.
+ var p := fposmod(phase,1)
+ var t := p*2 if swing_first else p*2-1
+ var height := base-CLIMB_CYCLE*p
+ if swing_first: height += CLIMB_CYCLE*(smoothstep(0,1,t) if p<.5 else 1.0)
+ elif p>=.5: height += CLIMB_CYCLE*smoothstep(0,1,t)
+ var swing := sin(PI*t) if (p<.5) == swing_first else 0.0
+ return Vector2(height,swing)
+
+func _climb_point(local: Vector2) -> Vector2:
+ # local: (towards the ladder, up) in world metres from the body origin.
+ var s := rig.to_local(global_position+Vector3(0,local.y,-local.x))
+ return Vector2(s.z,-s.y)*UNITS_PER_METER
+
+func climb_points(phase: float) -> Dictionary:
+ var k := scale.x/(HEIGHT_METERS/SOURCE_HEIGHT)
+ var pelvis := Vector2(.13*k,.96*k+.012*k*cos(phase*TAU*2))
+ var lean := deg_to_rad(3)
+ var neck := pelvis+Vector2(sin(lean),cos(lean))*.43*k
+ var shoulder := neck+Vector2(0,-.057*k)
+ var thigh := pelvis+Vector2(0,-.106*k)
+ var points := {"Pelvis":_climb_point(pelvis),"Neck":_climb_point(neck)}
+ var foot_rest := rig.get_bone_global_rest(indices.r_foot).origin
+ var toe_rest := rig.get_bone_global_rest(indices.r_toes).origin
+ for entry in [["Far",0.0,true],["Near",CLIMB_CYCLE*.5,false]]:
+  var limb := _climb_limb(phase,entry[1],entry[2])
+  climb_foot_swing[0 if entry[0]=="Near" else 1] = limb.y
+  var toe := Vector2(CLIMB_RUNG_DEPTH-.01-.10*limb.y,limb.x/CLIMB_UNITS+SOLE_CLEARANCE*scale.x+.04*limb.y)
+  var toe_skeleton := rig.to_local(global_position+Vector3(0,toe.y,-toe.x))
+  var ankle_skeleton := toe_skeleton-(toe_rest-foot_rest)
+  points[entry[0]+"Ankle"] = Vector2(ankle_skeleton.z,-ankle_skeleton.y)*UNITS_PER_METER
+  var ankle := toe-Vector2(.134,-.052)*k
+  points[entry[0]+"Knee"] = _climb_point((thigh+ankle)*.5+Vector2(.25,.25)*k)
+  points[entry[0]+"FootAxis"] = Vector2(1,0)
+ for entry in [["Near",132.0,true,0],["Far",132.0+CLIMB_CYCLE*.5,false,1]]:
+  var limb := _climb_limb(phase,entry[1],entry[2])
+  var grip := Vector2(CLIMB_RUNG_DEPTH-.07*limb.y,(limb.x-1)/CLIMB_UNITS+.03*limb.y)
+  points[entry[0]+"Wrist"] = _climb_point(grip)
+  points[entry[0]+"Elbow"] = _climb_point((shoulder+grip)*.5+Vector2(-.05,-.17)*k)
+  climb_grip[entry[3]] = 1-limb.y
+  climb_rungs[entry[3]] = global_position+Vector3(0,grip.y,-grip.x)
+ return points
+
+func climb_fingers() -> void:
+ # Hook grip: the wrist sits below/behind the rung, the hand reaches over it
+ # towards the ladder and the fingers close around it; they open in flight.
+ var hook := Vector3(0,.55,-1).normalized()
+ for slot in 2:
+  var prefix := "r_" if slot==0 else "l_"
+  var outward := global_basis.orthonormalized().x*(-1.0 if slot==0 else 1.0)
+  var shoulder := rig.to_global(_joint(prefix+"upperarm"))
+  var grip := climb_rungs[slot]
+  grip.x = shoulder.x
+  var length: float = _joint(prefix+"hand").distance_to(_joint(prefix+"hand_anchor"))*rig.global_basis.get_scale().x
+  var axis := hook.slerp(Vector3.UP,.45*(1-climb_grip[slot])).normalized()
+  var wrist := grip-axis*length
+  var elbow := (shoulder+wrist)*.5+Vector3(0,-.2,.06)+outward*.04
+  _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",rig.to_local(elbow),rig.to_local(wrist))
+  preload("res://scripts/core/player_weapon_pose_3d.gd").orient_hand(self,prefix,axis,Vector3.UP)
+  var target := rig.to_local(grip)
+  for finger in ["index","mid","ring","pinky"]:
+   var base_pose := rig.get_bone_global_pose(indices[prefix+finger+"1"])
+   var sign_bend := 1.0 if base_pose.basis.x.cross(base_pose.basis.y).dot(target-base_pose.origin)>=0 else -1.0
+   for segment in [1,2,3]:
+    rig.set_bone_pose_rotation(indices[prefix+finger+str(segment)],Quaternion(Vector3.RIGHT,(.75 if segment==1 else .9)*sign_bend*climb_grip[slot]))

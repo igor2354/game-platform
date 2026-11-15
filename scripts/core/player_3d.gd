@@ -226,7 +226,7 @@ func _physics_process(dt: float) -> void:
  var backwards := not sprinting and absf(velocity.x)>.05 and velocity.x*visual_face<0
  stride *= model.scale.x
  phase = fposmod(phase + absf(velocity.x)*dt/stride*(-1.0 if backwards else 1.0),1)
- if climbing: phase = fposmod((position.y*U-760+ladder.position.y+6)/48.0,1)
+ if climbing: phase = fposmod((position.y*U-760+ladder.position.y+6)/preload("res://scripts/core/player_3d_model.gd").CLIMB_CYCLE,1)
  visual_mode = "walk" if mode=="run" and weapon_aiming and not vertical_aim else mode
  visual_phase = phase
  if mode == "crouch" and absf(velocity.x)>.05: visual_mode = "crouch_walk"
