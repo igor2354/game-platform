@@ -1,0 +1,117 @@
+extends SceneTree
+var failures := 0
+var scene: Node3D
+var player: CharacterBody3D
+func _initialize() -> void: run.call_deferred()
+func frames(n: int) -> void:
+ for i in n: await physics_frame
+func check(ok: bool,label: String) -> void:
+ print("PASS " if ok else "FAIL ",label)
+ if not ok: failures += 1
+func place(x: float,y := 760.0) -> void:
+ player.reset()
+ player.position = scene.geometry.point(Vector2(x,y))+Vector3.UP*.015
+ player.velocity = Vector3.ZERO
+func run() -> void:
+ scene = load("res://scenes/core/polygon_3d.tscn").instantiate()
+ scene.load_user_settings = false
+ root.add_child(scene)
+ player = scene.player
+ await frames(15)
+ check(player.is_on_floor(),"spawn grounded")
+ Input.action_press("core_left")
+ await frames(35)
+ Input.action_release("core_left")
+ check(player.position.x < 1,"run left")
+ await frames(45)
+ check(absf(player.velocity.x)<.01,"braking")
+ place(100)
+ await frames(5)
+ Input.action_press("core_jump")
+ await frames(12)
+ check(player.position.y>.3,"jump")
+ Input.action_release("core_jump")
+ await frames(80)
+ check(player.is_on_floor(),"land")
+ place(0)
+ await frames(6)
+ Input.action_press("core_right")
+ scene.combat.cursor_screen = scene.camera.unproject_position(player.position+Vector3(10,1,0))
+ Input.action_press("core_walk")
+ await frames(25)
+ check(absf(player.velocity.x-player.value("slow_walk_speed"))<.05,"walk speed")
+ Input.action_release("core_walk")
+ Input.action_press("core_sprint")
+ await frames(25)
+ check(player.reserve<1 and player.sprinting,"sprint reserve")
+ Input.action_release("core_sprint")
+ Input.action_release("core_right")
+ await frames(140)
+ check(player.reserve>.99,"sprint recovery")
+ place(0)
+ await frames(5)
+ Input.action_press("core_dash")
+ await frames(2)
+ check(player.dash_left>0,"dash")
+ Input.action_release("core_dash")
+ await frames(30)
+ Input.action_press("core_crouch")
+ await frames(3)
+ check(player.crouching and player.capsule.height<player.height,"crouch")
+ Input.action_release("core_crouch")
+ await frames(3)
+ check(not player.crouching,"stand")
+ for rect in scene.geometry.ladder_rects:
+  place(rect.get_center().x)
+  await frames(8)
+  Input.action_press("core_up")
+  await frames(3)
+  for tick in 180:
+   if not player.climbing: break
+   await frames(1)
+  Input.action_release("core_up")
+  await frames(70)
+  print("LADDER ",rect.get_center().x," position=",player.position," mode=",player.mode," h=",player.capsule.height," shape=",player.shape.position)
+  check(player.position.y>scene.geometry.point(rect.position).y-.06 and player.is_on_floor() and not player.climbing and player.traversal.is_empty(),"ladder ascent and landing")
+ for rect in scene.geometry.ladder_rects:
+  place(rect.get_center().x,rect.position.y)
+  Input.action_press("core_down")
+  await frames(120)
+  Input.action_release("core_down")
+  await frames(10)
+  check(player.position.y<.05 and not player.climbing,"ladder descent")
+ place(0)
+ await frames(5)
+ Input.action_press("core_right")
+ Input.action_press("core_sprint")
+ await frames(25)
+ player.tuning.slide_min_speed = 50.0
+ player.velocity.x = player.ground_speed
+ Input.action_press("core_crouch")
+ await frames(2)
+ print("SLIDE ",player.mode," ",player.slide_left," speed=",player.ground_speed," sprint=",player.sprinting," floor=",player.is_on_floor())
+ check(player.slide_left>0,"slide entry")
+ Input.action_release("core_crouch")
+ Input.action_release("core_sprint")
+ Input.action_release("core_right")
+ await frames(60)
+ check(player.slide_left<=0,"slide end")
+ place(505)
+ await frames(8)
+ player.facing = 1
+ Input.action_press("core_right")
+ Input.action_press("core_jump")
+ await frames(8)
+ check(player.parkour.active,"native parkour entry")
+ await frames(120)
+ Input.action_release("core_right")
+ Input.action_release("core_jump")
+ print("PARKOUR END ",player.position)
+ check(not player.parkour.active,"native parkour completion")
+ place(100)
+ player.position.y=-4
+ await frames(2)
+ check(player.position.y>-.1,"fall reset")
+ check(scene.find_children("*","SubViewport",true,false).is_empty(),"native model no render texture")
+ print("POLYGON_3D failures=",failures)
+ quit(int(failures>0))

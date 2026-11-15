@@ -1,9 +1,9 @@
 extends "res://scripts/core/mannequin_01_body.gd"
 ## User's own proportions and joint coordinates; only a uniform pixel/unit conversion.
 const WALK = preload("res://resources/core/user_standing/walk_cycle.gd")
-const RUN_ATLAS = preload("res://resources/core/user_standing/run_atlas.png")
 const RUN_ATLAS_STRIDE := 256.0
 const RUN_POSES = preload("res://resources/core/user_standing/run_poses.gd")
+const MANNEQUIN_VISUAL = preload("res://scripts/core/player_mannequin_visual.gd")
 const DEPTH := {"FarArm":0,"FarLeg":1,"FarLegBacking":2,"Body":3,"HiddenTorso":4,"NearArm":5}
 const PHYSICAL := {"HeadPivot":"head","Neck":"head","Spine":"torso","Pelvis":"pelvis",
 	"NearShoulder":"right_upper_arm","NearElbow":"right_forearm","NearWrist":"right_forearm",
@@ -14,6 +14,7 @@ var mesh_pieces: Array[Polygon2D] = []
 var skin_cache: Array[Dictionary] = []
 var walk_blend := 0.0
 var walk_cycle_active := false
+var mannequin_visual: Sprite2D
 
 func animation_stride() -> float:
 	if state == "walk" or _aim_walk():
@@ -29,7 +30,7 @@ func _weapon_aiming() -> bool:
 	return player.weapon.aiming and player.weapon.tuning.weapon_enabled and not player.weapon.equipped_weapon_id.is_empty() and not player.grenades.busy()
 
 func uses_run_atlas() -> bool:
-	return state == "run" and player.health > 0 and (player.weapon.equipped_weapon_id.is_empty() or not player.weapon.tuning.weapon_enabled) and not player.grenades.busy()
+	return false
 
 func reset_visual() -> void:
 	walk_blend=0
@@ -54,8 +55,8 @@ func _show_frame() -> void:
 	# Other states must not inherit the walk's pelvis/head rotations.
 	for bone: Bone2D in bones.values():bone.transform=bone.rest
 	super._show_frame()
-	if state == "run" and not _aim_walk() and not uses_run_atlas():
-		_show_armed_run()
+	if state == "run" and not _aim_walk():
+		_show_run()
 		return
 	if walk_blend<=0:return
 	var sample := _sample_walk()
@@ -69,7 +70,7 @@ func _show_frame() -> void:
 	model.position=model.position.lerp(offset,walk_blend)
 	bones.Neck.rotation+=deg_to_rad(12.0*float(head_aim_stage())/(ADS_STAGES-1))*walk_blend
 
-func _show_armed_run() -> void:
+func _show_run() -> void:
 	var sample := fposmod(phase, 1.0) * RUN_POSES.KEYS.size()
 	var index := floori(sample)
 	var a: Array = RUN_POSES.KEYS[index]
@@ -99,13 +100,11 @@ func _instantiate_model() -> Node2D:
 
 func _ready() -> void:
 	super._ready()
-	sprite.texture = RUN_ATLAS
-	sprite.hframes = 4
-	sprite.vframes = 4
-	sprite.offset = Vector2(-220, -496)
-	sprite.scale = Vector2.ONE * (64.0 / 480.0)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_prepare_skin_cache()
+	mannequin_visual = MANNEQUIN_VISUAL.new()
+	add_child(mannequin_visual)
+	sprite.hide()
+	for piece in mesh_pieces:
+		piece.hide()
 
 func ground_soles() -> PackedVector2Array:
 	return PackedVector2Array([bones.NearAnkle.to_global(Vector2(1.5,WALK.SOLE_Y)),bones.FarAnkle.to_global(Vector2(1.5,WALK.SOLE_Y))])
@@ -115,12 +114,6 @@ func eye_anchor() -> Vector2:
 
 func update_arms() -> void:
 	super.update_arms()
-	var atlas_active := uses_run_atlas()
-	sprite.visible = atlas_active
-	if atlas_active:
-		sprite.frame = mini(15, floori(fposmod(phase, 1.0) * 16))
-	for piece in mesh_pieces:
-		piece.visible = not atlas_active
 	if walk_blend>0 and player.weapon.equipped_weapon_id.is_empty() and not player.grenades.busy() and not player.climbing and not player.pushing:
 		var sample := _sample_walk()
 		for i in WALK.NAMES.size():
@@ -133,17 +126,8 @@ func update_arms() -> void:
 			arm.shoulder=_point(side+"Shoulder")
 			arm.elbow=_point(side+"Elbow")
 			arm.hand=_point(side+"Wrist")
-	if near_arm.get_parent()==null: return
-	var skeleton: Skeleton2D = model.get_node("Rig")
-	for poly in mesh_pieces:
-		var layer: Node2D = model
-		if poly.name=="NearArm": layer=near_arm
-		elif poly.name=="FarArm": layer=far_arm
-		if poly.get_parent()!=layer:
-			poly.reparent(layer,false)
-			poly.skeleton=poly.get_path_to(skeleton)
-		poly.transform=layer.global_transform.affine_inverse()*model.global_transform
-		poly.texture_filter=sprite.texture_filter
+	if mannequin_visual and mannequin_visual.get_parent() == self:
+		mannequin_visual.apply_pose(self)
 
 func _prepare_skin_cache() -> void:
 	# Cache topology/bind matrices on creation, not on every shot or frame.

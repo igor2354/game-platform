@@ -3,7 +3,7 @@ extends SceneTree
 var checks := 0
 var failures := 0
 var lab: CoreMovementLab
-var directory := "/private/tmp/ragdoll-overlay-%d" % OS.get_process_id()
+var directory := OS.get_environment("TEMP").path_join("ragdoll-overlay-%d") % OS.get_process_id()
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1

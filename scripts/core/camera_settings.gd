@@ -1,5 +1,6 @@
 class_name CoreCameraSettings
 extends Resource
+const HUD = preload("res://scripts/core/hud_parameters.gd")
 const FOG = preload("res://scripts/core/fog_parameters.gd")
 
 @export var scale_basis_version := 2
@@ -22,7 +23,7 @@ const SWITCHES := [
 	["forest_smoke_enabled", "Движение дыма", "Окружение", "Завихрения трёх нарисованных столбов дыма."],
 	["forest_fire_enabled", "Мерцание пожаров", "Окружение", "Подвижность и нерегулярная яркость огня в дальнем городе."],
 	["forest_water_enabled", "Рябь и блики ручья", "Окружение", "Локальная анимация нарисованной воды. Игровой физики воды не добавляет."]
-] + FOG.SWITCHES
+] + FOG.SWITCHES + HUD.SWITCHES
 @export var camera_enabled := true
 @export var fog_enabled := true
 @export var fog_interiors := true
@@ -98,7 +99,35 @@ const PARAMS := [
 	["forest_fire_speed","Пожары: темп",0.0,3.0,.05,"×","Окружение"],
 	["forest_water_strength","Вода: сила ряби",0.0,3.0,.05,"×","Окружение"],
 	["forest_water_speed","Вода: темп",0.0,3.0,.05,"×","Окружение"]
-] + FOG.PARAMS
+] + FOG.PARAMS + HUD.PARAMS
+@export var hud_enabled := true
+@export var hud_telemetry_enabled := false
+@export var hud_opacity := .94
+@export var hud_health_visible := true
+@export var hud_health_x := 0.02
+@export var hud_health_y := 0.86
+@export var hud_health_scale := 1.0
+@export var hud_stamina_visible := true
+@export var hud_stamina_x := 0.02
+@export var hud_stamina_y := 0.98
+@export var hud_stamina_scale := 1.0
+@export var hud_weapon_visible := true
+@export var hud_weapon_x := 0.98
+@export var hud_weapon_y := 0.86
+@export var hud_weapon_scale := 1.0
+@export var hud_ammo_visible := true
+@export var hud_ammo_x := 0.98
+@export var hud_ammo_y := 0.98
+@export var hud_ammo_scale := 1.0
+@export var hud_grenades_visible := true
+@export var hud_grenades_x := 0.5
+@export var hud_grenades_y := 0.98
+@export var hud_grenades_scale := 1.0
+@export var hud_gadgets_visible := true
+@export var hud_gadgets_x := 0.5
+@export var hud_gadgets_y := 0.86
+@export var hud_gadgets_scale := 1.0
+
 @export var zoom := 1.0
 @export var offset_x := 0.0
 @export var offset_y := -278.0
@@ -184,7 +213,7 @@ func load_saved(path := SAVE_PATH) -> Error:
 	var values := {"scale_basis_version":version}
 	for key in as_dictionary():
 		if config.has_section_key("camera",key): values[key] = config.get_value("camera",key)
-	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["fog_debug","blocking_overlay_enabled","player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
+	for entry in SWITCHES: values[entry[0]] = config.get_value("camera",entry[0],false if entry[0] in ["hud_telemetry_enabled","fog_debug","blocking_overlay_enabled","player_scale_enabled","noir_enabled","pixel_enabled","stable_pixel_enabled","world_pixel_enabled","scale_reference_enabled"] else true)
 	apply_values(migrate_profile(values))
 	return OK
 static func migrate_profile(source: Dictionary) -> Dictionary:

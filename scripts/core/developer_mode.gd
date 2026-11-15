@@ -77,6 +77,7 @@ func _ready() -> void:
 		sidebar.add_child(button)
 		navigation.append(button)
 	var hint := _label("F3 — движение\nF4 — стрельба\nF5 — камера\nF6 — зомби\nF1 — зоны\nF7 — возродить врагов\nF9 — к зомби\nF10 — к солдату\n\nПравки — сразу.\nПауза — в тестировании.\n\nЧисла: точный ввод.\nEnter: закончить ввод.",14)
+	if lab.has_method("developer_refill"): hint.text = "F3 — движение\nF4 — стрельба\nF5 — камера\nF6 — зомби\nF10 — физика\nF1 — диагностика\nF7 — возродить врагов\nF8 — восстановить стенд\nF9 — к зомби\n\nПравки — сразу.\nEnter завершает ввод.\nСерые параметры пока не действуют в 3D."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar.add_child(hint)
@@ -158,14 +159,15 @@ func _ready() -> void:
 	health_tools.add_child(heal_button)
 	ammo_button = _button("Пополнить боеприпасы",func():
 		_prepare_action()
-		lab.player.weapon.refill_ammunition())
+		if lab.has_method("developer_refill"): lab.developer_refill()
+		else: lab.player.weapon.refill_ammunition())
 	tools_page.add_child(ammo_button)
-	var shovel: Node2D = lab.player.weapon.shovel
+	var shovel: Node2D = null if lab.has_method("developer_refill") else lab.player.weapon.shovel
 	if is_instance_valid(shovel):
 		tools_page.add_child(_button("Выдать / выбрать окопную лопату · X",func():
 			_prepare_action()
 			shovel.issue()))
-	if lab.level.has_method("prepare_shovel_crater"):
+	if not lab.has_method("developer_refill") and lab.level.has_method("prepare_shovel_crater"):
 		tools_page.add_child(_button("Подготовить учебную воронку",func():
 			_prepare_action()
 			lab.level.prepare_shovel_crater()))
@@ -174,7 +176,8 @@ func _ready() -> void:
 	tools_page.add_child(enemy_tools)
 	pause_button = _button("Пауза",func():
 		_prepare_action()
-		get_tree().paused = not get_tree().paused)
+		if lab.has_method("developer_pause"): lab.developer_pause()
+		else: get_tree().paused = not get_tree().paused)
 	reset_button = _button("Вернуть героя на старт · F8",func():
 		_prepare_action()
 		lab._recover())
@@ -182,7 +185,7 @@ func _ready() -> void:
 		_prepare_action()
 		lab._teleport_zombie())
 	for button in [pause_button,reset_button,zombie_button]: tools_page.add_child(button)
-	tools_page.add_child(_button("К новому зомби-солдату · F10",func():
+	tools_page.add_child(_button("К зоне мишеней" if lab.has_method("developer_refill") else "К новому зомби-солдату · F10",func():
 		_prepare_action()
 		lab._teleport_player(CoreMovementLevel.CONCEPT_ZOMBIE_TEST_SPAWN)))
 	lab.respawn_enemies_button.reparent(tools_page)
@@ -219,6 +222,11 @@ func _layout() -> void:
 	panel.position = Vector2(maxf(12,size.x-936),140)
 	panel.size = Vector2(minf(924,size.x-24),maxf(540,size.y-156))
 func _prepare_action() -> void:
+	if lab.has_method("developer_prepare"):
+		for overlay in lab._ui_overlays(): overlay._finish_editing("")
+		finish_health_edit()
+		lab.developer_prepare()
+		return
 	for overlay in lab._ui_overlays(): overlay._finish_editing("")
 	finish_health_edit()
 	lab.suppress_mouse_until_release = true
@@ -276,6 +284,9 @@ func _refresh_pages() -> void:
 func toggle_debug() -> void:
 	debug_toggle.button_pressed = not debug_toggle.button_pressed
 func _apply_debug() -> void:
+	if lab.has_method("developer_debug"):
+		lab.developer_debug(debug_toggle.button_pressed,telemetry_toggle.button_pressed)
+		return
 	# Debug geometry is an independent test overlay, not the settings window.
 	lab.player.debug_shape = debug_toggle.button_pressed
 	lab.player.queue_redraw()
@@ -372,4 +383,4 @@ func _process(_delta: float) -> void:
 	# Wrapped labels can temporarily grow a container before its width is
 	# assigned. Reapply the viewport bounds after that layout has settled.
 	_layout()
-	pause_button.text = "Продолжить игру" if get_tree().paused else "Пауза"
+	pause_button.text = "Продолжить игру" if (lab.paused if lab.has_method("developer_pause") else get_tree().paused) else "Пауза"

@@ -23,7 +23,7 @@ func clear() -> void:
 	queue_redraw()
 
 func summary() -> String:
-	if report.is_empty(): return "Взрыв · F1: данных пока нет"
+	if report.is_empty(): return "Взрыв: данных пока нет"
 	var text := "Последний взрыв: радиус "+CoreWorldUnits.distance(report.radius)
 	if report.wave > 0: text += " · волна "+CoreWorldUnits.distance(report.wave)
 	var shown := 0
@@ -42,11 +42,12 @@ func target_text(target: Dictionary) -> String:
 
 func _process(_delta: float) -> void:
 	visible = lab.player.debug_shape
-	caption.visible = visible
+	caption.visible = lab.camera_settings.hud_telemetry_enabled
 	caption.text = summary()
 	queue_redraw()
 
 func _tag(point: Vector2,text: String,color: Color,right_aligned := false) -> void:
+	if not lab.camera_settings.hud_telemetry_enabled: return
 	var pixel := 1.0/maxf(.01,get_global_transform_with_canvas().get_scale().abs().x)
 	draw_set_transform(to_local(point),0,Vector2.ONE*pixel)
 	var size := ThemeDB.fallback_font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,15)

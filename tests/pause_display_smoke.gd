@@ -42,7 +42,7 @@ func run() -> void:
 	check(not app.display_panel.visible and app.page == "main","Escape closes main settings without leaving menu")
 	for mode in ["polygon","prologue","prologue_v2"]:
 		app.selected_level = mode
-		app.launch(mode != "polygon")
+		app.launch(mode != "polygon",mode == "polygon")
 		await frames(8)
 		var lab: CoreMovementLab = app.game
 		var hero := lab.player

@@ -27,6 +27,7 @@ func reset_case(offset := -200.0,prone := false) -> void:
 func run() -> void:
 	lab = load("res://scenes/main.tscn").instantiate()
 	lab.load_user_settings = false
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	hero = lab.player
 	zombie = lab.level.zombie
@@ -124,7 +125,7 @@ func run() -> void:
 		switch(entry[0],false)
 	await frames(3)
 	check(zombie.global_position == anchor,"all switches remain editable on pause without moving the enemy")
-	var path := "/private/tmp/zombie-switches-%d.cfg" % OS.get_process_id()
+	var path := OS.get_environment("TEMP").path_join("zombie-switches-%d.cfg") % OS.get_process_id()
 	var loaded := CoreZombieSettings.new()
 	var saved := zombie.tuning.save_saved(path) == OK and loaded.load_saved(path) == OK
 	for entry in CoreZombieSettings.SWITCHES: saved = saved and not loaded.get(entry[0])
