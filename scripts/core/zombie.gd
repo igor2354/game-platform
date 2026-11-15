@@ -768,7 +768,7 @@ func _draw() -> void:
 	var label_y := top-(61 if is_stunned() else 48)
 	if shove_left > 0 and is_instance_valid(target):
 		label_y = minf(label_y,to_local(target.global_position-Vector2(0,target.world_height())).y-18)
-	draw_string(ThemeDB.fallback_font,Vector2(-46,label_y),"ЗОМБИ · "+("СБРАСЫВАЕТ" if shove_left > 0 else STATE_NAMES[state]),HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffb582") if shove_left > 0 else color)
+	if telemetry_enabled: draw_string(ThemeDB.fallback_font,Vector2(-46,label_y),"ЗОМБИ · "+("СБРАСЫВАЕТ" if shove_left > 0 else STATE_NAMES[state]),HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("ffb582") if shove_left > 0 else color)
 	if is_stunned():
 		draw_rect(Rect2(-22,label_y+9,44,3),Color("493f2a"))
 		draw_rect(Rect2(-22,label_y+9,44*clampf(stun_left/maxf(.001,stun_duration),0,1),3),color)

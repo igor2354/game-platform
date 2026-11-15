@@ -2,7 +2,7 @@ extends SceneTree
 var lab: CoreMovementLab
 var checks := 0
 var failures := 0
-var directory := "/private/tmp/enemy-tools-%d" % OS.get_process_id()
+var directory := OS.get_environment("TEMP").path_join("enemy-tools-%d" % OS.get_process_id())
 func _initialize() -> void: call_deferred("run")
 func check(ok: bool,message: String) -> void:
 	checks += 1
@@ -38,8 +38,10 @@ func new_lab() -> void:
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 func run() -> void:
+	DirAccess.make_dir_recursive_absolute(directory)
 	DirAccess.make_dir_recursive_absolute(directory)
 	root.size = Vector2i(1440,900)
 	root.gui_embed_subwindows = true

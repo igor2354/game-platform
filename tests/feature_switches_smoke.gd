@@ -33,6 +33,7 @@ func run() -> void:
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	await frames(8)
 	var hero := lab.player

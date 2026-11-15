@@ -19,20 +19,20 @@ func _ready() -> void:
 	add_child(lab.movement_overlay._label("ПРОТИВНИКИ ПОЛИГОНА",19))
 	freeze_toggle = _toggle("Остановить всех противников",func(value: bool):
 		lab.developer_mode._prepare_action()
-		for enemy in lab.level.enemies: enemy.set_test_frozen(value)
+		for enemy in _enemies(): enemy.set_test_frozen(value)
 		sync())
 	freeze_toggle.tooltip_text = "Замораживает движение, атаки, таймеры и анимации врагов. Игрок и пули продолжают работать."
 	invulnerable_toggle = _toggle("Бессмертие всех противников",func(value: bool):
 		lab.developer_mode._prepare_action()
-		for enemy in lab.level.enemies: enemy.set_invulnerable(value)
-		lab.player.allow_exit_overlapping_enemies()
+		for enemy in _enemies(): enemy.set_invulnerable(value)
+		_release_players()
 		sync())
 	invulnerable_toggle.tooltip_text = "HP не уменьшаются от урона. Попадания и отстрел конечностей остаются. Включение оживляет погибших на месте."
 	target_choice = OptionButton.new()
 	target_choice.focus_mode = Control.FOCUS_NONE
 	target_choice.add_item("HP: все противники")
-	for enemy in lab.level.enemies:
-		target_choice.add_item(("Зомби " if enemy is CoreZombie else "Мишень ")+enemy.identifier)
+	for enemy in _enemies():
+		target_choice.add_item(("Зомби " if enemy.is_zombie else "Мишень ")+str(_enemies().find(enemy)+1) if lab.has_method("developer_enemies") else ("Зомби " if enemy is CoreZombie else "Мишень ")+enemy.identifier)
 	target_choice.item_selected.connect(func(index: int):
 		# Commit an unfinished HP edit to its original targets before switching.
 		target_choice.select(selected_index)
@@ -53,7 +53,7 @@ func _ready() -> void:
 	heal_button = lab.movement_overlay._button("Восстановить HP выбранных противников",func():
 		lab.developer_mode._prepare_action()
 		for enemy in targets(): enemy.set_current_health(enemy.maximum_health())
-		lab.player.allow_exit_overlapping_enemies()
+		_release_players()
 		sync())
 	add_child(heal_button)
 	sync()
@@ -90,10 +90,10 @@ func _number_row(text: String,minimum: float,maximum: float,step: float,callback
 	add_child(slider)
 	return {"number":number,"slider":slider}
 
-func targets() -> Array[CoreEnemyDummy]:
-	var result: Array[CoreEnemyDummy] = []
-	for i in lab.level.enemies.size():
-		var enemy: CoreEnemyDummy = lab.level.enemies[i]
+func targets() -> Array[Node]:
+	var result: Array[Node] = []
+	for i in _enemies().size():
+		var enemy: Node = _enemies()[i]
 		if is_instance_valid(enemy) and (target_choice.selected == 0 or target_choice.selected == i+1): result.append(enemy)
 	return result
 
@@ -113,7 +113,7 @@ func _change_health(value: float) -> void:
 	if syncing: return
 	lab.suppress_mouse_until_release = true
 	for enemy in targets(): enemy.set_current_health(value)
-	lab.player.allow_exit_overlapping_enemies()
+	_release_players()
 	sync()
 
 func _change_maximum(value: float) -> void:
@@ -127,8 +127,8 @@ func sync() -> void:
 	var selected := targets()
 	if selected.is_empty(): return
 	syncing = true
-	freeze_toggle.set_pressed_no_signal(lab.level.enemies.all(func(enemy): return enemy.test_frozen))
-	invulnerable_toggle.set_pressed_no_signal(lab.level.enemies.all(func(enemy): return enemy.invulnerable))
+	freeze_toggle.set_pressed_no_signal(_enemies().all(func(enemy): return enemy.test_frozen))
+	invulnerable_toggle.set_pressed_no_signal(_enemies().all(func(enemy): return enemy.invulnerable))
 	var low_health := INF
 	var high_health := 0.0
 	var low_maximum := INF
@@ -147,3 +147,11 @@ func sync() -> void:
 	if not _editing(maximum_number): maximum_number.set_value_no_signal(low_maximum)
 	readout.text = "Выбрано: %d · HP: %.2f–%.2f · Максимум: %.0f–%.0f\nПри разных HP показан минимум. Правка применяется ко всем выбранным.\nЛечение сохраняет конечности; F7 восстанавливает врагов полностью.\nОстановка, бессмертие и HP действуют до конца текущего запуска." % [selected.size(),low_health,high_health,low_maximum,high_maximum]
 	syncing = false
+
+func _enemies() -> Array:
+	return lab.developer_enemies() if lab.has_method("developer_enemies") else lab.level.enemies
+
+func _release_players() -> void:
+	if lab.has_method("developer_enemies"):
+		for enemy in _enemies(): enemy.release_overlapping_players()
+	else: lab.player.allow_exit_overlapping_enemies()
