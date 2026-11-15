@@ -137,5 +137,6 @@
   "resources/core/user_standing/body.png",
   "resources/core/user_standing/fararm.png",
   "resources/core/user_standing/hiddentorso.png",
-  "resources/core/user_standing/neararm.png"
+  "resources/core/user_standing/neararm.png",
+  "resources/core/user_standing/run_atlas.png"
 ]
