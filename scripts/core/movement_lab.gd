@@ -54,6 +54,7 @@ var developer_mode: CoreDeveloperMode
 var developer_button: Button
 var camera_applied_values: Dictionary = {}
 var camera_was_paused := false
+var camera_vertical_center := NAN
 var aim_cursor: CoreAimCursor
 var camera_look_direction := 1.0
 var camera_look_velocity := 0.0
@@ -217,7 +218,7 @@ func _ready() -> void:
 	camera_overlay.defaults = camera_defaults
 	camera_overlay.settings_path = camera_settings_path
 	camera_overlay.params = CoreCameraSettings.PARAMS
-	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня","Размер героя"]
+	camera_overlay.groups = ["Камера","Визуал","Нуар","Окружение","Пиксельный мир","Сетка уровня","Размер героя","Пролог 1 · Фон"]
 	camera_overlay.heading_text = "НАСТРОЙКА КАМЕРЫ · F5"
 	camera_overlay.help_text = "Изменения видны сразу, в том числе на паузе."
 	camera_overlay.current_values_text = "Текущие значения камеры"
@@ -946,11 +947,48 @@ func camera_target(look_direction := NAN) -> Vector2:
 	# The weapon owns a stable gaze sample, independent of movement direction.
 	var look := player.weapon.look_facing() if is_nan(look_direction) else look_direction
 	var target := anchor+Vector2(camera_settings.offset_x+look*camera_settings.look_ahead,camera_settings.offset_y)/camera_settings.zoom
+	if camera_settings.vertical_frame_enabled and is_finite(camera_vertical_center):
+		target.y = camera_vertical_center
 	if camera_settings.limit_to_level:
 		var half_width := get_viewport_rect().size.x*.5/camera_settings.zoom
-		var minimum := minf(half_width,(level.right_bound()-CoreMovementLevel.LEFT_BOUND)*.5)
-		target.x = clampf(target.x,CoreMovementLevel.LEFT_BOUND+minimum,level.right_bound()-minimum)
+		var left := level.campaign_bounds().position.x if level.prologue_mode else CoreMovementLevel.LEFT_BOUND
+		var minimum := minf(half_width,(level.right_bound()-left)*.5)
+		target.x = clampf(target.x,left+minimum,level.right_bound()-minimum)
 	return target
+
+func _advance_camera_height(snap: bool) -> void:
+	var feet := player.global_position.y
+	var head := feet-CoreMovementPlayer.HEIGHT*player.body_scale
+	var desired := feet-CoreMovementPlayer.HEIGHT*.5+camera_settings.offset_y/camera_settings.zoom
+	if snap or not is_finite(camera_vertical_center) or not camera_settings.vertical_frame_enabled:
+		camera_vertical_center = desired
+		return
+	var height := get_viewport_rect().size.y/camera_settings.zoom
+	# Keep the standing body inside the safe frame, independent of crouch/pose.
+	# Margins cannot push an explicitly chosen starting offset to a new height.
+	var top := minf(height*camera_settings.vertical_frame_top*.01,maxf(0,head-desired+height*.5))
+	var bottom := minf(height*camera_settings.vertical_frame_bottom*.01,maxf(0,desired+height*.5-feet))
+	var minimum := feet-height*.5+bottom
+	var maximum := head+height*.5-top
+	camera_vertical_center = clampf(camera_vertical_center,minimum,maximum) if minimum <= maximum else (head+feet)*.5
+
+func _sync_campaign_camera_bounds() -> void:
+	# Native limits also constrain the rendered/smoothed view during a resize.
+	var bounded := level.prologue_mode and camera_settings.limit_to_level and camera_settings.camera_enabled
+	var left := ceili(level.campaign_bounds().position.x) if bounded else -10000000
+	var right := floori(level.right_bound()) if bounded else 10000000
+	if camera.limit_left != left: camera.limit_left = left
+	if camera.limit_right != right: camera.limit_right = right
+
+func _constrain_campaign_camera_shake() -> void:
+	if not level.prologue_mode or not camera_settings.limit_to_level or not camera_settings.camera_enabled or is_zero_approx(camera.offset.x): return
+	camera.force_update_scroll()
+	var center := camera.get_screen_center_position()
+	var half_width := get_viewport_rect().size.x*.5/camera_settings.zoom
+	var correction := clampf(center.x,level.campaign_bounds().position.x+half_width,level.right_bound()-half_width)-center.x
+	if not is_zero_approx(correction):
+		camera.offset.x += correction
+		camera.force_update_scroll()
 
 func _advance_camera_look(delta: float,snap: bool) -> void:
 	var target := player.weapon.look_facing()
@@ -973,6 +1011,7 @@ func _advance_camera_look(delta: float,snap: bool) -> void:
 		camera_look_velocity = 0
 
 func _update_camera(force_snap := false,delta := 0.0) -> void:
+	_sync_campaign_camera_bounds()
 	if not camera_settings.camera_enabled:
 		camera.position = camera.get_screen_center_position()-camera.offset
 		camera.position_smoothing_enabled = false
@@ -990,9 +1029,11 @@ func _update_camera(force_snap := false,delta := 0.0) -> void:
 	camera.position_smoothing_speed = maxf(.1,camera_settings.follow_speed)
 	if not is_paused or changed or force_snap:
 		_advance_camera_look(delta,changed or force_snap)
+		_advance_camera_height(changed or force_snap)
 		camera.position = camera_target(camera_look_direction)
 	if changed or force_snap: camera.reset_smoothing()
 	if is_paused: camera.force_update_scroll()
+	_constrain_campaign_camera_shake()
 	camera_applied_values = values
 	camera_was_paused = is_paused
 
@@ -1013,6 +1054,7 @@ func _process(delta: float) -> void:
 		explosion_camera_shake *= exp(-8*delta)
 		camera_phase += delta
 		if camera_settings.camera_enabled: camera.offset = camera_kick+Vector2(sin(camera_phase*83)*.65,sin(camera_phase*127+1.2))*(camera_shake+explosion_camera_shake)
+	_constrain_campaign_camera_shake()
 	var names := {"ledge_hang":"захват уступа","mantle":"подъём на уступ","vault":"через препятствие","ragdoll":"рэгдолл","knocked_down":"сбит с ног","idle":"стойка","run":"бег","walk":"ходьба","sprint":"спринт","slide":"подкат","crouch":"присед","crouch_walk":"ходьба в приседе","jump":"прыжок","fall":"падение","dash":"дэш","climb":"лестница","push":"предмет: G — отпустить"}
 	hud.text = ("ПОГИБ · F8 — ВОЗРОДИТЬСЯ" if player.health <= 0 else "КОР ГЕЙМПЛЕЯ · HP %.0f/%.0f" % [player.health,player.maximum_health()])+(" · БЕССМЕРТИЕ" if player.invulnerable else "")+(" · ПАУЗА" if get_tree().paused else "")
 	var dash_status := "граната в руке" if player.grenades.busy() else "готов" if player.dash_available() else ("в подкате" if player.slide_left > 0 else "на лестнице" if player.climbing else "%.2f с" % player.dash_cooldown if player.dash_cooldown > 0 else "после приземления")

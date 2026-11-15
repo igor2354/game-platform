@@ -45,8 +45,7 @@ func new_lab(saved := false) -> void:
 	lab.camera_settings_path = directory+"/camera.cfg"
 	lab.zombie_settings_path = directory+"/zombie.cfg"
 	lab.ragdoll_settings_path = directory+"/ragdoll.cfg"
-	lab.get_node("World/Player").character_id = "sofia"
-	lab.get_node("World/Player").sofia_cel_variant = true
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 func run() -> void:
 	root.gui_embed_subwindows = true
@@ -62,10 +61,10 @@ func run() -> void:
 	check(not lab.respawn_enemies_button.is_visible_in_tree() and lab.developer_button.is_visible_in_tree(),"the normal HUD exposes one developer entry and no enemy respawn tool")
 	var total := 0
 	for values in defaults.values(): total += values.size()-(1 if values.has("scale_basis_version") else 0)-(1 if values.has("parkour_basis_version") else 0)
-	check(total == 408 and dev.navigation.size() == 5 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика","Туман войны"],"all 408 values and the dedicated fog category remain in the shared developer workspace")
+	check(total == 570 and dev.navigation.size() == 5 and dev.SECTIONS == ["Игрок","Зомби","Тестирование","Физика","Туман войны"],"all 570 values, including fog, night-background and vertical-framing controls, remain in the shared developer workspace")
 	await dispatch("core_developer")
 	check(dev.enabled and dev.visible and lab.movement_overlay.visible and not paused,"F2 enables one modeless developer workspace")
-	check(dev.player_tabs.get_tab_count() == 4 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье","Player groups movement, shooting, camera and health")
+	check(dev.player_tabs.get_tab_count() == 5 and dev.player_tabs.get_tab_title(0) == "Движение" and dev.player_tabs.get_tab_title(1) == "Стрельба и урон" and dev.player_tabs.get_tab_title(2) == "Камера и визуал" and dev.player_tabs.get_tab_title(3) == "Здоровье" and dev.player_tabs.get_tab_title(4) == "Визуал","Player groups movement, shooting, camera, health and visual effects")
 	for index in lab._ui_overlays().size():
 		dev.show_overlay(index)
 		await frames(3)
@@ -118,7 +117,7 @@ func run() -> void:
 	Input.action_press("core_right")
 	await frames(ceili(hero.tuning.acceleration_time(430,hero.tuning.acceleration)*60)+6)
 	Input.action_release("core_right")
-	check(absf(hero.velocity.x-430) < 1,"movement continues using live balance with the developer workspace open")
+	check(absf(hero.velocity.x-hero.motion_value("run_speed")) < 1,"movement continues using live balance with the developer workspace open")
 	await frames(16)
 	var line: LineEdit = lab.movement_overlay.rows.run_speed.number.get_line_edit()
 	line.grab_focus()
