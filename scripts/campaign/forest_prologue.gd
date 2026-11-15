@@ -3,6 +3,8 @@ extends Node2D
 signal lethal_fall
 const DATA = preload("res://scripts/campaign/forest_prologue_r1_data.gd")
 const LADDER = preload("res://scripts/core/ladder_geometry.gd")
+const NIGHT_BACKGROUND = preload("res://scripts/campaign/prologue1_night_background.gd")
+const SOIL_MATERIAL = preload("res://shaders/prologue1_ground_backing.gdshader")
 const UPM: float = DATA.PLAN.units_per_m
 const ORIGIN := Vector2(12000,760)
 const WIDTH := 246.0*UPM
@@ -29,8 +31,11 @@ const PANORAMA_TEXTURES := [
 var actor
 var backdrop: Node2D
 var background_plane: Node2D
+var night_background: Node2D
 var foreground_plane: Node2D
 var panorama_strips: Array[Sprite2D] = []
+var ground_backing: Node2D
+var ground_backing_bottom := SOIL_BOTTOM
 var debug_geometry := false
 var sections: Array[Dictionary] = []
 var surfaces: Array[PackedVector2Array] = []
@@ -93,13 +98,36 @@ func _init() -> void:
 func _ready() -> void:
  z_index = 1
  background_plane = Node2D.new();background_plane.name="BackgroundPlanes";background_plane.z_index=-2;add_child(background_plane)
+ night_background=NIGHT_BACKGROUND.new();night_background.route=self;background_plane.add_child(night_background)
  backdrop = Node2D.new();backdrop.name="GameplayPlane";backdrop.position=PANORAMA_ORIGIN;backdrop.scale=Vector2.ONE*(UPM/100.0);backdrop.z_index=-1;add_child(backdrop)
+ ground_backing=Node2D.new();ground_backing.name="GroundBacking";ground_backing.transform=backdrop.transform.affine_inverse();backdrop.add_child(ground_backing)
+ var soil := ShaderMaterial.new();soil.shader=SOIL_MATERIAL
+ soil.set_shader_parameter("world_origin",ORIGIN);soil.set_shader_parameter("texture_units",UPM/100.0)
+ for points in terrain:
+  var fill:=Polygon2D.new();fill.polygon=points.duplicate();fill.texture=PANORAMA_TEXTURES[0];fill.material=soil
+  ground_backing.add_child(fill)
+ RenderingServer.frame_pre_draw.connect(update_ground_backing)
  for i in PANORAMA_TEXTURES.size():
   var width := mini(PANORAMA_STRIDE,int(PANORAMA_SIZE.x)-i*PANORAMA_STRIDE)
   var region := AtlasTexture.new();region.atlas=PANORAMA_TEXTURES[i];region.region=Rect2(2,0,width,1600);region.filter_clip=false
   var strip := Sprite2D.new();strip.name="Strip%02d" % i;strip.texture=region;strip.centered=false;strip.position=Vector2(i*PANORAMA_STRIDE,0);strip.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
   backdrop.add_child(strip);panorama_strips.append(strip)
  foreground_plane=Node2D.new();foreground_plane.name="ForegroundOccluders";foreground_plane.z_index=2;add_child(foreground_plane)
+
+func update_ground_backing() -> void:
+ var view:=get_viewport().get_canvas_transform().affine_inverse()*get_viewport_rect()
+ var bottom:=ceilf(maxf(SOIL_BOTTOM,view.end.y+32.0))
+ if bottom<=ground_backing_bottom:return
+ ground_backing_bottom=bottom
+ for i in terrain.size():
+  var points:=terrain[i].duplicate()
+  # Only the two artificial bottom vertices grow; the walkable contour,
+  # gaps and every physical polygon remain at their original coordinates.
+  points[-1].y=bottom;points[-2].y=bottom
+  ground_backing.get_child(i).polygon=points
+
+func _exit_tree() -> void:
+ if RenderingServer.frame_pre_draw.is_connected(update_ground_backing):RenderingServer.frame_pre_draw.disconnect(update_ground_backing)
 
 func _physics_process(_delta: float) -> void:
  if is_instance_valid(actor) and actor.health > 0 and lethal_rect.has_point(actor.global_position): lethal_fall.emit()

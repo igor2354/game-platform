@@ -1,5 +1,5 @@
 extends SceneTree
-## Layer independence and P1-R1 artwork registration and preserved Sofia. No real profile reads/writes.
+## Layer independence and P1-R1 artwork registration and the shared player rig. No real profile reads/writes.
 const FOREST = preload("res://scripts/campaign/forest_prologue.gd")
 const MEDIA = preload("res://tools/media_paths.gd")
 var lab: CoreMovementLab
@@ -29,13 +29,12 @@ func run() -> void:
 	DirAccess.make_dir_recursive_absolute(temporary)
 	for entry in [["settings_path","movement.cfg"],["shooting_settings_path","shooting.cfg"],["camera_settings_path","camera.cfg"],["zombie_settings_path","zombie.cfg"],["ragdoll_settings_path","ragdoll.cfg"]]:
 		lab.set(entry[0],temporary.path_join(entry[1]))
-	lab.get_node("World/Player").character_id = "sofia"
-	lab.get_node("World/Player").sofia_cel_variant = true
+	lab.get_node("World/Player").rig_reference_scale = CoreWorldUnits.LEGACY_SOFIA_SCALE
 	root.add_child(lab)
 	await frames(8)
 	var f = lab.level.forest
 	check(lab.level.prologue_version == 1 and f.sections.size() == 12,"original prologue, twelve sections")
-	check(f.background_plane.get_child_count() == 0,"no new distant background")
+	check(f.background_plane.get_child_count() == 1 and f.night_background != null,"separate animated opening background")
 	check(f.foreground_plane.get_child_count() == 0,"no new near occluders")
 	check(f.backdrop.name == "GameplayPlane" and f.panorama_strips.size() == 13,"independent gameplay plane with thirteen GPU strips")
 	check(f.background_plane != f.backdrop and f.foreground_plane != f.backdrop,"three separate groups")
@@ -44,9 +43,9 @@ func run() -> void:
 		var im: Image = FOREST.PANORAMA_TEXTURES[index].get_image()
 		check(im != null and im.get_height() == 1600,"strip dimensions %02d" % index)
 		check(im.detect_alpha() != Image.ALPHA_NONE and im.get_pixel(4,4).a < .01,"real transparent distant area %02d" % index)
-	check(is_equal_approx(lab.player.character_scale(),1.0),"Sofia uses approved 1x size")
-	check(lab.player.character_id == "sofia" and lab.player.uses_painted_cels(),"Sofia animation system retained")
-	check(lab.player.is_on_floor(),"standing Sofia rests on P1-R1 start floor")
+	check(is_equal_approx(lab.player.character_scale(),1.0),"shared player uses default 1x size")
+	check(lab.player.body.get_script() == preload("res://scripts/core/user_standing_body.gd") and not lab.player.body.sprite.visible,"upstream shared character rig retained")
+	check(lab.player.is_on_floor(),"standing player rests on P1-R1 start floor")
 	var position_before: Vector2 = lab.player.global_position
 	var zoom_before: Vector2 = lab.camera.zoom
 	f.backdrop.hide()

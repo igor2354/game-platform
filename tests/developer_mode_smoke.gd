@@ -117,7 +117,7 @@ func run() -> void:
 	Input.action_press("core_right")
 	await frames(ceili(hero.tuning.acceleration_time(430,hero.tuning.acceleration)*60)+6)
 	Input.action_release("core_right")
-	check(absf(hero.velocity.x-430) < 1,"movement continues using live balance with the developer workspace open")
+	check(absf(hero.velocity.x-hero.motion_value("run_speed")) < 1,"movement continues using live balance with the developer workspace open")
 	await frames(16)
 	var line: LineEdit = lab.movement_overlay.rows.run_speed.number.get_line_edit()
 	line.grab_focus()

@@ -11,6 +11,7 @@ var projection := Transform2D.IDENTITY
 var forest_transform := Transform2D.IDENTITY
 var world_grid := false
 var world_origin := Vector2.ZERO
+var detached_world_items: Dictionary = {} # Weak references; no per-frame scan.
 
 func _ready() -> void:
 	layer = 0
@@ -33,6 +34,35 @@ func _ready() -> void:
 	add_child(picture)
 	picture.hide()
 	RenderingServer.frame_pre_draw.connect(sync_projection)
+	get_tree().node_added.connect(_world_item_added)
+	get_tree().node_removed.connect(_world_item_removed)
+	for node in lab.find_children("*","Node2D",true,false):
+		if node.top_level: _register_world_item(node.get_instance_id())
+
+func _world_item_added(node: Node) -> void:
+	if node is Node2D and node.top_level:
+		_register_world_item.call_deferred(node.get_instance_id())
+
+func _world_item_removed(node: Node) -> void:
+	detached_world_items.erase(node.get_instance_id())
+
+func _register_world_item(id: int) -> void:
+	var node = instance_from_id(id)
+	if not is_instance_valid(node) or not node is Node2D or not node.top_level or not lab.is_ancestor_of(node): return
+	var ancestor = node.get_parent()
+	while ancestor != lab:
+		if ancestor is CanvasLayer or ancestor is Viewport: return
+		ancestor = ancestor.get_parent()
+	detached_world_items[id] = weakref(node)
+	# Top-level CanvasItems bypass the rerouted lab CanvasItem. Keep their
+	# independent physics transform, but draw into the same world canvas.
+	var canvas := buffer.find_world_2d().get_canvas() if active else lab.get_world_2d().get_canvas()
+	RenderingServer.canvas_item_set_parent(node.get_canvas_item(),canvas)
+
+func _route_detached_world_items(canvas: RID) -> void:
+	for reference in detached_world_items.values():
+		var node = reference.get_ref()
+		if is_instance_valid(node): RenderingServer.canvas_item_set_parent(node.get_canvas_item(),canvas)
 
 func apply_settings() -> void:
 	var limit: Vector2i = lab.display_options.render_limit()
@@ -43,6 +73,7 @@ func apply_settings() -> void:
 		active = enabled
 		if active:
 			RenderingServer.canvas_item_set_parent(lab.get_canvas_item(),buffer.find_world_2d().get_canvas())
+			_route_detached_world_items(buffer.find_world_2d().get_canvas())
 			if lab.moon_forest:
 				forest_transform = lab.moon_forest.transform
 				lab.moon_forest.custom_viewport = buffer
@@ -116,6 +147,7 @@ func _sync_world_grid(viewport: Viewport) -> void:
 
 func _restore_canvas() -> void:
 	RenderingServer.canvas_item_set_parent(lab.get_canvas_item(),lab.get_world_2d().get_canvas())
+	_route_detached_world_items(lab.get_world_2d().get_canvas())
 	if is_instance_valid(lab.moon_forest):
 		# CanvasLayer rejects null; explicitly return it to its original viewport.
 		lab.moon_forest.custom_viewport = get_viewport()

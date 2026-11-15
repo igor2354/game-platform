@@ -7,9 +7,16 @@ const FOG = preload("res://scripts/core/fog_parameters.gd")
 
 const SAVE_PATH := "user://core_camera.cfg"
 const SWITCHES := [
+	["p1_night_enabled", "Ночной фон · экраны 1–2", "Пролог 1 · Фон", "Ночной лес закреплён на уровне. Камера просматривает его; листья, вода, небо и пожар продолжают анимироваться."],
+	["p1_night_wind_enabled", "Листья: анимация", "Пролог 1 · Фон", "Колебания листвы; стволы и ветви неподвижны. Выключение сохраняет силу и темп."],
+	["p1_night_clouds_enabled", "Облака: анимация", "Пролог 1 · Фон", "Движение облаков; луна остаётся неподвижной. Выключение сохраняет силу и темп."],
+	["p1_night_smoke_enabled", "Дым: анимация", "Пролог 1 · Фон", "Завихрения дыма с закреплённым основанием у огня. Выключение сохраняет силу и темп."],
+	["p1_night_fire_enabled", "Огонь: анимация", "Пролог 1 · Фон", "Локальное мерцание и движение пламени. Выключение сохраняет силу и темп."],
+	["p1_night_water_enabled", "Вода: анимация", "Пролог 1 · Фон", "Рябь и блики в русле; камни и берега сохраняют форму. Выключение сохраняет силу и темп."],
 	["blocking_overlay_enabled", "Блокинг поверх окружения", "Визуал", "Бирюзовый контур — реальные неподвижные коллизии; жёлтый — зоны лестниц и односторонние платформы. Заливка регулируется ниже. Не меняет физику и не включает остальную отладку F1."],
 	["player_scale_enabled", "Изменять общий размер героя", "Размер героя", "Равномерно меняет тело, оружие, коллизии и параметры движения. Базовые числа профиля сохраняются; уровень и камера прежние. Под тесным потолком или во время падения изменение ждёт безопасного места."],
 	["camera_enabled", "Слежение камеры включено", "Камера", "Выключено: камера остаётся на месте. Настройки сохраняются до повторного включения."],
+	["vertical_frame_enabled", "Перевод высоты только у края кадра", "Камера", "Высота кадра сохраняется на небольших перепадах и прыжках. При подходе к верхнему/нижнему краю камера плавно переводится и остаётся на новой высоте. Выключение возвращает непрерывное слежение."],
 	["map_enabled", "Карта уровня включена", "Визуал", "Выключено: карта не открывается по M. Схема строится по геометрии уровня и сохраняет настройки отображения."],
 	["visual_enabled", "Эффекты героя включены", "Визуал", "Отключает блюр и сглаживание героя, сохраняя их настройки."],
 	["pixel_enabled", "Пиксельный фильтр", "Визуал", "Размер пикселя задаётся ниже. Работает отдельно и вместе с нуаром; интерфейс остаётся чётким."],
@@ -40,6 +47,7 @@ const SWITCHES := [
 @export var fog_update_hz := 20.0
 @export var fog_ray_count := 192.0
 @export var fog_target_budget := 64.0
+@export var vertical_frame_enabled := true
 @export var player_scale_enabled := false
 @export var player_scale := 1.0
 @export var map_enabled := true
@@ -63,6 +71,16 @@ const SWITCHES := [
 
 # Offset and look-ahead use screen pixels, so zoom keeps the chosen framing.
 const PARAMS := [
+	["p1_night_wind_strength","Листья: сила",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_wind_speed","Листья: темп",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_clouds_strength","Облака: сила",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_clouds_speed","Облака: темп",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_smoke_strength","Дым: сила",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_smoke_speed","Дым: темп",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_fire_strength","Огонь: сила",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_fire_speed","Огонь: темп",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_water_strength","Вода: сила",0.0,3.0,.05,"×","Пролог 1 · Фон"],
+	["p1_night_water_speed","Вода: темп",0.0,3.0,.05,"×","Пролог 1 · Фон"],
 	["blocking_overlay_opacity","Прозрачная заливка блокинга",0.0,1.0,.05,"×","Визуал"],
 	["player_scale","Общий масштаб героя",.5/CoreWorldUnits.LEGACY_SOFIA_SCALE,4.0/CoreWorldUnits.LEGACY_SOFIA_SCALE,.01,"×","Размер героя"],
 	["zoom","Приближение",.5,3.0,.05,"×","Камера"],
@@ -71,6 +89,8 @@ const PARAMS := [
 	["look_ahead","Упреждение по направлению",0.0,350.0,1.0,"px экрана","Камера"],
 	["vertical_aim_deadzone","Допуск разворота у вертикали",0.0,80.0,1.0,"°","Камера"],
 	["follow_speed","Плавность: скорость слежения",0.0,30.0,.5,"/с","Камера"],
+	["vertical_frame_top","Перевод высоты: отступ сверху",0.0,40.0,.5,"% кадра","Камера"],
+	["vertical_frame_bottom","Перевод высоты: отступ снизу",0.0,40.0,.5,"% кадра","Камера"],
 	["look_turn_duration","Плавность смены стороны · время",0.0,1.5,.05,"с","Камера"],
 	["pixel_size","Размер пикселя",1.0,16.0,1.0,"px экрана","Визуал"],
 	["world_pixel_size","Размер клетки на уровне",.5,8.0,.25,"ед./пиксель","Сетка уровня"],
@@ -134,6 +154,8 @@ const PARAMS := [
 @export var look_ahead := 64.0
 @export var vertical_aim_deadzone := 35.0
 @export var follow_speed := 8.0
+@export var vertical_frame_top := 12.0
+@export var vertical_frame_bottom := 12.0
 @export var look_turn_duration := .35
 @export var limit_to_level := true
 @export_category("Визуал")
@@ -171,10 +193,27 @@ const PARAMS := [
 @export var forest_water_strength := 1.0
 @export var forest_water_speed := 1.0
 
+@export_category("Пролог 1 · Фон")
+@export var p1_night_enabled := true
+@export var p1_night_wind_enabled := true
+@export var p1_night_wind_strength := 1.0
+@export var p1_night_wind_speed := 1.0
+@export var p1_night_clouds_enabled := true
+@export var p1_night_clouds_strength := 1.0
+@export var p1_night_clouds_speed := 1.0
+@export var p1_night_smoke_enabled := true
+@export var p1_night_smoke_strength := 1.0
+@export var p1_night_smoke_speed := 1.0
+@export var p1_night_fire_enabled := true
+@export var p1_night_fire_strength := 1.0
+@export var p1_night_fire_speed := 1.0
+@export var p1_night_water_enabled := true
+@export var p1_night_water_strength := 1.0
+@export var p1_night_water_speed := 1.0
 const LEGACY_SKIN_KEYS = ["deform_skin_enabled","sofia_cels_enabled","deform_pose_smoothing","deform_joint_volume","sofia_cel_correction"]
 
 func framing_values() -> Dictionary:
-	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled}
+	return {"zoom":zoom,"offset_x":offset_x,"offset_y":offset_y,"look_ahead":look_ahead,"follow_speed":follow_speed,"limit_to_level":limit_to_level,"camera_enabled":camera_enabled,"vertical_frame_enabled":vertical_frame_enabled,"vertical_frame_top":vertical_frame_top,"vertical_frame_bottom":vertical_frame_bottom}
 
 func as_dictionary() -> Dictionary:
 	var values := {"scale_basis_version":2,"limit_to_level":limit_to_level,"character_linear_filter":character_linear_filter,"deform_mesh_debug":deform_mesh_debug}

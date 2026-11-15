@@ -11,7 +11,11 @@ func run() -> void:
    for key in ["r_foot","l_foot","r_toes","l_toes"]:
     var p: Vector3 = model.to_local(model.rig.to_global(model._joint(key)))
     lowest = minf(lowest,p.y)
-   if absf(lowest-model.SOLE_CLEARANCE-model.rendered_lift)>.001: failures += 1
+   # Ladder feet stand on world rungs, not on the body origin. A foot that
+   # just leaves its rung is up to a few millimetres below the rising origin.
+   if mode == "climb":
+    if lowest < model.SOLE_CLEARANCE-.01: failures += 1
+   elif absf(lowest-model.SOLE_CLEARANCE-model.rendered_lift)>.001: failures += 1
  for pair in [["idle","run"],["run","jump"],["jump","crouch"],["crouch","sprint"],["sprint","climb"]]:
   model.animate(pair[0],.2,1)
   var start: Quaternion = model.rig.get_bone_pose_rotation(model.indices.r_thigh)
