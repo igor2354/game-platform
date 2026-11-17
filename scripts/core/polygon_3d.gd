@@ -119,6 +119,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _process(dt: float) -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	player.set_physics_process(not paused and not (is_instance_valid(game_hud) and game_hud.editing) and not (focus is LineEdit or focus is TextEdit))
+	player.update_render_offset()
 	update_camera(dt)
 	hud.text = "ПОЛИГОН 3D · %s · %.2f м/с · Спринт %.1f / %.1f\nA/D · Ctrl ходьба · Shift спринт · C присед/подкат · Alt дэш · W/S лестница\nSpace прыжок/подъём · F3 движение · F5 камера · F10 рэгдолл · Tab ракурс · E переход · F8 старт%s" % [player.mode,absf(player.velocity.x),player.reserve*player.tuning.sprint_duration,player.tuning.sprint_duration," · ПАУЗА" if paused else ""]
 
@@ -128,7 +129,7 @@ func update_camera(dt: float) -> void:
 	if not camera_settings.camera_enabled: return
 	look_direction = move_toward(look_direction,player.facing,2*dt/maxf(.001,camera_settings.look_turn_duration))
 	var zoom := maxf(.1,camera_settings.zoom)
-	var center: Vector3 = player.position + Vector3((camera_settings.offset_x+look_direction*camera_settings.look_ahead)/geometry.U/zoom,-camera_settings.offset_y/geometry.U/zoom,0)
+	var center: Vector3 = player.position + player.render_offset + Vector3((camera_settings.offset_x+look_direction*camera_settings.look_ahead)/geometry.U/zoom,-camera_settings.offset_y/geometry.U/zoom,0)
 	if camera_settings.limit_to_level:
 		var half_width: float = get_viewport().get_visible_rect().size.x*.5/geometry.U/zoom
 		var left: float = -6500/geometry.U+half_width
