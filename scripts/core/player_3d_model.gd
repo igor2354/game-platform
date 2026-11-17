@@ -151,6 +151,15 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
   var lift_sample := fposmod(phase,1)*count
   var lift_index := floori(lift_sample)
   flight_lift = lerpf(keys[lift_index][7],keys[(lift_index+1)%count][7],lift_sample-lift_index)/UNITS_PER_METER
+  if mode in ["run","sprint"]: flight_lift = run_flight(phase,mode=="sprint")
+ # While the body is still turning to a new side during a run, the feet step
+ # around on planted contacts instead of spinning in a running stride.
+ var running: bool = mode == "run" or (mode == "walk" and get_parent() is CharacterBody3D and get_parent().get("mode") == "run")
+ # Only near a stop: at running speed planted steps would have to fly half a
+ # metre per tenth of a second; there the gait cycle carries the turn.
+ var slow: bool = get_parent() is CharacterBody3D and absf(get_parent().velocity.x) < RUN_TURN_SPEED
+ feet.run_turn = running and slow and absf(angle_difference(rotation.y,yaw)) > RUN_TURN_START
+ if feet.run_turn: flight_lift = 0
  var clip: String = "run" if mode=="sprint" else mode if REFERENCE.CLIPS.has(mode) else "idle"
  var frames: Array = REFERENCE.CLIPS[clip]
  var sample := fposmod(phase,1)*frames.size()*(.5 if mode=="sprint" else 1.0)
@@ -171,6 +180,7 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
  for key in points:
   if not key.ends_with("FootAxis"): points[key] = anchor+(points[key]-origin)*ratio
  var torso: Vector2 = (source.Neck-source.Pelvis).normalized()
+ if mode in ["run","sprint"]: torso = run_torso(phase,neutral,mode=="sprint")
  points.Neck = points.Pelvis+torso*native_pelvis.distance_to(native_neck)*UNITS_PER_METER
  for side: String in SIDES:
   var prefix: String = SIDES[side]
@@ -192,12 +202,13 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
  last_points = {}
  apply_points(points)
  if mode == "climb": climb_fingers()
- if mode in ["run","sprint"]: atlas_arms(phase,mode=="sprint")
+ if mode in ["run","sprint"]: run_arms(phase,mode=="sprint")
  elif mode in ["idle","jump","crouch","crouch_walk","slide","dash","dash_back"]: free_arms(mode)
  if not weapon_pose.is_empty():
   preload("res://scripts/core/player_weapon_pose_3d.gd").body(self,mode)
  finish_pose(delta)
  feet.solve(self,mode,delta)
+ run_foot_lock(mode in ["run","sprint"] and feet.weight <= 0 and transition_left <= 0)
  if not weapon_pose.is_empty():
   preload("res://scripts/core/player_weapon_pose_3d.gd").mount(self,mode,delta)
  if weapon_grips.size()==2:
@@ -222,6 +233,8 @@ func animate(mode: String, phase: float, face: float, delta := 0.0) -> void:
      elbow = elbow.lerp(low_elbow,down_weight)
      if c.aim_direction.y<.5: elbow.y = minf(elbow.y,rig.to_global(_joint(prefix+"upperarm")).y-.14)
      _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",rig.to_local(elbow),rig.to_local(wrist))
+     # Clear the torso before the wrist check, so the palm follows the final forearm.
+     arm_body_clearance(prefix,wrist,elbow)
      weapon_grips[hand_slot] = wrist
      var forearm: Vector3 = (rig.to_global(_joint(prefix+"hand"))-rig.to_global(_joint(prefix+"forearm"))).normalized()
      var angle := forearm.angle_to(palm)
@@ -239,7 +252,7 @@ func grenade_hands(dt: float) -> void:
  var wanted=controller!=null and controller.busy()
  grenade_blend=move_toward(grenade_blend,1.0 if wanted else 0.0,dt*7)
  if grenade_blend<=0 or not controller: return
- var hand=controller.hand_point()
+ var hand=controller.hand_point()+get_parent().render_offset
  if controller.throw_progress>0:
   hand+=controller.launch_velocity().normalized()*.28*sin((1-controller.throw_progress/.32)*PI)
  for prefix in ["r_","l_"]:
@@ -395,3 +408,117 @@ func climb_fingers() -> void:
    var sign_bend := 1.0 if base_pose.basis.x.cross(base_pose.basis.y).dot(target-base_pose.origin)>=0 else -1.0
    for segment in [1,2,3]:
     rig.set_bone_pose_rotation(indices[prefix+finger+str(segment)],Quaternion(Vector3.RIGHT,(.75 if segment==1 else .9)*sign_bend*climb_grip[slot]))
+
+# Run and sprint: the clip keeps the atlas legs; three corrections follow the
+# same atlas rows. Torso lean takes the atlas angle relative to the neutral
+# stance, each step gets a flight, free arms swing against the opposite leg
+# with closed fists. Sprint plays one atlas period (8 cells) per cycle with a
+# deeper lean, a wider swing and a higher flight; ordinary run stays moderate.
+const RUN_FLIGHT_HEIGHT := .078 # model-local metres at the flight peak (about 8.5 cm in the world)
+const RUN_ARM_FORWARD := 25.0 # shoulder swing relative to the torso, degrees
+const RUN_ARM_BACK := 62.0
+const SPRINT_FLIGHT_HEIGHT := .1 # about 11 cm in the world
+const SPRINT_EXTRA_LEAN := 7.0 # degrees on top of the atlas lean
+const SPRINT_ARM_FORWARD := 28.0
+const SPRINT_ARM_BACK := 72.0
+func _run_key(phase: float,column: int,sprint := false) -> float:
+ var keys: Array = preload("res://resources/core/user_standing/run_poses.gd").KEYS
+ var sample := fposmod(phase,1)*keys.size()*(.5 if sprint else 1.0)
+ var i := floori(sample)
+ return lerpf(keys[i][column],keys[(i+1)%keys.size()][column],sample-i)
+
+func run_flight(phase: float,sprint := false) -> float:
+ # Atlas flight rows sit near cells 3, 7.5 and 12 of 16: one flight per step.
+ var cell := fposmod(phase,1)*(8.0 if sprint else 16.0)
+ var offset := fposmod(cell-3.5+2.0,4.0)-2.0
+ return (SPRINT_FLIGHT_HEIGHT if sprint else RUN_FLIGHT_HEIGHT)*pow(maxf(0,cos(clampf(offset/1.5,-1,1)*PI*.5)),2)
+
+func run_torso(phase: float,neutral: Dictionary,sprint := false) -> Vector2:
+ var upright: Vector2 = (neutral.Neck-neutral.Pelvis).normalized()
+ return upright.rotated(deg_to_rad(_run_key(phase,6,sprint)+(SPRINT_EXTRA_LEAN if sprint else 0.0)))
+
+func run_arms(phase: float,sprint := false) -> void:
+ var lean := deg_to_rad(_run_key(phase,6,sprint)+(SPRINT_EXTRA_LEAN if sprint else 0.0))
+ # Columns 0/3: near/far hip angles. Each arm follows the opposite leg.
+ var hips := {"Near":_run_key(phase,3,sprint)+12.4,"Far":_run_key(phase,0,sprint)+15.4}
+ for side: String in SIDES:
+  var prefix: String = SIDES[side]
+  var n := clampf(hips[side]/38.0,-1,1)
+  var relative := n*((SPRINT_ARM_FORWARD if sprint else RUN_ARM_FORWARD) if n>0 else (SPRINT_ARM_BACK if sprint else RUN_ARM_BACK))
+  var swing := deg_to_rad(relative)+lean
+  # Elbow about 85 deg: opens slightly in front (barely in a sprint, so the
+  # fist stays at chin height), closes behind the body.
+  var elbow := deg_to_rad(85-(5.0 if sprint else 20.0)*n if n>0 else 85-15*n)
+  var upper := Vector2(sin(swing),cos(swing))
+  var lower := Vector2(sin(swing+elbow),cos(swing+elbow))
+  _aim(prefix+"upperarm",prefix+"forearm",_target(upper,0))
+  _aim(prefix+"forearm",prefix+"hand",_target(lower,0))
+  _aim(prefix+"hand",prefix+"hand_anchor",_target(lower.rotated(.25),0))
+  if weapon_grips.size() == 2: continue
+  var palm := _joint(prefix+"hand_anchor")
+  for finger in ["index","mid","ring","pinky"]:
+   var base_pose := rig.get_bone_global_pose(indices[prefix+finger+"1"])
+   var sign_bend := 1.0 if base_pose.basis.x.cross(base_pose.basis.y).dot(palm-base_pose.origin)>=0 else -1.0
+   for segment in [1,2,3]:
+    rig.set_bone_pose_rotation(indices[prefix+finger+str(segment)],Quaternion(Vector3.RIGHT,(1.2 if segment==1 else 1.35)*sign_bend))
+
+# Planted run contact: the clip foot touching the floor stays where it landed
+# in the world; the leg IK absorbs the residual slip, the foot keeps its angle.
+const RUN_TURN_START := .2 # radians between the shown and the wanted facing
+const RUN_TURN_SPEED := 1.4 # m/s; faster turns stay in the gait cycle
+const RUN_CONTACT := .03 # toe joint height over the floor counted as contact
+var run_locks: Array = [null,null] # r_, l_ world toe anchors
+func run_foot_lock(active: bool) -> void:
+ var ground: float = get_parent().global_position.y if get_parent() is Node3D else global_position.y
+ var forward := global_basis.orthonormalized().z
+ for i in 2:
+  var prefix := "r_" if i==0 else "l_"
+  var toe := rig.to_global(_joint(prefix+"toes"))
+  var height := toe.y-ground
+  if not active or height > RUN_CONTACT:
+   run_locks[i] = null
+   continue
+  if run_locks[i] == null:
+   run_locks[i] = toe
+   continue
+  var anchor: Vector3 = run_locks[i]
+  var weight := 1.0-smoothstep(RUN_CONTACT*.4,RUN_CONTACT,height)
+  var shift := Vector3(anchor.x-toe.x,0,anchor.z-toe.z)*weight
+  if shift.length_squared() < .0000001: continue
+  var foot_pose := rig.get_bone_global_pose(indices[prefix+"foot"])
+  var ankle := rig.to_global(foot_pose.origin)+shift
+  var knee := rig.to_global(_joint(prefix+"shin"))+forward*.25
+  _limb(prefix+"thigh",prefix+"shin",prefix+"foot",rig.to_local(knee),rig.to_local(ankle))
+  var solved := rig.get_bone_global_pose(indices[prefix+"foot"])
+  solved.basis = foot_pose.basis
+  rig.set_bone_global_pose(indices[prefix+"foot"],solved)
+
+# A hand that reaches across the chest (support hand on a right-shoulder
+# carry, low aims) must pass in front of the torso, not through it. The grip
+# stays fixed; only the elbow swings forward around the shoulder-wrist line.
+# Volumes approximate chest/breasts and hips plus the arm's own thickness.
+func arm_body_clearance(prefix: String,wrist_world: Vector3,elbow_world: Vector3) -> void:
+ var pole := rig.to_local(elbow_world)
+ var wrist := rig.to_local(wrist_world)
+ for attempt in 16:
+  var depth := arm_body_depth(prefix)
+  if depth <= .002: return
+  # Down along the own flank and slightly forward: the upper arm hangs past
+  # the ribs and the forearm crosses below the chest towards the grip.
+  pole += Vector3(1.0 if prefix=="l_" else -1.0,-1,.45).normalized()*(depth+.03)
+  _limb(prefix+"upperarm",prefix+"forearm",prefix+"hand",pole,wrist)
+
+# Deepest entry (metres, along the body depth) of the outer upper arm and the
+# forearm into the chest/breast and hip volumes; 0 when the arm is clear.
+func arm_body_depth(prefix: String) -> float:
+ var pelvis := _joint("pelvis")
+ var volumes := [[_joint("neck1").lerp(pelvis,.38),Vector3(.15,.19,.175)],[pelvis+Vector3(0,.03,0),Vector3(.18,.15,.165)]]
+ var shoulder := _joint(prefix+"upperarm")
+ var elbow := _joint(prefix+"forearm")
+ var hand := _joint(prefix+"hand")
+ var depth := 0.0
+ for point: Vector3 in [shoulder.lerp(elbow,.7),shoulder.lerp(elbow,.85),elbow,elbow.lerp(hand,.3),elbow.lerp(hand,.6),elbow.lerp(hand,.85)]:
+  for volume in volumes:
+   var inside: float = 1.0-((point-volume[0])/volume[1]).length()
+   if inside > 0: depth = maxf(depth,inside*volume[1].z)
+ return depth

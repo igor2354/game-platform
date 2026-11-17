@@ -2,6 +2,7 @@
 extends RefCounted
 const BUTT := Vector3(-.250,-.085,.001)
 const SIGHT := Vector3(.0,.041,.001)
+const CALM_CHEST_TURN := .35 # radians, about 20 degrees
 const CLEARANCE_POINTS := [Vector3(-.25,-.04,0),Vector3(-.13,-.04,0),Vector3.ZERO,Vector3(.15,0,0),Vector3(.35,0,0),Vector3(.55,0,0),Vector3(.22,-.24,0)]
 static func butt(c: Node3D) -> Vector3:
  if c.gun.weapon_id=="svt": return Vector3(-.288,-.065,0)
@@ -31,7 +32,10 @@ static func body(m: Node3D,mode: String) -> void:
  var aim: Vector3 = c.aim_direction
  var vertical := smoothstep(.68,.98,absf(aim.y))*(1-calm)
  var chest: Transform3D = m.rig.get_bone_global_pose(m.indices.spine1)
- chest.basis = Basis(Vector3.UP,-.42*(1-calm))*chest.basis
+ # Relaxed carry keeps part of the chest turn: with the weapon on the right
+ # shoulder the left shoulder comes forward, so the support arm reaches the
+ # handguard in front of the chest instead of through it.
+ chest.basis = Basis(Vector3.UP,-lerpf(.42,CALM_CHEST_TURN,calm))*chest.basis
  chest.basis = Basis(Vector3.RIGHT,-m.recoil_body*1.4*(1-absf(c.aim_direction.y)*.8))*chest.basis
  chest.origin -= impulse_axis*m.recoil_body*.7
  m.rig.set_bone_global_pose(m.indices.spine1,chest)

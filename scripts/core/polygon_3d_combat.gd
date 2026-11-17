@@ -267,14 +267,15 @@ func _process(dt: float) -> void:
 		var side_delta: Vector3 = hit-(stage.player.position+Vector3(0,1.4,0))
 		if absf(side_delta.x)>.3: aim_facing = signf(side_delta.x)
 	mount_side = lerpf(mount_side,aim_facing,1-exp(-dt/.09))
-	pivot.position = stage.player.position+Vector3(mount_side*.25,1.4,0)
+	pivot.position = stage.player.position+stage.player.render_offset+Vector3(mount_side*.25,1.4,0)
 	if hit!=null:
-		var delta: Vector3 = hit-pivot.position
+		# Aim from the physics pivot: the drawn offset must not tilt the shot.
+		var delta: Vector3 = hit-(pivot.position-stage.player.render_offset)
 		delta.z = 0
 		if delta.length()>.01: aim_direction = delta.normalized()
 	gun.aiming = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and gun.tuning.ads_enabled and gun.tuning.weapon_enabled and gun.reload_left<=0 and not blocked
 	var face := aim_facing
-	gun.recoil.pivot_point = world2(pivot.global_position)
+	gun.recoil.pivot_point = world2(pivot.global_position-stage.player.render_offset)
 	if hit!=null: gun.recoil.point = world2(hit)
 	gun.recoil.screen_scale = stage.camera_settings.zoom
 	stage.player.weapon_look_facing = aim_facing
@@ -285,7 +286,7 @@ func _process(dt: float) -> void:
 	if not stage.player.sprinting and gun.reload_left<=0: set_weapon_direction(aim_direction,face,dt)
 	if stage.player.sprinting:
 		var carry := Vector3(stage.player.facing,-.25,0).normalized()
-		pivot.position = stage.player.position+Vector3(stage.player.facing*.18,1.25+.025*sin(stage.player.phase*TAU*2),0)
+		pivot.position = stage.player.position+stage.player.render_offset+Vector3(stage.player.facing*.18,1.25+.025*sin(stage.player.phase*TAU*2),0)
 		set_weapon_direction(carry,stage.player.facing,dt)
 	var disabled: bool = (stage.player.grenades and stage.player.grenades.busy()) or stage.player.model.death_ragdoll.active or not gun.tuning.weapon_enabled or stage.player.health<=0 or stage.player.climbing or stage.player.parkour.active or stage.player.dash_left>0 or stage.player.slide_left>0
 	pivot.visible = not disabled
@@ -378,7 +379,7 @@ func _physics_process(dt: float) -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	var blocked: bool = (stage.player.grenades and stage.player.grenades.busy()) or stage.player.model.death_ragdoll.active or stage.player.health<=0 or (stage.developer.blocks_mouse() if is_instance_valid(stage.developer) else not cursor_active) or focus is LineEdit or focus is TextEdit or stage.player.climbing or stage.player.parkour.active or stage.player.dash_left>0 or stage.player.slide_left>0
 	gun.aiming = gun.tuning.weapon_enabled and gun.tuning.ads_enabled and gun.reload_left<=0 and not blocked and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	gun.tick_trigger(dt,Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT),blocked,pivot.to_global(muzzle),shot_direction(),pivot.global_position,true)
+	gun.tick_trigger(dt,Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT),blocked,pivot.to_global(muzzle)-stage.player.render_offset,shot_direction(),pivot.global_position-stage.player.render_offset,true)
 	stage.player.weapon_movement_multiplier = stage.ragdoll_settings.grenade_move_multiplier if stage.player.grenades and stage.player.grenades.busy() else gun.movement_multiplier
 	stage.player.weapon_busy = (stage.player.grenades and stage.player.grenades.busy()) or gun.aiming or gun.firing or gun.reload_left>0
 
@@ -422,7 +423,10 @@ func finish_tick() -> void:
 		if gun.weapon_id not in ["stg44","mp40"]:
 			var up := Vector3(-aim_direction.y,aim_direction.x,0).rotated(aim_direction,weapon_roll)
 			pivot.basis = Basis(aim_direction,up,aim_direction.cross(up)).orthonormalized()
-	gun.finish_trigger(pivot.to_global(muzzle),shot_direction(),pivot.global_position)
+	# The drawn weapon follows the hero between physics ticks; shots keep the
+	# physics position (a non-mounted firing pivot above is already rebuilt there).
+	var drawn: Vector3 = Vector3.ZERO if gun.firing and gun.weapon_id not in ["stg44","mp40","m1911","svt"] else stage.player.render_offset
+	gun.finish_trigger(pivot.to_global(muzzle)-drawn,shot_direction(),pivot.global_position-drawn)
 
 func sync_recoil_projection() -> void:
 	var origin := screen_world(Vector2.ZERO)
