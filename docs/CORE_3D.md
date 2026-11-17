@@ -386,6 +386,16 @@ settings_path**. load_user_settings=false не запрещает запись �
 проверку нативного Полигона и подключения остальных 2D-карт. Внешние
 UBERTEST/UBERgenerator не включать в билд как игровые системы.
 
+
+**Отрисовка героя между физическими тиками (18.11.2026).** Физика 60 Гц, экран
+до 120 Гц: без сглаживания герой на скорости дёргался вперёд-назад относительно
+плавной камеры (замер ±2,8 px/кадр) и выглядел размытым. `player_3d.render_offset`
+(обновляет сцена в начале `_process`) смещает визуал к положению между двумя
+последними тиками; камера, mount/pivot оружия и граната в руке используют то же
+смещение. Прицел, выстрелы (`tick_trigger`/`finish_trigger`), отдача, коллизии
+и броски считаются от физической позиции. Новый код отрисовки, привязанный к
+герою, обязан учитывать `render_offset`; игровая логика — нет. Задержка
+визуала — не больше одного тика (16,7 мс); после телепорта/смерти смещение 0.
 ## 14. Референсы и обязательное сравнение
 
 [Каталог референсов](CORE_3D_REFERENCES.md) хранит роли изображений и
@@ -435,9 +445,9 @@ UBERTEST/UBERgenerator не включать в билд как игровые �
 
 | Изменение | Целевые сценарии |
 |---|---|
-| Плечо, yaw, руки/ладони | [player_right_shoulder_3d](../tests/player_right_shoulder_3d.gd), [player_actor_anatomy_3d](../tests/player_actor_anatomy_3d.gd), [player_actor_stability_3d](../tests/player_actor_stability_3d.gd), [player_weapon_stances_3d](../tests/player_weapon_stances_3d.gd). Последний сейчас имеет два отказа глаза. |
+| Плечо, yaw, руки/ладони | [player_right_shoulder_3d](../tests/player_right_shoulder_3d.gd), [arm clearance](../tests/player_3d_arm_clearance_smoke.gd), [player_actor_anatomy_3d](../tests/player_actor_anatomy_3d.gd), [player_actor_stability_3d](../tests/player_actor_stability_3d.gd), [player_weapon_stances_3d](../tests/player_weapon_stances_3d.gd). Последний сейчас имеет два отказа глаза. |
 | Фазы/интерполяция/опоры | [all phases](../tests/player_3d_all_phases_smoke.gd), [transitions](../tests/player_3d_transitions_smoke.gd), [gait direction](../tests/player_3d_gait_direction_smoke.gd), [aim gait](../tests/player_3d_aim_gait_regression.gd), [crouch camera](../tests/polygon_3d_crouch_camera_smoke.gd). |
-| Движение/лестницы/склоны/путь | [movement](../tests/polygon_3d_movement_smoke.gd), [slopes](../tests/polygon_3d_slopes_in_game_smoke.gd), [traversal](../tests/polygon_3d_traversal_smoke.gd), [dash slide](../tests/player_3d_dash_slide_smoke.gd), [ladder climb](../tests/player_3d_ladder_climb_smoke.gd). Маршрут 1220→880 открыт. |
+| Движение/лестницы/склоны/путь | [movement](../tests/polygon_3d_movement_smoke.gd), [slopes](../tests/polygon_3d_slopes_in_game_smoke.gd), [traversal](../tests/polygon_3d_traversal_smoke.gd), [dash slide](../tests/player_3d_dash_slide_smoke.gd), [ladder climb](../tests/player_3d_ladder_climb_smoke.gd), [run contacts](../tests/player_3d_run_contact_smoke.gd). Маршрут 1220→880 открыт. |
 | Правила огня/reload/отдачи | [trigger parity](../tests/shooting_3d_trigger_parity.gd), [recoil parity](../tests/shooting_3d_recoil_parity.gd), [reload parity](../tests/shooting_3d_reload_parity.gd), [reverse movement](../tests/shooting_3d_move_reverse_smoke.gd). |
 | Модели/слоты/пистолет | [weapon_loadout](../tests/weapon_loadout_smoke.gd), [MP40](../tests/mp40_3d_integration.gd), [pistol pause](../tests/pistol_pause_cycle_3d.gd), [SVT thumb](../tests/svt_thumb_pistol_3d.gd). |
 | Магазины/FX/гильзы | [magazine lifecycle](../tests/shooting_3d_magazine_smoke.gd), [effects parity](../tests/shooting_3d_effects_parity.gd), [casing materials](../tests/casing_3d_materials_smoke.gd). |

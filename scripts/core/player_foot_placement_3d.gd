@@ -12,6 +12,7 @@ var next_side := 0
 var start_yaw := 0.0
 var finish_yaw := 0.0
 var start_normal := Vector3.UP
+var run_turn := false # set by the model while a running body turns to a new side
 func limit_yaw(value: float) -> float:
  if anchors.is_empty(): return value
  for i in 2:
@@ -24,7 +25,13 @@ func solve(m: Node3D,mode: String,dt: float) -> void:
  if not m.weapon_pose.is_empty():
   var c: Node3D = m.weapon_pose.combat
   desired = c.gun.tuning.procedural_feet_3d_enabled and (mode=="idle" or absf(c.aim_direction.y)>.65) and mode in ["idle","walk","crouch","crouch_walk"]
- weight = move_toward(weight,1.0 if desired else 0.0,dt*7 if dt>0 else 1.0)
+ # A running backpedal shows the walk cycle, but planted steps cannot keep up
+ # with running speed (same limit as the running turn in the model).
+ var parent_running: bool = m.get_parent() is CharacterBody3D and absf(m.get_parent().velocity.x) >= m.RUN_TURN_SPEED
+ if parent_running: desired = false
+ # Running turn: also unarmed; the weapon switch still disables it when armed.
+ if run_turn: desired = settings == null or settings.procedural_feet_3d_enabled
+ weight = move_toward(weight,1.0 if desired else 0.0,dt*(8 if run_turn or parent_running else 7) if dt>0 else 1.0)
  if weight<=0:
   anchors.clear()
   yaws.clear()
@@ -34,6 +41,11 @@ func solve(m: Node3D,mode: String,dt: float) -> void:
  var duration: float = settings.procedural_feet_3d_step_time if settings else .16
  var lift: float = settings.procedural_feet_3d_lift if settings else .045
  var stride: float = settings.procedural_feet_3d_stride if settings else .16
+ if run_turn or (mode == "run" and weight > 0):
+  # Faster, longer pivot steps: the body may still carry running speed.
+  duration = minf(duration,.1)
+  lift = maxf(lift,.06)
+  stride = maxf(stride,.22)
  var turn: float = deg_to_rad(settings.procedural_feet_3d_turn) if settings else .32
  var scale: float = m.rig.global_basis.get_scale().x
  var goals: Array[Vector3] = []
@@ -50,7 +62,10 @@ func solve(m: Node3D,mode: String,dt: float) -> void:
   goals.append(goal)
   goal_normals.append(hit.normal if not hit.is_empty() else Vector3.UP)
   if anchors.size()<=i:
-   anchors.append(m.rig.to_global(m._joint(prefix+"foot"))-Vector3.UP*(.06443*m.rig.global_basis.get_scale().x))
+   # A running foot may be high in the air: a turn starts under it, on the floor.
+   var foot: Vector3 = m.rig.to_global(m._joint(prefix+"foot"))-Vector3.UP*(.06443*m.rig.global_basis.get_scale().x)
+   if run_turn: foot.y = goal.y
+   anchors.append(foot)
    yaws.append(m.rotation.y)
    normals.append(goal_normals[i])
  if moving<0:

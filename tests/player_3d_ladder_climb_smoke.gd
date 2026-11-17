@@ -21,7 +21,9 @@ func climb(ladder_index: int,speed: float,direction: String,frames: int) -> Dict
  Input.action_press(direction)
  for i in frames:
   await physics_frame
-  model.animate(player.visual_mode,player.visual_phase,player.facing,1.0/60)
+  # Same render path as the game: interpolated body height and its ladder phase.
+  player.update_render_offset()
+  player._process(1.0/60)
   if not player.climbing or model.transition_left > 0:
    previous.clear()
    continue
@@ -95,10 +97,16 @@ func run() -> void:
  check(down.samples > 10 and down.hand_drift < .002 and down.foot_drift < .002,"descent keeps held contacts, hands %.5f feet %.5f" % [down.hand_drift,down.foot_drift])
  # Stopping on the ladder holds a still pose.
  var held := await climb(1,171.0,"core_up",30)
+ # The drawn body is one physics tick behind; let it reach the stopped height.
+ for i in 3:
+  await physics_frame
+  player.update_render_offset()
+  player._process(1.0/60)
  var before: Vector3 = player.model.rig.to_global(player.model._joint("r_hand_anchor"))
  for i in 20:
   await physics_frame
-  player.model.animate(player.visual_mode,player.visual_phase,player.facing,1.0/60)
+  player.update_render_offset()
+  player._process(1.0/60)
  check(player.climbing and before.distance_to(player.model.rig.to_global(player.model._joint("r_hand_anchor"))) < .002,"stopping on the ladder holds the pose")
  print("LADDER_3D failures=",failures)
  scene.queue_free()

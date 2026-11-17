@@ -16,6 +16,10 @@ var mode := "idle"
 var phase := 0.0
 var visual_mode := "idle"
 var visual_phase := 0.0
+var shown_face := 1.0
+var backpedal := false
+var backpedal_hold := 0.0
+const BACKPEDAL_HOLD := .15
 var reserve := 1.0
 var exhausted := false
 var ground_speed := 0.0
@@ -163,6 +167,7 @@ func ray(a: Vector3,b: Vector3) -> Dictionary:
  return get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a,b,1,[get_rid()]))
 
 func _physics_process(dt: float) -> void:
+ physics_previous = position
  if health<=0:
   if not model.death_ragdoll.active:
    model.death_ragdoll.start(velocity)
@@ -221,13 +226,24 @@ func _physics_process(dt: float) -> void:
  if position.y < -3.56: reset()
  position.z = 0
  var vertical_aim: bool = not model.weapon_pose.is_empty() and absf(model.weapon_pose.combat.aim_direction.y)>.65
- var stride := (46.96630859375 if mode == "walk" or (mode=="run" and weapon_aiming and not vertical_aim) else 256.0 if mode == "run" else 128.0 if mode == "sprint" else 64.0)*2.85/U
- var visual_face := weapon_visual_facing if is_finite(weapon_visual_facing) else facing
- var backwards := not sprinting and absf(velocity.x)>.05 and velocity.x*visual_face<0
+ # Gait direction follows the facing the model really shows, not the requested
+ # one: fast mouse flicks turn the body over several frames.
+ var shown := sin(model.rotation.y)
+ if absf(shown) > .35: shown_face = signf(shown)
+ var backwards := not sprinting and absf(velocity.x)>.05 and velocity.x*shown_face<0
+ # Running away from the shown facing is a quick backpedal on the walk cycle:
+ # a reversed run clip moonwalks with forward lean and flight. A short hold
+ # stops flicking aim from restarting the run/backpedal blend every frame.
+ backpedal_hold += dt
+ if (mode=="run" and backwards) != backpedal and backpedal_hold >= BACKPEDAL_HOLD:
+  backpedal = not backpedal
+  backpedal_hold = 0
+ if mode != "run": backpedal = false
+ var stride := (46.96630859375 if mode == "walk" or (mode=="run" and ((weapon_aiming and not vertical_aim) or backpedal)) else 190.0 if mode == "run" else 85.0 if mode == "sprint" else 64.0)*2.85/U
  stride *= model.scale.x
  phase = fposmod(phase + absf(velocity.x)*dt/stride*(-1.0 if backwards else 1.0),1)
  if climbing: phase = fposmod((position.y*U-760+ladder.position.y+6)/preload("res://scripts/core/player_3d_model.gd").CLIMB_CYCLE,1)
- visual_mode = "walk" if mode=="run" and weapon_aiming and not vertical_aim else mode
+ visual_mode = "walk" if mode=="run" and ((weapon_aiming and not vertical_aim) or backpedal) else mode
  visual_phase = phase
  if mode == "crouch" and absf(velocity.x)>.05: visual_mode = "crouch_walk"
  if mode == "jump":
@@ -238,8 +254,23 @@ func _physics_process(dt: float) -> void:
 
 func _process(dt: float) -> void:
  if "paused" in get_parent() and get_parent().paused: return
+ # The stage refreshes render_offset first; the visual is drawn between the
+ # last two physics positions. Contacts on a ladder follow that same height.
+ model.position = render_offset
+ var shown_phase := visual_phase
+ if climbing and ladder != Rect2(): shown_phase = fposmod(((position.y+render_offset.y)*U-760+ladder.position.y+6)/preload("res://scripts/core/player_3d_model.gd").CLIMB_CYCLE,1)
  # Mount/grips are solved by combat earlier in this render frame.
- model.animate(visual_mode,visual_phase,weapon_visual_facing if is_finite(weapon_visual_facing) else facing,dt)
+ model.animate(visual_mode,shown_phase,weapon_visual_facing if is_finite(weapon_visual_facing) else facing,dt)
+
+# Physics runs at 60 Hz while the screen may draw 100-120 frames: without this
+# the hero steps forward and back against the smoothly following camera and
+# looks smeared while running. Gameplay and ballistics keep the physics position.
+var physics_previous := Vector3.ZERO
+var render_offset := Vector3.ZERO
+func update_render_offset() -> void:
+ var step := position-physics_previous
+ if step.length() > .5 or health <= 0 or model.death_ragdoll.active: render_offset = Vector3.ZERO
+ else: render_offset = -step*(1.0-Engine.get_physics_interpolation_fraction())
 
 func tangent() -> Vector3:
  var normal := get_floor_normal()
